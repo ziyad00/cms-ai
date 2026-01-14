@@ -1,0 +1,21 @@
+import { NextResponse } from 'next/server'
+import { getAuthHeaders } from '../../../../../lib/auth.js'
+import { postJSON } from '../../../../../lib/goApi.js'
+
+export async function POST(req) {
+  const headers = await getAuthHeaders()
+  
+  if (!headers) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  let body
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: 'invalid JSON body' }, { status: 400 })
+  }
+
+  const result = await postJSON('/v1/templates/validate', body, { headers })
+  return NextResponse.json(result.body, { status: result.status })
+}

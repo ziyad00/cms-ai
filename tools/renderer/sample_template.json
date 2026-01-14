@@ -1,0 +1,72 @@
+{
+  "tokens": {
+    "colors": {
+      "primary": "#0078D4",
+      "secondary": "#6C757D",
+      "accent": "#FF6B35",
+      "background": "#FFFFFF",
+      "surface": "#F8F9FA",
+      "text": "#212529"
+    },
+    "typography": {
+      "fontFamily": "Arial",
+      "fontSize": {
+        "small": 12,
+        "medium": 16,
+        "large": 20
+      }
+    }
+  },
+  "layouts": [
+    {
+      "name": "Title Slide",
+      "placeholders": [
+        {
+          "id": "title",
+          "type": "text",
+          "geometry": {
+            "x": 0.1,
+            "y": 0.3,
+            "w": 0.8,
+            "h": 0.2
+          }
+        },
+        {
+          "id": "subtitle",
+          "type": "text",
+          "geometry": {
+            "x": 0.1,
+            "y": 0.55,
+            "w": 0.8,
+            "h": 0.15
+          }
+        }
+      ]
+    },
+    {
+      "name": "Content Slide",
+      "placeholders": [
+        {
+          "id": "heading",
+          "type": "text",
+          "geometry": {
+            "x": 0.1,
+            "y": 0.1,
+            "w": 0.8,
+            "h": 0.15
+          }
+        },
+        {
+          "id": "body",
+          "type": "text",
+          "geometry": {
+            "x": 0.1,
+            "y": 0.3,
+            "w": 0.8,
+            "h": 0.5
+          }
+        }
+      ]
+    }
+  ]
+}

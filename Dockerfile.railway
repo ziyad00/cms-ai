@@ -1,0 +1,65 @@
+# Multi-stage build for Railway deployment
+FROM golang:1.23-alpine AS go-build
+WORKDIR /app
+
+# Install git for go modules
+RUN apk add --no-cache git
+
+# Copy go mod files and download dependencies
+COPY server/go.mod server/go.sum ./
+RUN go mod download
+
+# Copy source code and build
+COPY server/ .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server ./cmd/server
+
+# Build Next.js frontend
+FROM node:18-alpine AS web-build
+WORKDIR /app
+
+# Install dependencies
+COPY web/package*.json ./
+RUN npm ci --only=production
+
+# Copy source code and build
+COPY web/ .
+COPY server/public/ ../server/public/
+RUN npm run build
+
+# Production runtime
+FROM alpine:3.19
+
+# Install runtime dependencies
+RUN apk --no-cache add \
+    ca-certificates \
+    python3 \
+    py3-pip \
+    curl \
+    && pip3 install --no-cache-dir python-pptx
+
+# Create non-root user
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -S appuser -u 1001 -G appgroup
+
+# Copy artifacts from build stages
+COPY --from=go-build /app/server /usr/local/bin/server
+COPY --from=web-build /app/.next /app/web/.next
+COPY --from=web-build /app/public /app/web/public
+COPY --from=web-build /app/package.json /app/web/
+COPY --from=web-build /app/next.config.mjs /app/web/
+COPY tools/renderer/ /app/tools/renderer/
+
+# Create directories
+RUN mkdir -p /app/uploads /app/logs && \
+    chown -R appuser:appgroup /app
+
+# Switch to non-root user
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:8080/health || exit 1
+
+EXPOSE 8080
+
+CMD ["/usr/local/bin/server"]
