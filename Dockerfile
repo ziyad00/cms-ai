@@ -1,15 +1,25 @@
 # Build Go server
 FROM golang:1.23 AS go-build
 WORKDIR /app
-COPY server/ .
+
+# Copy go mod files first for better caching
+COPY server/go.mod server/go.sum ./
 RUN go mod download
-RUN CGO_ENABLED=0 GOOS=linux go build -o server ./cmd/server
+
+# Copy source code and build
+COPY server/ .
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server ./cmd/server
 
 # Build Next.js web
 FROM node:18 AS web-build
 WORKDIR /app
+
+# Copy package files first for better caching
+COPY web/package*.json ./
+RUN npm ci
+
+# Copy source code and build
 COPY web/ .
-RUN npm install
 RUN npm run build
 
 # Final image
