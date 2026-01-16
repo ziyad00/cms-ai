@@ -9,6 +9,7 @@ import (
 
 	"github.com/ziyad/cms-ai/server/internal/assets"
 	"github.com/ziyad/cms-ai/server/internal/queue"
+	"github.com/ziyad/cms-ai/server/internal/spec"
 	"github.com/ziyad/cms-ai/server/internal/store"
 )
 
@@ -154,8 +155,14 @@ func (w *Worker) processJob(ctx context.Context, job store.Job) error {
 }
 
 func (w *Worker) processRenderJob(ctx context.Context, job store.Job, templateVersion store.TemplateVersion) (string, error) {
+	// Type assert SpecJSON to *spec.TemplateSpec
+	spec, ok := templateVersion.SpecJSON.(*spec.TemplateSpec)
+	if !ok {
+		return "", fmt.Errorf("invalid template spec type")
+	}
+	
 	// Render PPTX
-	data, err := w.renderer.RenderPPTXBytes(ctx, templateVersion.SpecJSON)
+	data, err := w.renderer.RenderPPTXBytes(ctx, spec)
 	if err != nil {
 		return "", fmt.Errorf("failed to render PPTX: %w", err)
 	}
@@ -184,8 +191,14 @@ func (w *Worker) processRenderJob(ctx context.Context, job store.Job, templateVe
 }
 
 func (w *Worker) processPreviewJob(ctx context.Context, job store.Job, templateVersion store.TemplateVersion) (string, error) {
+	// Type assert SpecJSON to *spec.TemplateSpec
+	spec, ok := templateVersion.SpecJSON.(*spec.TemplateSpec)
+	if !ok {
+		return "", fmt.Errorf("invalid template spec type")
+	}
+	
 	// Generate thumbnails for each slide
-	thumbnails, err := w.renderer.GenerateSlideThumbnails(ctx, templateVersion.SpecJSON)
+	thumbnails, err := w.renderer.GenerateSlideThumbnails(ctx, spec)
 	if err != nil {
 		return "", fmt.Errorf("failed to generate slide thumbnails: %w", err)
 	}
