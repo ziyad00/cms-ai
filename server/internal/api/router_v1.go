@@ -393,9 +393,16 @@ func (s *Server) handleExportVersion(w http.ResponseWriter, r *http.Request) {
 	assetID := newID("asset")
 	assetPath := assetID + ".pptx"
 
+	// Type assert SpecJSON to *spec.TemplateSpec
+	spec, ok := ver.SpecJSON.(*spec.TemplateSpec)
+	if !ok {
+		writeError(w, r, http.StatusInternalServerError, "invalid template spec")
+		return
+	}
+	
 	// Render to temporary file first
 	tempPath := filepath.Join(os.TempDir(), assetID+".pptx")
-	if err := s.Renderer.RenderPPTX(r.Context(), ver.SpecJSON, tempPath); err != nil {
+	if err := s.Renderer.RenderPPTX(r.Context(), spec, tempPath); err != nil {
 		writeError(w, r, http.StatusInternalServerError, "render failed")
 		return
 	}

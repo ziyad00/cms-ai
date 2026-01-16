@@ -18,7 +18,7 @@ func NewServer() *Server {
 	config := LoadConfig()
 	authenticator := auth.HeaderAuthenticator{}
 	validator := spec.DefaultValidator{}
-	renderer := assets.GoPPTXRenderer{}
+	renderer := &assets.GoPPTXRenderer{}
 
 	// Create object storage
 	factory := assets.NewStorageFactory()

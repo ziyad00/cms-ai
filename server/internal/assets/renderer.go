@@ -25,7 +25,7 @@ type Renderer interface {
 type GoPPTXRenderer struct{}
 
 // RenderPPTX renders a template spec to a PPTX file
-func (r *GoPPTXRenderer) RenderPPTX(ctx context.Context, spec *spec.TemplateSpec, outputPath string) error {
+func (r GoPPTXRenderer) RenderPPTX(ctx context.Context, spec *spec.TemplateSpec, outputPath string) error {
 	// Use Python renderer script
 	rendererPath := filepath.Join("/app/tools/renderer/render_pptx.py")
 	
@@ -40,7 +40,7 @@ func (r *GoPPTXRenderer) RenderPPTX(ctx context.Context, spec *spec.TemplateSpec
 }
 
 // RenderPPTXBytes renders to memory
-func (r *GoPPTXRenderer) RenderPPTXBytes(ctx context.Context, spec *spec.TemplateSpec) ([]byte, error) {
+func (r GoPPTXRenderer) RenderPPTXBytes(ctx context.Context, spec *spec.TemplateSpec) ([]byte, error) {
 	// Create temp file, render, read, delete
 	tempPath := filepath.Join("/tmp", "render-temp.pptx")
 	if err := r.RenderPPTX(ctx, spec, tempPath); err != nil {
@@ -59,7 +59,7 @@ func (r *GoPPTXRenderer) RenderPPTXBytes(ctx context.Context, spec *spec.Templat
 }
 
 // GenerateSlideThumbnails generates thumbnails for slides
-func (r *GoPPTXRenderer) GenerateSlideThumbnails(ctx context.Context, spec *spec.TemplateSpec) ([][]byte, error) {
+func (r GoPPTXRenderer) GenerateSlideThumbnails(ctx context.Context, spec *spec.TemplateSpec) ([][]byte, error) {
 	// TODO: Implement thumbnail generation
 	// For now, return empty slice
 	return [][]byte{}, nil
