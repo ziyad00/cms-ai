@@ -38,3 +38,8 @@ export async function withAuth(handler) {
     return handler(request, ...args)
   }
 }
+
+export function canManageOrganization(role) {
+  // Roles that can manage organization: Owner, Admin
+  return role === 'Owner' || role === 'Admin'
+}
