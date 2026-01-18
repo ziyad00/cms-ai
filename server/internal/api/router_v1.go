@@ -25,6 +25,7 @@ func (s *Server) Handler() http.Handler {
 	// Auth endpoints (no auth middleware)
 	mux.HandleFunc("POST /v1/auth/signup", s.handleSignup)
 	mux.HandleFunc("POST /v1/auth/signin", s.handleSignin)
+	mux.HandleFunc("GET /v1/auth/me", s.handleGetMe) // Get current user from JWT
 	mux.HandleFunc("POST /v1/auth/user", s.handleGetOrCreateUser) // Legacy endpoint
 
 	mux.HandleFunc("POST /v1/templates/validate", s.handleValidateTemplateSpec)

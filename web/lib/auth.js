@@ -1,14 +1,14 @@
-// JWT-based auth - read Authorization header
+// Production-ready JWT auth - read from httpOnly cookie
 export async function getAuthHeaders(req) {
-  // For server-side API routes, read JWT from Authorization header
+  // For server-side API routes, read JWT from httpOnly cookie
   if (req) {
-    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization')
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const token = req.cookies.get('auth-token')?.value
+    if (!token) {
       return null
     }
     
     return {
-      'Authorization': authHeader,
+      'Authorization': `Bearer ${token}`,
     }
   }
   

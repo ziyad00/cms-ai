@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { setAuth } from '../../../lib/jwtAuth'
 
 export default function SignUpPage() {
   const router = useRouter()
@@ -31,9 +30,10 @@ export default function SignUpPage() {
         return
       }
 
-      if (data.user && data.token) {
-        setAuth(data.token, data.user)
+      if (data.user) {
+        // Token is set as httpOnly cookie automatically
         router.push('/')
+        router.refresh() // Refresh to get updated auth state
       } else {
         setError('Invalid response from server')
       }

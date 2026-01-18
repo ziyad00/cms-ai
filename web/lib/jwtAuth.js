@@ -1,35 +1,21 @@
-// JWT-based authentication
-const TOKEN_KEY = 'cms-ai-token'
-const USER_KEY = 'cms-ai-user'
-
-export function setAuth(token, user) {
-  localStorage.setItem(TOKEN_KEY, token)
-  localStorage.setItem(USER_KEY, JSON.stringify(user))
-}
+// Production-ready JWT authentication using httpOnly cookies
+// Client-side: minimal - just check if authenticated
+// Server-side: cookies are automatically sent with requests
 
 export function getAuth() {
-  const token = localStorage.getItem(TOKEN_KEY)
-  const userStr = localStorage.getItem(USER_KEY)
-  if (!token || !userStr) return null
-  
-  try {
-    const user = JSON.parse(userStr)
-    return { token, user }
-  } catch {
-    return null
-  }
+  // Client-side: we can't read httpOnly cookies, so we check via API
+  // The cookie is automatically sent with requests
+  return null // Always return null on client - server will validate
 }
 
 export function clearAuth() {
-  localStorage.removeItem(TOKEN_KEY)
-  localStorage.removeItem(USER_KEY)
+  // Clear cookie by calling logout endpoint
+  fetch('/api/auth/logout', { method: 'POST' })
+    .catch(() => {}) // Ignore errors
 }
 
 export function getAuthHeaders() {
-  const auth = getAuth()
-  if (!auth) return null
-  
-  return {
-    'Authorization': `Bearer ${auth.token}`,
-  }
+  // Client-side: don't manually add headers - cookies are sent automatically
+  // Return empty object - the cookie will be included by the browser
+  return {}
 }

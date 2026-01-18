@@ -12,14 +12,28 @@ export default function Page() {
   const [message, setMessage] = useState('')
 
   useEffect(() => {
-    // Check if user is already logged in
-    const auth = getAuth()
-    if (auth) {
-      setUser(auth.user)
-    } else {
-      // Redirect to sign in if not authenticated
-      router.push('/auth/signin')
-    }
+    // Check if user is authenticated by calling /api/auth/me
+    fetch('/api/auth/me')
+      .then(res => {
+        if (res.ok) {
+          // User is authenticated, get user info from cookie or API
+          // For now, we'll need to get user info from the backend
+          // The token is in httpOnly cookie, so we can't read it client-side
+          // We need to get user info from an API endpoint
+          return fetch('/api/auth/user-info')
+            .then(res => res.ok ? res.json() : null)
+        } else {
+          router.push('/auth/signin')
+        }
+      })
+      .then(data => {
+        if (data?.user) {
+          setUser(data.user)
+        }
+      })
+      .catch(() => {
+        router.push('/auth/signin')
+      })
   }, [router])
 
   function handleLogout() {
