@@ -9,8 +9,8 @@ const handler = NextAuth({
       authorization: {
         params: { scope: 'read:user user:email' },
       },
-      clientId: process.env.GITHUB_CLIENT_ID,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      clientId: process.env.GITHUB_CLIENT_ID || 'dummy',
+      clientSecret: process.env.GITHUB_CLIENT_SECRET || 'dummy',
       checks: ['pkce', 'state'],
       token: 'https://github.com/login/oauth/access_token',
       userinfo: 'https://api.github.com/user',
