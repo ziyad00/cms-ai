@@ -1,9 +1,9 @@
 #!/bin/sh
 set -e
 
-# Start Go backend on port 8080 in background
+# Start Go backend on fixed internal port 8080
 GO_API_PORT=8080
-export PORT=$GO_API_PORT
+export ADDR=:$GO_API_PORT
 /usr/local/bin/server &
 
 # Wait for Go backend to be ready
