@@ -32,6 +32,30 @@ function getHandler() {
       })
     }
 
+    // Add dev/test mode provider if no GitHub and DEV_MODE is enabled
+    if (providers.length === 0 && (process.env.DEV_MODE === 'true' || process.env.NODE_ENV === 'development')) {
+      providers.push({
+        id: 'dev',
+        name: 'Dev Mode',
+        type: 'credentials',
+        credentials: {
+          userId: { label: 'User ID', type: 'text', placeholder: 'user-123' },
+          email: { label: 'Email', type: 'email', placeholder: 'user@example.com' },
+          name: { label: 'Name', type: 'text', placeholder: 'Test User' },
+        },
+        async authorize(credentials) {
+          if (!credentials?.userId) {
+            return null
+          }
+          return {
+            id: credentials.userId,
+            email: credentials.email || `${credentials.userId}@example.com`,
+            name: credentials.name || 'Test User',
+          }
+        },
+      })
+    }
+
     handler = NextAuth({
       providers: providers.length > 0 ? providers : [{
         id: 'credentials',
