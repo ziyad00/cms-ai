@@ -10,8 +10,10 @@ COPY server/go.mod server/go.sum ./
 RUN go mod download
 
 # Copy source code and build
-COPY server/ .
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server ./cmd/server
+COPY server/ ./server/
+WORKDIR /app/server
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ../server ./cmd/server
+WORKDIR /app
 
 # Build Next.js frontend
 FROM node:18-alpine AS web-build
