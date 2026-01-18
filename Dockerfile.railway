@@ -14,11 +14,7 @@ RUN ls -la internal/ || echo "internal directory not found"
 
 # Download dependencies and build
 RUN go mod download
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ../server ./cmd/server
-
-# Move binary to expected location
-WORKDIR /build
-RUN mv server /app/server
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/server ./cmd/server
 
 # Build Next.js frontend
 FROM node:18-alpine AS web-build
