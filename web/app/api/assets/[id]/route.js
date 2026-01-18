@@ -6,7 +6,7 @@ function goApiBaseUrl() {
   return process.env.GO_API_BASE_URL || 'http://localhost:8080'
 }
 
-async function getAuthHeaders() {
+async function getAuthHeaders(req) {
   try {
     const { getServerSession } = await import('next-auth/next')
     const session = await getServerSession()
@@ -37,7 +37,7 @@ async function getAuthHeaders() {
 }
 
 export async function GET(req, { params }) {
-  const headers = await getAuthHeaders()
+  const headers = await getAuthHeaders(req)
   
   if (!headers) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

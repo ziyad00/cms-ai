@@ -4,7 +4,7 @@ import { getAuthHeaders } from '../../../../../lib/auth'
 import { getJSON, postJSON } from '../../../../../lib/goApi'
 
 export async function GET(req, { params }) {
-  const headers = await getAuthHeaders()
+  const headers = await getAuthHeaders(req)
   
   if (!headers) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -16,7 +16,7 @@ export async function GET(req, { params }) {
 }
 
 export async function POST(req, { params }) {
-  const headers = await getAuthHeaders()
+  const headers = await getAuthHeaders(req)
   
   if (!headers) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

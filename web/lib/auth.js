@@ -5,14 +5,22 @@
 export async function getAuthHeaders(req) {
   // For server-side API routes, read headers from the request
   if (req) {
+    // Next.js headers are case-insensitive, try both cases
+    const userId = req.headers.get('x-user-id') || req.headers.get('X-User-Id')
+    const orgId = req.headers.get('x-org-id') || req.headers.get('X-Org-Id')
+    const role = req.headers.get('x-role') || req.headers.get('X-Role')
+    
+    if (!userId || !orgId) {
+      return null
+    }
+    
     return {
-      'X-User-Id': req.headers.get('x-user-id'),
-      'X-Org-Id': req.headers.get('x-org-id'),
-      'X-Role': req.headers.get('x-role'),
+      'X-User-Id': userId,
+      'X-Org-Id': orgId,
+      'X-Role': role || 'Editor',
     }
   }
   
-  // Fallback: try to get from cookies (if we add cookie support later)
   return null
 }
 
