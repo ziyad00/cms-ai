@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { getAuth, clearAuth, getAuthHeaders } from '../lib/jwtAuth'
 
 export default function Page() {
   const router = useRouter()
@@ -42,8 +41,12 @@ export default function Page() {
       })
   }, [router])
 
-  function handleLogout() {
-    clearAuth()
+  async function handleLogout() {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch (err) {
+      // Ignore errors
+    }
     setUser(null)
     setTemplates([])
     router.push('/auth/signin')
@@ -53,18 +56,12 @@ export default function Page() {
     if (!user) return
     setLoading(true)
     setMessage('')
-    const headers = getAuthHeaders()
-    if (!headers) {
-      setMessage('Not authenticated')
-      setLoading(false)
-      return
-    }
+    // Cookies are sent automatically by browser
     try {
       const res = await fetch('/api/templates/generate', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          ...headers,
         },
         body: JSON.stringify({ prompt: 'Corporate presentation template' }),
       })
