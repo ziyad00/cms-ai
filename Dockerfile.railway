@@ -1,16 +1,23 @@
 # Multi-stage build for Railway deployment
 FROM golang:1.23-alpine AS go-build
-WORKDIR /app
+WORKDIR /build
 
 # Install git for go modules
 RUN apk add --no-cache git
 
 # Copy all server source code
-COPY server/ ./
+COPY server/ ./server/
+
+# Set working directory to server
+WORKDIR /build/server
 
 # Download dependencies and build
 RUN go mod download
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server ./cmd/server
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ../server ./cmd/server
+
+# Move binary to expected location
+WORKDIR /build
+RUN mv server /app/server
 
 # Build Next.js frontend
 FROM node:18-alpine AS web-build
