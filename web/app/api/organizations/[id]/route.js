@@ -51,4 +51,6 @@ export const PUT = withAuth(async (request, { params }) => {
       { status: 500 }
     )
   }
-})export const dynamic = "force-dynamic"
+})
+
+export const dynamic = "force-dynamic"
