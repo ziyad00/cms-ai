@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import OrganizationSwitcher from '../../components/OrganizationSwitcher.js'
+import OrganizationSwitcher from '../../../components/OrganizationSwitcher'
 
 export default function OrganizationLayout({ children }) {
   const { data: session } = useSession()

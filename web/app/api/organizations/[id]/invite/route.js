@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { withAuth, canManageOrganization } from '../../../../../lib/auth.js'
+import { withAuth, canManageOrganization } from '../../../../../lib/auth'
 
 export const POST = withAuth(async (request, { params }) => {
   const { id } = params

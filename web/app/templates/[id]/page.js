@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { useJobPolling } from '../../../hooks/useJobPolling.js'
-import { JobStatusIndicator } from '../../../components/JobStatusIndicator.js'
-import { DownloadButtons } from '../../../components/DownloadButtons.js'
-import VisualEditor from '../../../components/visual-editor/VisualEditor.js'
-import { stubTemplateSpec } from '../../../lib/templateSpec.js'
-import { exportToJSON, importFromJSON, validateConstraints } from '../../../lib/visual-editor/utils.js'
+import { useJobPolling } from '../../../hooks/useJobPolling'
+import { JobStatusIndicator } from '../../../components/JobStatusIndicator'
+import { DownloadButtons } from '../../../components/DownloadButtons'
+import VisualEditor from '../../../components/visual-editor/VisualEditor'
+import { stubTemplateSpec } from '../../../lib/templateSpec'
+import { exportToJSON, importFromJSON, validateConstraints } from '../../../lib/visual-editor/utils'
 
 export default function TemplatePage() {
   const { id } = useParams()

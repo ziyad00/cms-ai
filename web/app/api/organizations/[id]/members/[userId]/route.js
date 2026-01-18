@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { withAuth } from '../../../../../../lib/auth.js'
+import { withAuth } from '../../../../../../lib/auth'
 
 export const DELETE = withAuth(async (request, { params }) => {
   const { id, userId } = params

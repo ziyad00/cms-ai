@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getAuthHeaders } from '../../../../lib/auth.js'
-import { postJSON } from '../../../../lib/goApi.js'
+import { getAuthHeaders } from '../../../../../lib/auth'
+import { postJSON } from '../../../../../lib/goApi'
 
 export async function POST(req) {
   const headers = await getAuthHeaders()
