@@ -58,6 +58,9 @@ RUN mkdir -p /app/web/public
 COPY tools/renderer/ /app/tools/renderer/
 COPY scripts/start.sh /app/scripts/start.sh
 
+# Make start script executable
+RUN chmod +x /app/scripts/start.sh
+
 # Create directories with proper permissions
 RUN mkdir -p /app/uploads /app/logs /app/assets && \
     chown -R appuser:appgroup /app
