@@ -113,7 +113,9 @@ temp/
 # Assets and data
 server/.data/
 uploads/
-assets/
+# Note: server/internal/assets/ is source code, not user assets
+# Only ignore top-level assets/ directory
+/assets/
 
 # Railway specific
 .railway/
