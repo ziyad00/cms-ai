@@ -43,14 +43,20 @@ RUN apk --no-cache add \
 RUN addgroup -g 1001 -S appgroup && \
     adduser -S appuser -u 1001 -G appgroup
 
+# Install Node.js for Next.js runtime
+RUN apk --no-cache add nodejs npm
+
 # Copy artifacts from build stages
 COPY --from=go-build /app/server /usr/local/bin/server
 COPY --from=web-build /app/.next /app/web/.next
 COPY --from=web-build /app/package.json /app/web/
 COPY --from=web-build /app/next.config.mjs /app/web/
+# Copy node_modules from build stage for Next.js runtime
+COPY --from=web-build /app/node_modules /app/web/node_modules
 # Create public directory (Next.js may not have one)
 RUN mkdir -p /app/web/public
 COPY tools/renderer/ /app/tools/renderer/
+COPY scripts/start.sh /app/scripts/start.sh
 
 # Create directories with proper permissions
 RUN mkdir -p /app/uploads /app/logs /app/assets && \
@@ -62,10 +68,11 @@ USER appuser
 # Set working directory
 WORKDIR /app
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/healthz || exit 1
+# Health check - will be configured at runtime
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:3000/healthz || exit 1
 
 EXPOSE 8080
 
-CMD ["/usr/local/bin/server"]
+# Use start script to run both services
+CMD ["/app/scripts/start.sh"]
