@@ -14,12 +14,21 @@ export default async function SignInPage() {
         <h1 className="text-2xl font-bold mb-4 text-center">PPTX Template CMS</h1>
         <p className="mb-6 text-center text-gray-600">Sign in to access your templates</p>
         <div className="space-y-4">
-          <a
-            href="/api/auth/signin/github"
-            className="block w-full bg-gray-900 text-white py-2 px-4 rounded hover:bg-gray-800 text-center"
-          >
-            Sign in with GitHub
-          </a>
+          {process.env.GITHUB_CLIENT_ID ? (
+            <a
+              href="/api/auth/signin/github"
+              className="block w-full bg-gray-900 text-white py-2 px-4 rounded hover:bg-gray-800 text-center"
+            >
+              Sign in with GitHub
+            </a>
+          ) : (
+            <a
+              href="/api/auth/signin/dev"
+              className="block w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 text-center"
+            >
+              Sign in (Dev Mode)
+            </a>
+          )}
         </div>
         <p className="mt-4 text-sm text-gray-500 text-center">
           By signing in, you agree to our terms of service.

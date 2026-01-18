@@ -79,10 +79,10 @@ export default function Page() {
           <h1 className="text-2xl font-bold mb-4 text-center">PPTX Template CMS</h1>
           <p className="mb-4 text-center">Please sign in to continue.</p>
           <button 
-            onClick={() => signIn('github')}
+            onClick={() => signIn(process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID ? 'github' : 'dev')}
             className="w-full bg-gray-900 text-white py-2 px-4 rounded hover:bg-gray-800"
           >
-            Sign in with GitHub
+            {process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID ? 'Sign in with GitHub' : 'Sign in (Dev Mode)'}
           </button>
         </div>
       </div>

@@ -56,14 +56,33 @@ function getHandler() {
       })
     }
 
-    handler = NextAuth({
-      providers: providers.length > 0 ? providers : [{
-        id: 'credentials',
-        name: 'Credentials',
+    // If no providers (no GitHub), add a simple dev/test provider
+    if (providers.length === 0) {
+      providers.push({
+        id: 'dev',
+        name: 'Dev Mode',
         type: 'credentials',
-        credentials: {},
-        async authorize() { return null }
-      }],
+        credentials: {
+          userId: { label: 'User ID', type: 'text', placeholder: 'test-user-1' },
+          email: { label: 'Email', type: 'email', placeholder: 'test@example.com' },
+          name: { label: 'Name', type: 'text', placeholder: 'Test User' },
+        },
+        async authorize(credentials) {
+          // Simple dev mode - just accept any credentials
+          if (!credentials?.userId) {
+            return null
+          }
+          return {
+            id: credentials.userId,
+            email: credentials.email || `${credentials.userId}@example.com`,
+            name: credentials.name || 'Test User',
+          }
+        },
+      })
+    }
+
+    handler = NextAuth({
+      providers,
       callbacks: {
         async jwt({ token, account, user }) {
           if (user) {
