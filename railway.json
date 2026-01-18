@@ -5,8 +5,8 @@
     "dockerfilePath": "Dockerfile.railway"
   },
   "deploy": {
-    "startCommand": "/usr/local/bin/server",
-    "healthcheckPath": "/healthz",
+    "startCommand": "/app/scripts/start.sh",
+    "healthcheckPath": "/api/healthz",
     "healthcheckTimeout": 100,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
