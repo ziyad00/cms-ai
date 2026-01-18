@@ -7,7 +7,7 @@ import { goApiBaseUrl } from '../../../../lib/goApi'
 export async function GET(req, { params }) {
   const headers = await getAuthHeaders(req)
   
-  if (!headers || !headers[.Authorization.]) {
+  if (!headers || !headers['Authorization']) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
