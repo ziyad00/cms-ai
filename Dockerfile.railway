@@ -46,9 +46,10 @@ RUN addgroup -g 1001 -S appgroup && \
 # Copy artifacts from build stages
 COPY --from=go-build /app/server /usr/local/bin/server
 COPY --from=web-build /app/.next /app/web/.next
-COPY --from=web-build /app/public /app/web/public
 COPY --from=web-build /app/package.json /app/web/
 COPY --from=web-build /app/next.config.mjs /app/web/
+# Create public directory (Next.js may not have one)
+RUN mkdir -p /app/web/public
 COPY tools/renderer/ /app/tools/renderer/
 
 # Create directories
