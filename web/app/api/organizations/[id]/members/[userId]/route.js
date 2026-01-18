@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+export const dynamic = "force-dynamic"
 import { withAuth } from '../../../../../../lib/auth'
 
 export const DELETE = withAuth(async (request, { params }) => {

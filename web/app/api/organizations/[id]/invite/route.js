@@ -34,4 +34,4 @@ export const POST = withAuth(async (request, { params }) => {
       { status: 500 }
     )
   }
-})
+})export const dynamic = "force-dynamic"

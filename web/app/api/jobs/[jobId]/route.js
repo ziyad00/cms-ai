@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+export const dynamic = "force-dynamic"
 import { getAuthHeaders } from '../../../../lib/auth'
 import { goApiBaseUrl, getJSON } from '../../../../lib/goApi'
 

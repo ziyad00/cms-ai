@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { withAuth } from '../../../../lib/auth'
 
+export const dynamic = 'force-dynamic'
+
 export const GET = withAuth(async (request) => {
   try {
     const response = await fetch(`${process.env.API_BASE_URL || 'http://localhost:8080'}/v1/user/organizations`, {
