@@ -738,6 +738,39 @@ func (s *Server) handleSignin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *Server) handleGetMe(w http.ResponseWriter, r *http.Request) {
+	// Get identity from context (set by auth middleware)
+	id, ok := auth.GetIdentity(r.Context())
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	// Get user details
+	user, ok, err := s.Store.Users().GetUser(r.Context(), id.UserID)
+	if err != nil || !ok {
+		writeError(w, r, http.StatusInternalServerError, "failed to get user")
+		return
+	}
+
+	// Get organization
+	org, err := s.Store.Organizations().GetOrganization(r.Context(), id.OrgID)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to get organization")
+		return
+	}
+
+	responseUser := map[string]any{
+		"userId": user.ID,
+		"email":  user.Email,
+		"name":   user.Name,
+		"orgId":  org.ID,
+		"role":   id.Role,
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"user": responseUser})
+}
+
 func (s *Server) handleListDeadLetterJobs(w http.ResponseWriter, r *http.Request) {
 	id, _ := auth.GetIdentity(r.Context())
 

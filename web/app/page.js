@@ -78,12 +78,10 @@ export default function Page() {
 
   async function loadTemplates() {
     if (!user) return
-    const headers = getAuthHeaders()
-    if (!headers) return
+    // Cookies are sent automatically by browser
     try {
       const res = await fetch('/api/templates', { 
         method: 'GET',
-        headers,
       })
       if (res.ok) {
         const data = await res.json()
