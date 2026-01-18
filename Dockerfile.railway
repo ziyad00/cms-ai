@@ -6,10 +6,7 @@ WORKDIR /build
 RUN apk add --no-cache git
 
 # Copy all server source code
-COPY server/ ./server/
-
-# Set working directory to server
-WORKDIR /build/server
+COPY server/ ./
 
 # Verify files are copied correctly
 RUN ls -la internal/assets/ || echo "assets directory not found"
