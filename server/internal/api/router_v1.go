@@ -56,7 +56,18 @@ func (s *Server) Handler() http.Handler {
 	h = skipAuthForPaths(h, []string{"/healthz"}, withAuth(s.Authenticator))
 	h = withRecovery(h)
 	h = withLogging(h)
-	return h
+	
+	// Wrap with catch-all handler that returns 404 for unmatched routes
+	// This prevents auth middleware from returning unauthorized for non-API routes
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// If path doesn't match any route, return 404 without auth
+		if !strings.HasPrefix(r.URL.Path, "/v1/") && r.URL.Path != "/healthz" {
+			writeError(w, r, http.StatusNotFound, "not found")
+			return
+		}
+		// Otherwise, use the main handler (which includes auth for /v1/*)
+		h.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) handleValidateTemplateSpec(w http.ResponseWriter, r *http.Request) {
