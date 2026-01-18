@@ -52,8 +52,8 @@ COPY --from=web-build /app/next.config.mjs /app/web/
 RUN mkdir -p /app/web/public
 COPY tools/renderer/ /app/tools/renderer/
 
-# Create directories
-RUN mkdir -p /app/uploads /app/logs && \
+# Create directories with proper permissions
+RUN mkdir -p /app/uploads /app/logs /app/assets && \
     chown -R appuser:appgroup /app
 
 # Switch to non-root user
