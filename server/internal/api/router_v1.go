@@ -22,11 +22,13 @@ func (s *Server) Handler() http.Handler {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	// Auth endpoints (no auth middleware)
+	// Auth endpoints (no auth middleware for signup/signin)
 	mux.HandleFunc("POST /v1/auth/signup", s.handleSignup)
 	mux.HandleFunc("POST /v1/auth/signin", s.handleSignin)
-	mux.HandleFunc("GET /v1/auth/me", s.handleGetMe) // Get current user from JWT
 	mux.HandleFunc("POST /v1/auth/user", s.handleGetOrCreateUser) // Legacy endpoint
+	
+	// Protected auth endpoint (requires auth)
+	mux.HandleFunc("GET /v1/auth/me", s.handleGetMe) // Get current user from JWT
 
 	mux.HandleFunc("POST /v1/templates/validate", s.handleValidateTemplateSpec)
 	mux.HandleFunc("POST /v1/templates/generate", s.handleGenerateTemplate)
