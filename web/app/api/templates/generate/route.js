@@ -4,9 +4,9 @@ import { getAuthHeaders } from '../../../../lib/auth'
 import { postJSON } from '../../../../lib/goApi'
 
 export async function POST(req) {
-  const headers = await getAuthHeaders()
+  const headers = await getAuthHeaders(req)
   
-  if (!headers) {
+  if (!headers || !headers['X-User-Id']) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

@@ -1,34 +1,26 @@
-import { getServerSession } from 'next-auth/next'
+// Simple auth - get headers from request cookies/headers
+// Client-side: use simpleAuth.js
+// Server-side: read from request headers (sent by client)
 
-export async function getAuthHeaders() {
-  const session = await getServerSession()
+export async function getAuthHeaders(req) {
+  // For server-side API routes, read headers from the request
+  if (req) {
+    return {
+      'X-User-Id': req.headers.get('x-user-id'),
+      'X-Org-Id': req.headers.get('x-org-id'),
+      'X-Role': req.headers.get('x-role'),
+    }
+  }
   
-  if (!session?.user?.id) {
-    return null
-  }
-
-  // Get user org info
-  const userResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/auth/user`, { 
-    method: 'POST' 
-  })
-  const userData = await userResponse.json()
-  
-  if (!userData.user) {
-    return null
-  }
-
-  return {
-    'X-User-Id': userData.user.userId,
-    'X-Org-Id': userData.user.orgId,
-    'X-Role': userData.user.role,
-  }
+  // Fallback: try to get from cookies (if we add cookie support later)
+  return null
 }
 
 export async function withAuth(handler) {
   return async (request, ...args) => {
-    const authHeaders = await getAuthHeaders()
+    const authHeaders = await getAuthHeaders(request)
     
-    if (!authHeaders) {
+    if (!authHeaders || !authHeaders['X-User-Id']) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
