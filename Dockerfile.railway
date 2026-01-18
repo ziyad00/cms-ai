@@ -10,7 +10,6 @@ COPY server/ ./
 
 # Download dependencies and build
 RUN go mod download
-RUN go mod tidy
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server ./cmd/server
 
 # Build Next.js frontend
