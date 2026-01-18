@@ -11,6 +11,10 @@ COPY server/ ./server/
 # Set working directory to server
 WORKDIR /build/server
 
+# Verify files are copied correctly
+RUN ls -la internal/assets/ || echo "assets directory not found"
+RUN ls -la internal/ || echo "internal directory not found"
+
 # Download dependencies and build
 RUN go mod download
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o ../server ./cmd/server
