@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
-import { postJSON } from '../../../../../lib/goApi.js'
+import { postJSON } from '../../../lib/goApi.js'
 
 export async function POST() {
   const session = await getServerSession()

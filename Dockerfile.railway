@@ -17,13 +17,12 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o server ./cmd/server
 FROM node:18-alpine AS web-build
 WORKDIR /app
 
-# Install dependencies
+# Install dependencies (including devDependencies for build)
 COPY web/package*.json ./
-RUN npm ci --only=production
+RUN npm ci
 
 # Copy source code and build
 COPY web/ .
-COPY server/public/ ../server/public/
 RUN npm run build
 
 # Production runtime
@@ -58,7 +57,7 @@ USER appuser
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD curl -f http://localhost:8080/healthz || exit 1
 
 EXPOSE 8080
 

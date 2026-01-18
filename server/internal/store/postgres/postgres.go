@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	_ "github.com/lib/pq" // PostgreSQL driver
 	"github.com/ziyad/cms-ai/server/internal/store"
 )
 

@@ -1,5 +1,5 @@
 # Build Go server
-FROM golang:1.22 AS go-build
+FROM golang:1.23 AS go-build
 WORKDIR /app
 COPY server/ .
 RUN go mod download

@@ -13,7 +13,14 @@ import (
 )
 
 func main() {
-	addr := env("ADDR", ":8080")
+	// Support both PORT (Railway) and ADDR (local dev)
+	port := env("PORT", "")
+	addr := env("ADDR", "")
+	if port != "" {
+		addr = ":" + port
+	} else if addr == "" {
+		addr = ":8080"
+	}
 
 	srv, worker := api.NewServerWithWorker()
 	worker.Start()
