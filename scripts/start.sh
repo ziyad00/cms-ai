@@ -23,13 +23,25 @@ done
 
 # Start Next.js on PORT (Railway's assigned port)
 cd /app/web
-NEXTJS_PORT=${PORT:-3000}
-export PORT=$NEXTJS_PORT
+
+# Railway sets PORT automatically - use it for Next.js
+# If PORT is not set, default to 3000
+if [ -z "$PORT" ]; then
+  export PORT=3000
+fi
+
 export NODE_ENV=production
 export GO_API_BASE_URL=http://localhost:$GO_API_PORT
 
-echo "Starting Next.js on port $NEXTJS_PORT..."
+echo "Starting Next.js on port $PORT..."
 echo "GO_API_BASE_URL=$GO_API_BASE_URL"
+echo "NODE_ENV=$NODE_ENV"
+
+# Verify Next.js files exist
+if [ ! -d "/app/web/.next" ]; then
+  echo "ERROR: Next.js build directory not found!"
+  exit 1
+fi
 
 # Start Next.js (this will block and keep container alive)
 exec npm start
