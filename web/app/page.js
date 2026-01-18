@@ -16,19 +16,25 @@ export default function Page() {
     fetch('/api/auth/me')
       .then(res => {
         if (res.ok) {
-          // User is authenticated, get user info from cookie or API
-          // For now, we'll need to get user info from the backend
-          // The token is in httpOnly cookie, so we can't read it client-side
-          // We need to get user info from an API endpoint
+          // User is authenticated, get user info from backend
           return fetch('/api/auth/user-info')
             .then(res => res.ok ? res.json() : null)
+            .catch(() => null)
         } else {
+          // Not authenticated, redirect to sign in
           router.push('/auth/signin')
+          return null
         }
       })
       .then(data => {
         if (data?.user) {
           setUser(data.user)
+        } else if (data === null) {
+          // Already redirected or error
+          return
+        } else {
+          // No user data, redirect to sign in
+          router.push('/auth/signin')
         }
       })
       .catch(() => {
