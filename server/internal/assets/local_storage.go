@@ -24,7 +24,12 @@ func NewLocalStorage(config StorageConfig) (*LocalObjectStorage, error) {
 
 	basePath := config.BasePath
 	if basePath == "" {
-		basePath = "./assets"
+		// Default to /app/assets for production, ./assets for local dev
+		if os.Getenv("RAILWAY_ENVIRONMENT") != "" || os.Getenv("PORT") != "" {
+			basePath = "/app/assets"
+		} else {
+			basePath = "./assets"
+		}
 	}
 
 	// Ensure base path exists
