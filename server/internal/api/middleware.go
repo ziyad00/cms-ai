@@ -77,3 +77,16 @@ func newRequestID() string {
 	}
 	return hex.EncodeToString(b[:])
 }
+
+// skipAuthForPaths wraps an auth middleware to skip authentication for specific paths
+func skipAuthForPaths(next http.Handler, skipPaths []string, authMiddleware func(http.Handler) http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for _, path := range skipPaths {
+			if r.URL.Path == path {
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+		authMiddleware(next).ServeHTTP(w, r)
+	})
+}

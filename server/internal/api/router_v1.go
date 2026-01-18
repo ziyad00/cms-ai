@@ -48,7 +48,8 @@ func (s *Server) Handler() http.Handler {
 	h := http.Handler(mux)
 	h = requireJSON(h)
 	h = withRequestID(h)
-	h = withAuth(s.Authenticator)(h)
+	// Skip auth for healthz endpoint
+	h = skipAuthForPaths(h, []string{"/healthz"}, withAuth(s.Authenticator))
 	h = withRecovery(h)
 	h = withLogging(h)
 	return h
