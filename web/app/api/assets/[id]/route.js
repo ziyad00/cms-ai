@@ -1,45 +1,13 @@
 import { NextResponse } from 'next/server'
 export const dynamic = "force-dynamic"
 
-// Inline the functions to avoid import issues
-function goApiBaseUrl() {
-  return process.env.GO_API_BASE_URL || 'http://localhost:8080'
-}
-
-async function getAuthHeaders(req) {
-  try {
-    const { getServerSession } = await import('next-auth/next')
-    const session = await getServerSession()
-    
-    if (!session?.user?.id) {
-      return null
-    }
-
-    // Get user org info
-    const userResponse = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/auth/user`, { 
-      method: 'POST' 
-    })
-    const userData = await userResponse.json()
-    
-    if (!userData.user) {
-      return null
-    }
-
-    return {
-      'X-User-Id': userData.user.userId,
-      'X-Org-Id': userData.user.orgId,
-      'X-Role': userData.user.role,
-    }
-  } catch (e) {
-    console.error('Auth error:', e)
-    return null
-  }
-}
+import { getAuthHeaders } from '../../../../lib/auth'
+import { goApiBaseUrl } from '../../../../lib/goApi'
 
 export async function GET(req, { params }) {
   const headers = await getAuthHeaders(req)
   
-  if (!headers) {
+  if (!headers || !headers['X-User-Id']) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
