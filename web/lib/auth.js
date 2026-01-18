@@ -1,23 +1,14 @@
-// Simple auth - get headers from request cookies/headers
-// Client-side: use simpleAuth.js
-// Server-side: read from request headers (sent by client)
-
+// JWT-based auth - read Authorization header
 export async function getAuthHeaders(req) {
-  // For server-side API routes, read headers from the request
+  // For server-side API routes, read JWT from Authorization header
   if (req) {
-    // Next.js headers are case-insensitive, try both cases
-    const userId = req.headers.get('x-user-id') || req.headers.get('X-User-Id')
-    const orgId = req.headers.get('x-org-id') || req.headers.get('X-Org-Id')
-    const role = req.headers.get('x-role') || req.headers.get('X-Role')
-    
-    if (!userId || !orgId) {
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization')
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return null
     }
     
     return {
-      'X-User-Id': userId,
-      'X-Org-Id': orgId,
-      'X-Role': role || 'Editor',
+      'Authorization': authHeader,
     }
   }
   

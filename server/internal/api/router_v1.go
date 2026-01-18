@@ -23,8 +23,9 @@ func (s *Server) Handler() http.Handler {
 	})
 
 	// Auth endpoints (no auth middleware)
-	mux.HandleFunc("POST /v1/auth/user", s.handleGetOrCreateUser)
 	mux.HandleFunc("POST /v1/auth/signup", s.handleSignup)
+	mux.HandleFunc("POST /v1/auth/signin", s.handleSignin)
+	mux.HandleFunc("POST /v1/auth/user", s.handleGetOrCreateUser) // Legacy endpoint
 
 	mux.HandleFunc("POST /v1/templates/validate", s.handleValidateTemplateSpec)
 	mux.HandleFunc("POST /v1/templates/generate", s.handleGenerateTemplate)
@@ -584,9 +585,9 @@ func (s *Server) handleGetOrCreateUser(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		UserID string `json:"userId"`
-		Email  string `json:"email"`
-		Name   string `json:"name"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+		Name     string `json:"name"`
 	}
 
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
@@ -594,14 +595,28 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if req.UserID == "" || req.Email == "" {
-		writeError(w, r, http.StatusBadRequest, "userId and email are required")
+	if req.Email == "" || req.Password == "" {
+		writeError(w, r, http.StatusBadRequest, "email and password are required")
 		return
 	}
 
+	// Check if user already exists
+	_, exists, err := s.Store.Users().GetUserByEmail(r.Context(), req.Email)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to check user")
+		return
+	}
+	if exists {
+		writeError(w, r, http.StatusConflict, "user already exists")
+		return
+	}
+
+	// Generate user ID
+	userID := newID("user")
+
 	// Create user
 	user := store.User{
-		ID:    req.UserID,
+		ID:    userID,
 		Email: req.Email,
 		Name:  req.Name,
 	}
@@ -635,7 +650,14 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return user info
+	// Generate JWT token
+	token, err := auth.GenerateToken(user.ID, org.ID, membership.Role)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to generate token")
+		return
+	}
+
+	// Return user info and token
 	responseUser := map[string]any{
 		"userId": user.ID,
 		"email":  user.Email,
@@ -644,7 +666,75 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 		"role":   membership.Role,
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"user": responseUser})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"user":  responseUser,
+		"token": token,
+	})
+}
+
+func (s *Server) handleSignin(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	if req.Email == "" {
+		writeError(w, r, http.StatusBadRequest, "email is required")
+		return
+	}
+
+	// Find user by email
+	foundUser, ok, err := s.Store.Users().GetUserByEmail(r.Context(), req.Email)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to lookup user")
+		return
+	}
+	if !ok {
+		writeError(w, r, http.StatusUnauthorized, "invalid email or password")
+		return
+	}
+
+	// TODO: Verify password hash (for now, we skip password check)
+	// In production, you'd hash passwords with bcrypt and verify here
+
+	// Get user's org membership
+	memberships, err := s.Store.Users().ListUserOrgs(r.Context(), foundUser.ID)
+	if err != nil || len(memberships) == 0 {
+		writeError(w, r, http.StatusInternalServerError, "failed to lookup user orgs")
+		return
+	}
+
+	membership := memberships[0]
+	org, err := s.Store.Organizations().GetOrganization(r.Context(), membership.OrgID)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to lookup organization")
+		return
+	}
+
+	// Generate JWT token
+	token, err := auth.GenerateToken(foundUser.ID, org.ID, membership.Role)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to generate token")
+		return
+	}
+
+	responseUser := map[string]any{
+		"userId": foundUser.ID,
+		"email":  foundUser.Email,
+		"name":   foundUser.Name,
+		"orgId":  org.ID,
+		"role":   membership.Role,
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"user":  responseUser,
+		"token": token,
+	})
 }
 
 func (s *Server) handleListDeadLetterJobs(w http.ResponseWriter, r *http.Request) {

@@ -418,6 +418,19 @@ func (m *userStore) GetUser(_ context.Context, userID string) (store.User, bool,
 	return user, ok, nil
 }
 
+func (m *userStore) GetUserByEmail(_ context.Context, email string) (store.User, bool, error) {
+	ms := (*MemoryStore)(m)
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	for _, user := range ms.users {
+		if user.Email == email {
+			return user, true, nil
+		}
+	}
+	return store.User{}, false, nil
+}
+
 func (m *userStore) CreateUserOrg(_ context.Context, uo store.UserOrg) error {
 	ms := (*MemoryStore)(m)
 	ms.mu.Lock()

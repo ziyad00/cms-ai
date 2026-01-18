@@ -452,6 +452,17 @@ func (p *postgresUserStore) GetUser(ctx context.Context, userID string) (store.U
 	return u, err == nil, err
 }
 
+func (p *postgresUserStore) GetUserByEmail(ctx context.Context, email string) (store.User, bool, error) {
+	ps := (*PostgresStore)(p)
+	query := `SELECT id, email, name, created_at, updated_at FROM users WHERE email = $1`
+	var u store.User
+	err := ps.db.QueryRowContext(ctx, query, email).Scan(&u.ID, &u.Email, &u.Name, &u.CreatedAt, &u.UpdatedAt)
+	if err == sql.ErrNoRows {
+		return u, false, nil
+	}
+	return u, err == nil, err
+}
+
 func (p *postgresUserStore) CreateUserOrg(ctx context.Context, uo store.UserOrg) error {
 	ps := (*PostgresStore)(p)
 	query := `INSERT INTO user_orgs (user_id, org_id, role) VALUES ($1, $2, $3)`

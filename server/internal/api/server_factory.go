@@ -16,7 +16,13 @@ import (
 
 func NewServer() *Server {
 	config := LoadConfig()
-	authenticator := auth.HeaderAuthenticator{}
+	// Use JWT authenticator if JWT_SECRET is set, otherwise fall back to header auth for dev
+	var authenticator auth.Authenticator
+	if os.Getenv("JWT_SECRET") != "" {
+		authenticator = auth.JWTAuthenticator{}
+	} else {
+		authenticator = auth.HeaderAuthenticator{}
+	}
 	validator := spec.DefaultValidator{}
 	renderer := assets.GoPPTXRenderer{}
 

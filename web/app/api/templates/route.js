@@ -6,7 +6,7 @@ import { getJSON } from '../../../lib/goApi'
 export async function GET(req) {
   const headers = await getAuthHeaders(req)
   
-  if (!headers || !headers['X-User-Id']) {
+  if (!headers || !headers['Authorization']) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
