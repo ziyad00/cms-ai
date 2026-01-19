@@ -746,18 +746,28 @@ func (s *Server) handleSignin(w http.ResponseWriter, r *http.Request) {
 	// In production, you'd hash passwords with bcrypt and verify here
 
 	// Get user's org membership
+	log.Printf("DEBUG: Looking up memberships for user ID: %s", foundUser.ID)
 	memberships, err := s.Store.Users().ListUserOrgs(r.Context(), foundUser.ID)
-	if err != nil || len(memberships) == 0 {
+	if err != nil {
+		log.Printf("ERROR: Failed to list user orgs: %v", err)
+		writeError(w, r, http.StatusInternalServerError, "failed to lookup user orgs")
+		return
+	}
+	if len(memberships) == 0 {
+		log.Printf("ERROR: No memberships found for user ID: %s", foundUser.ID)
 		writeError(w, r, http.StatusInternalServerError, "failed to lookup user orgs")
 		return
 	}
 
 	membership := memberships[0]
+	log.Printf("DEBUG: Found membership - OrgID: %s, Role: %s", membership.OrgID, membership.Role)
 	org, err := s.Store.Organizations().GetOrganization(r.Context(), membership.OrgID)
 	if err != nil {
+		log.Printf("ERROR: Failed to get organization for OrgID %s: %v", membership.OrgID, err)
 		writeError(w, r, http.StatusInternalServerError, "failed to lookup organization")
 		return
 	}
+	log.Printf("DEBUG: Found organization: %s", org.Name)
 
 	// Generate JWT token
 	token, err := auth.GenerateToken(foundUser.ID, org.ID, membership.Role)
