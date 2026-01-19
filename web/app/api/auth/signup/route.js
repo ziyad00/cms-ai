@@ -3,6 +3,7 @@ import { postJSON } from '../../../../lib/goApi'
 
 export const dynamic = 'force-dynamic'
 
+// API route for user signup
 export async function POST(req) {
   try {
     const body = await req.json()
