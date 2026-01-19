@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -24,6 +25,14 @@ func (s *Server) Handler() http.Handler {
 
 	// Auth endpoints (no auth middleware for signup/signin)
 	mux.HandleFunc("POST /v1/auth/signup", s.handleSignup)
+	mux.HandleFunc("GET /v1/auth/signup", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("DEBUG: GET request to /v1/auth/signup - this should be POST")
+		writeError(w, r, http.StatusMethodNotAllowed, "method not allowed - use POST")
+	})
+	mux.HandleFunc("/v1/auth/signup", func(w http.ResponseWriter, r *http.Request) {
+		log.Printf("DEBUG: %s request to /v1/auth/signup - unsupported method", r.Method)
+		writeError(w, r, http.StatusMethodNotAllowed, "only POST supported")
+	})
 	mux.HandleFunc("POST /v1/auth/signin", s.handleSignin)
 	mux.HandleFunc("POST /v1/auth/user", s.handleGetOrCreateUser) // Legacy endpoint
 	
@@ -65,6 +74,11 @@ func (s *Server) Handler() http.Handler {
 			writeError(w, r, http.StatusNotFound, "not found")
 			return
 		}
+
+		// DEBUG: Log all /v1/* requests to help debug routing issues
+		urlParts := strings.Split(r.URL.Path, "/")
+		log.Printf("DEBUG: %s %s - urlParts: %v", r.Method, r.URL.Path, urlParts)
+
 		// Otherwise, use the main handler (which includes auth for /v1/*)
 		h.ServeHTTP(w, r)
 	})
@@ -598,6 +612,8 @@ func (s *Server) handleGetOrCreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
+	log.Printf("DEBUG: handleSignup called - Method: %s, Path: %s", r.Method, r.URL.Path)
+
 	var req struct {
 		Email    string `json:"email"`
 		Password string `json:"password"`
