@@ -17,12 +17,18 @@ export async function GET(req) {
       headers: { 'Authorization': `Bearer ${token}` }
     })
 
+    console.log('Me endpoint result:', { status: result.status, body: result.body })
+
     if (result.status === 200 && result.body.user) {
       return NextResponse.json({ user: result.body.user })
     }
 
-    return NextResponse.json({ error: 'Failed to get user info' }, { status: result.status || 401 })
+    return NextResponse.json({
+      error: 'Failed to get user info',
+      debug: { status: result.status, body: result.body }
+    }, { status: result.status || 401 })
   } catch (error) {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    console.error('Me endpoint error:', error)
+    return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 })
   }
 }
