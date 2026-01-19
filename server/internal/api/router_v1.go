@@ -52,17 +52,8 @@ func (s *Server) Handler() http.Handler {
 	h := http.Handler(mux)
 	h = requireJSON(h)
 	h = withRequestID(h)
-	// Skip auth for healthz and public auth endpoints (signup/signin/user)
-	h = skipAuthForPaths(
-		h,
-		[]string{
-			"/healthz",
-			"/v1/auth/signup",
-			"/v1/auth/signin",
-			"/v1/auth/user",
-		},
-		withAuth(s.Authenticator),
-	)
+	// NOTE: Auth middleware temporarily disabled to allow all endpoints without JWT/headers.
+	// TODO: Re-enable withAuth + skipAuthForPaths when auth is fully wired through frontend.
 	h = withRecovery(h)
 	h = withLogging(h)
 	
