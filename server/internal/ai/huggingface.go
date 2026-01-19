@@ -58,7 +58,7 @@ func NewHuggingFaceClient(apiKey, model string) *HuggingFaceClient {
 	return &HuggingFaceClient{
 		apiKey:  apiKey,
 		model:   model,
-		baseURL: "https://api-inference.huggingface.co/models/" + model,
+		baseURL: "https://router.huggingface.co/models/" + model,
 		httpClient: &http.Client{
 			Timeout: 60 * time.Second,
 		},
