@@ -7,7 +7,8 @@ echo "Starting CMS-AI services..."
 GO_API_PORT=8081
 export ADDR=:$GO_API_PORT
 echo "Starting Go backend on port $GO_API_PORT..."
-/usr/local/bin/server &
+# Unset PORT temporarily so Go server uses ADDR instead
+env -u PORT /usr/local/bin/server &
 
 # Wait for Go backend to be ready
 echo "Waiting for Go backend..."
