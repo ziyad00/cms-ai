@@ -111,12 +111,15 @@ func (s *Server) handleValidateTemplateSpec(w http.ResponseWriter, r *http.Reque
 
 func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) {
 	id, _ := auth.GetIdentity(r.Context())
+	log.Printf("DEBUG: handleGenerateTemplate - UserID: %s, OrgID: %s", id.UserID, id.OrgID)
 
 	var req GenerateTemplateRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
+		log.Printf("ERROR: Failed to decode request body: %v", err)
 		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
+	log.Printf("DEBUG: Request - Name: '%s', Prompt: '%s'", req.Name, req.Prompt)
 	if strings.TrimSpace(req.Prompt) == "" {
 		writeError(w, r, http.StatusBadRequest, "prompt is required")
 		return
@@ -139,6 +142,7 @@ func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) 
 
 	created, err := s.Store.Templates().CreateTemplate(r.Context(), template)
 	if err != nil {
+		log.Printf("ERROR: Failed to create template: %v", err)
 		writeError(w, r, http.StatusInternalServerError, "failed to create template")
 		return
 	}
