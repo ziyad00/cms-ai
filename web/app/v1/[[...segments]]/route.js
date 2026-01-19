@@ -57,21 +57,46 @@ async function proxyToGoBackend(request, segments) {
 }
 
 export async function GET(request, { params }) {
-  return proxyToGoBackend(request, params.segments)
+  try {
+    return proxyToGoBackend(request, params?.segments)
+  } catch (error) {
+    console.error('GET error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 }
 
 export async function POST(request, { params }) {
-  return proxyToGoBackend(request, params.segments)
+  try {
+    return proxyToGoBackend(request, params?.segments)
+  } catch (error) {
+    console.error('POST error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 }
 
 export async function PUT(request, { params }) {
-  return proxyToGoBackend(request, params.segments)
+  try {
+    return proxyToGoBackend(request, params?.segments)
+  } catch (error) {
+    console.error('PUT error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 }
 
 export async function DELETE(request, { params }) {
-  return proxyToGoBackend(request, params.segments)
+  try {
+    return proxyToGoBackend(request, params?.segments)
+  } catch (error) {
+    console.error('DELETE error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 }
 
 export async function PATCH(request, { params }) {
-  return proxyToGoBackend(request, params.segments)
+  try {
+    return proxyToGoBackend(request, params?.segments)
+  } catch (error) {
+    console.error('PATCH error:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
 }
