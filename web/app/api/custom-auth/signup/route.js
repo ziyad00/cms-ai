@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { postJSON } from '../../../../lib/goApi.js'
 
 export const dynamic = 'force-dynamic'
 
@@ -11,59 +12,14 @@ export async function POST(req) {
       return NextResponse.json({ error: 'email and password required' }, { status: 400 })
     }
 
-    // Use node:http for external request to bypass Next.js routing
-    const http = await import('node:http')
-    const { URL } = await import('node:url')
-
+    // Use runtime environment variable instead of build-time
     const backendUrl = process.env.GO_API_BASE_URL || 'http://127.0.0.1:8081'
-    const url = `${backendUrl}/v1/auth/signup`
 
-    const result = await new Promise((resolve, reject) => {
-      const parsedUrl = new URL(url)
-      const postData = JSON.stringify({
-        name: name || email.split('@')[0],
-        email,
-        password
-      })
-
-      const options = {
-        hostname: parsedUrl.hostname,
-        port: parsedUrl.port || 80,
-        path: parsedUrl.pathname + parsedUrl.search,
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(postData),
-          'Host': parsedUrl.hostname + (parsedUrl.port ? ':' + parsedUrl.port : '')
-        }
-      }
-
-      const req = http.request(options, (res) => {
-        let data = ''
-        res.on('data', (chunk) => { data += chunk })
-        res.on('end', () => {
-          let parsed
-          try {
-            parsed = data ? JSON.parse(data) : null
-          } catch {
-            parsed = { raw: data }
-          }
-          resolve({ status: res.statusCode, body: parsed })
-        })
-      })
-
-      req.on('error', (error) => {
-        reject(error)
-      })
-
-      req.setTimeout(10000, () => {
-        req.destroy()
-        reject(new Error('Request timeout'))
-      })
-
-      req.write(postData)
-      req.end()
-    })
+    const result = await postJSON('/v1/auth/signup', {
+      name: name || email.split('@')[0],
+      email,
+      password
+    }, { baseUrl: backendUrl })
 
     if (result.status === 200 && result.body.token) {
       // Set httpOnly cookie with JWT token

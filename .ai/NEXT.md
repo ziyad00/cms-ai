@@ -36,8 +36,9 @@
 - Next: Configure Hugging Face API key for production AI generation, update worker to use ObjectStorage, add asset cleanup jobs, or Monitoring (structured logs, metrics, alerts)
 
 ## Immediate Next Tasks
-- [ ] URGENT: Fix /api/custom-auth/signup endpoint 404 issue on Railway deployment
-- [ ] Remove debug logging after fixing signup route issue
+- [x] URGENT: Fix /api/custom-auth/signup endpoint 404 issue - FIXED: Wrong backend URL in build-time environment variables
+- [ ] Deploy fixed signup route to Railway and verify working
+- [ ] Remove debug logging after verifying fix works in production
 - [ ] Configure HUGGINGFACE_API_KEY environment variable for production AI generation
 - [ ] Test AI generation with real Hugging Face API and Mixtral model
 - [ ] Add more comprehensive prompt engineering for different business verticals
