@@ -13,9 +13,8 @@ export function joinUrl(base, path) {
 export async function postJSON(path, body, { baseUrl = goApiBaseUrl(), headers = {} } = {}) {
   const url = joinUrl(baseUrl, path)
 
-  // Try using node:http instead of fetch for server-side requests
+  // Force external HTTP request for server-side calls using node:http
   if (typeof window === 'undefined') {
-    // Server-side environment
     const http = await import('node:http')
     const { URL } = await import('node:url')
 
@@ -25,12 +24,13 @@ export async function postJSON(path, body, { baseUrl = goApiBaseUrl(), headers =
 
       const options = {
         hostname: parsedUrl.hostname,
-        port: parsedUrl.port,
+        port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
         path: parsedUrl.pathname + parsedUrl.search,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(postData),
+          'Host': parsedUrl.hostname + (parsedUrl.port ? ':' + parsedUrl.port : ''),
           ...headers
         }
       }
@@ -51,6 +51,11 @@ export async function postJSON(path, body, { baseUrl = goApiBaseUrl(), headers =
 
       req.on('error', (error) => {
         reject(error)
+      })
+
+      req.setTimeout(10000, () => {
+        req.destroy()
+        reject(new Error('Request timeout'))
       })
 
       req.write(postData)
