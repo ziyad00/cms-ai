@@ -24,9 +24,10 @@ done
 # Start Next.js on PORT (Railway's assigned port)
 cd /app/web
 
-# Railway sets PORT automatically - use it for Next.js
-# If PORT is not set, default to 3000
-if [ -z "$PORT" ]; then
+# Railway sets PORT automatically - but Go already uses 8080 internally.
+# If Railway gives us PORT=8080, move Next.js to 3000 to avoid conflict.
+# Default to 3000 when PORT is not set.
+if [ -z "$PORT" ] || [ "$PORT" = "8080" ]; then
   export PORT=3000
 fi
 
