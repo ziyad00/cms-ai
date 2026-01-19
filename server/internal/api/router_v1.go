@@ -61,8 +61,17 @@ func (s *Server) Handler() http.Handler {
 	h := http.Handler(mux)
 	h = requireJSON(h)
 	h = withRequestID(h)
-	// NOTE: Auth middleware temporarily disabled to allow all endpoints without JWT/headers.
-	// TODO: Re-enable withAuth + skipAuthForPaths when auth is fully wired through frontend.
+
+	// Re-enable auth middleware with skip paths for public endpoints
+	skipPaths := []string{
+		"/v1/auth/signup",
+		"/v1/auth/signin",
+		"/v1/auth/user", // Legacy endpoint
+		"/healthz",
+	}
+	authMiddleware := withAuth(auth.JWTAuthenticator{})
+	h = skipAuthForPaths(h, skipPaths, authMiddleware)
+
 	h = withRecovery(h)
 	h = withLogging(h)
 	
