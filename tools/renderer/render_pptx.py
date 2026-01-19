@@ -46,9 +46,20 @@ def main(argv: list[str]) -> int:
             width = int(slide_w * w)
             height = int(slide_h * h)
 
-            box = slide.shapes.add_textbox(left, top, width, height)
-            text = f"{ph.get('id', 'placeholder')}"
-            box.text_frame.text = text
+            if ph.get("type") == "text":
+                box = slide.shapes.add_textbox(left, top, width, height)
+                # Use actual content if available, otherwise fall back to placeholder ID
+                text = ph.get("content") or f"[{ph.get('id', 'placeholder')}]"
+                box.text_frame.text = text
+
+                # Basic text formatting
+                if ph.get("id") in ["title", "heading"]:
+                    box.text_frame.paragraphs[0].font.size = Pt(24)
+                    box.text_frame.paragraphs[0].font.bold = True
+                elif ph.get("id") in ["subtitle", "subheading"]:
+                    box.text_frame.paragraphs[0].font.size = Pt(18)
+                else:
+                    box.text_frame.paragraphs[0].font.size = Pt(14)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
     prs.save(str(out_path))

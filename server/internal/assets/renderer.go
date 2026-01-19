@@ -169,6 +169,7 @@ func (r GoPPTXRenderer) RenderPPTXBytes(ctx context.Context, spec any) ([]byte, 
 			Placeholders []struct {
 				ID       string `json:"id"`
 				Type     string `json:"type"`
+				Content  string `json:"content"`
 				Geometry struct {
 					X float64 `json:"x"`
 					Y float64 `json:"y"`
@@ -215,10 +216,17 @@ func (r GoPPTXRenderer) RenderPPTXBytes(ctx context.Context, spec any) ([]byte, 
 			y := measurement.Distance(ph.Geometry.Y * 7.5 * measurement.Inch) // 7.5 inches high
 			props.SetPosition(x, y)
 
-			// Add some placeholder text
+			// Add actual content or placeholder text
 			para := textBox.AddParagraph()
 			run := para.AddRun()
-			run.SetText("Placeholder: " + ph.ID)
+
+			// Use actual content if available, otherwise formatted placeholder
+			content := ph.Content
+			if content == "" {
+				content = "[" + ph.ID + "]"
+			}
+
+			run.SetText(content)
 		}
 	}
 
@@ -262,6 +270,7 @@ func (r GoPPTXRenderer) GenerateSlideThumbnails(ctx context.Context, spec any) (
 			Placeholders []struct {
 				ID       string `json:"id"`
 				Type     string `json:"type"`
+				Content  string `json:"content"`
 				Geometry struct {
 					X float64 `json:"x"`
 					Y float64 `json:"y"`

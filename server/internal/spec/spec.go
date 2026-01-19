@@ -18,6 +18,7 @@ type Layout struct {
 type Placeholder struct {
 	ID       string   `json:"id"`
 	Type     string   `json:"type,omitempty"`
+	Content  string   `json:"content,omitempty"`
 	Geometry Geometry `json:"geometry"`
 }
 

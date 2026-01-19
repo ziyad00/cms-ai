@@ -153,7 +153,7 @@ The TemplateSpec must follow this exact structure:
   "tokens": {
     "colors": {
       "primary": "#hexcolor",
-      "background": "#hexcolor", 
+      "background": "#hexcolor",
       "text": "#hexcolor",
       "accent": "#hexcolor"
     },
@@ -174,9 +174,10 @@ The TemplateSpec must follow this exact structure:
         {
           "id": "unique_id",
           "type": "text|image|logo",
+          "content": "actual content from user data",
           "geometry": {
             "x": 0.0-1.0,
-            "y": 0.0-1.0, 
+            "y": 0.0-1.0,
             "w": 0.0-1.0,
             "h": 0.0-1.0
           }
@@ -192,7 +193,8 @@ Rules:
 - Include multiple layout variations for different slide types
 - Ensure placeholders don't overlap and respect safe margins
 - Colors should be professional and accessible
-- For RTL layouts, adjust positioning accordingly`
+- For RTL layouts, adjust positioning accordingly
+- IMPORTANT: If contentData is provided, populate the "content" field of placeholders with actual user data`
 
 	if req.Language != "" {
 		prompt += fmt.Sprintf("\n- Generate content in %s language", req.Language)
@@ -206,6 +208,12 @@ Rules:
 	if req.BrandKit != nil {
 		prompt += "\n- Incorporate the provided brand kit colors and tokens"
 	}
+	if len(req.ContentData) > 0 {
+		prompt += "\n- Use the following content data to populate placeholders:\n"
+		for key, value := range req.ContentData {
+			prompt += fmt.Sprintf("  %s: %v\n", key, value)
+		}
+	}
 
 	prompt += "\n\n" + examples
 	prompt += "\n\nGenerate ONLY the JSON TemplateSpec object, no explanations:"
@@ -217,11 +225,12 @@ func (c *HuggingFaceClient) getFewShotExamples() string {
 	return `Examples:
 
 User: "Create a modern tech startup pitch deck template"
+ContentData: {"company": "TechCorp", "tagline": "Building the future"}
 Response: {
   "tokens": {
     "colors": {
       "primary": "#2563eb",
-      "background": "#ffffff", 
+      "background": "#ffffff",
       "text": "#1f2937",
       "accent": "#10b981"
     }
@@ -231,15 +240,16 @@ Response: {
     {
       "name": "Title Slide",
       "placeholders": [
-        {"id": "title", "type": "text", "geometry": {"x": 0.1, "y": 0.3, "w": 0.8, "h": 0.15}},
-        {"id": "subtitle", "type": "text", "geometry": {"x": 0.1, "y": 0.5, "w": 0.8, "h": 0.1}},
-        {"id": "logo", "type": "logo", "geometry": {"x": 0.1, "y": 0.1, "w": 0.15, "h": 0.1}}
+        {"id": "title", "type": "text", "content": "TechCorp", "geometry": {"x": 0.1, "y": 0.3, "w": 0.8, "h": 0.15}},
+        {"id": "subtitle", "type": "text", "content": "Building the future", "geometry": {"x": 0.1, "y": 0.5, "w": 0.8, "h": 0.1}},
+        {"id": "logo", "type": "logo", "content": "", "geometry": {"x": 0.1, "y": 0.1, "w": 0.15, "h": 0.1}}
       ]
     }
   ]
 }
 
-User: "Corporate business template with professional blue colors"`
+User: "Sales report template with quarterly data"
+ContentData: {"period": "Q4 2024", "revenue": "$2.5M", "growth": "15%"}`
 }
 
 func (c *HuggingFaceClient) parseTemplateSpec(generatedText string) (*spec.TemplateSpec, error) {
