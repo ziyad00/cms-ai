@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-echo "Starting services..."
+echo "Starting CMS-AI services..."
 
 # Start Go backend on fixed internal port 8080
 GO_API_PORT=8080
