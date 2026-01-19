@@ -41,8 +41,12 @@ echo "NODE_ENV=$NODE_ENV"
 # Verify Next.js files exist
 if [ ! -d "/app/web/.next" ]; then
   echo "ERROR: Next.js build directory not found!"
+  ls -la /app/web/
   exit 1
 fi
+
+echo "Next.js files found, starting application..."
+ls -la /app/web/.next/
 
 # Start Next.js (this will block and keep container alive)
 exec npm start
