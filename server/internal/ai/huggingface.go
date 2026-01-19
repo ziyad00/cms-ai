@@ -38,13 +38,25 @@ type GenerationResponse struct {
 	Timestamp  time.Time          `json:"timestamp"`
 }
 
+type chatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
 type huggingFaceRequest struct {
-	Inputs     string         `json:"inputs"`
-	Parameters map[string]any `json:"parameters"`
+	Model       string        `json:"model"`
+	Messages    []chatMessage `json:"messages"`
+	MaxTokens   int           `json:"max_tokens"`
+	Temperature float64       `json:"temperature"`
+}
+
+type huggingFaceChoice struct {
+	Index   int         `json:"index"`
+	Message chatMessage `json:"message"`
 }
 
 type huggingFaceResponse struct {
-	GeneratedText string `json:"generated_text"`
+	Choices []huggingFaceChoice `json:"choices"`
 }
 
 func NewHuggingFaceClient(apiKey, model string) *HuggingFaceClient {
@@ -52,13 +64,13 @@ func NewHuggingFaceClient(apiKey, model string) *HuggingFaceClient {
 		apiKey = "hf_default" // Will be overridden by env var
 	}
 	if model == "" {
-		model = "microsoft/DialoGPT-medium"
+		model = "moonshotai/Kimi-K2-Instruct-0905"
 	}
 
 	return &HuggingFaceClient{
 		apiKey:  apiKey,
 		model:   model,
-		baseURL: "https://router.huggingface.co/models/" + model,
+		baseURL: "https://router.huggingface.co/v1/chat/completions",
 		httpClient: &http.Client{
 			Timeout: 60 * time.Second,
 		},
@@ -69,14 +81,21 @@ func (c *HuggingFaceClient) GenerateTemplateSpec(ctx context.Context, req Genera
 	// Build system prompt with user requirements
 	systemPrompt := c.buildSystemPrompt(req)
 
-	// Prepare request for HuggingFace API
+	// Prepare request for HuggingFace chat completions API
 	hfReq := huggingFaceRequest{
-		Inputs: systemPrompt + "\n\nUser request: " + req.Prompt,
-		Parameters: map[string]any{
-			"max_length":       2048,
-			"temperature":      0.7,
-			"return_full_text": false,
+		Model: c.model,
+		Messages: []chatMessage{
+			{
+				Role:    "system",
+				Content: systemPrompt,
+			},
+			{
+				Role:    "user",
+				Content: req.Prompt,
+			},
 		},
+		MaxTokens:   2048,
+		Temperature: 0.7,
 	}
 
 	// Marshal request
@@ -113,16 +132,16 @@ func (c *HuggingFaceClient) GenerateTemplateSpec(ctx context.Context, req Genera
 	}
 
 	// Parse HuggingFace response
-	var hfResp []huggingFaceResponse
+	var hfResp huggingFaceResponse
 	if err := json.Unmarshal(respBody, &hfResp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	if len(hfResp) == 0 {
+	if len(hfResp.Choices) == 0 {
 		return nil, fmt.Errorf("empty response from API")
 	}
 
-	generatedText := hfResp[0].GeneratedText
+	generatedText := hfResp.Choices[0].Message.Content
 
 	// Parse the generated template spec
 	templateSpec, err := c.parseTemplateSpec(generatedText)

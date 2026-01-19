@@ -24,7 +24,7 @@ func NewOrchestrator() Orchestrator {
 	apiKey := os.Getenv("HUGGINGFACE_API_KEY")
 	model := os.Getenv("HUGGINGFACE_MODEL")
 	if model == "" {
-		model = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+		model = "moonshotai/Kimi-K2-Instruct-0905"
 	}
 
 	return &orchestrator{
