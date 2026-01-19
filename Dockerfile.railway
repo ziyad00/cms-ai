@@ -68,9 +68,11 @@ USER appuser
 # Set working directory
 WORKDIR /app
 
-# Health check - will be configured at runtime
+# Health check - check Next.js health endpoint
+# Note: PORT is set by Railway, but HEALTHCHECK doesn't expand env vars
+# So we check both the default 3000 and use a script that reads PORT
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:3000/healthz || exit 1
+    CMD sh -c 'PORT=${PORT:-3000} && curl -f http://localhost:$PORT/api/healthz || exit 1'
 
 EXPOSE 8080
 
