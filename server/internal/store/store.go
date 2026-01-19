@@ -58,7 +58,7 @@ type AuditStore interface {
 }
 
 type UserStore interface {
-	CreateUser(ctx context.Context, u User) error
+	CreateUser(ctx context.Context, u *User) error
 	GetUser(ctx context.Context, userID string) (User, bool, error)
 	GetUserByEmail(ctx context.Context, email string) (User, bool, error)
 	CreateUserOrg(ctx context.Context, uo UserOrg) error
@@ -66,6 +66,6 @@ type UserStore interface {
 }
 
 type OrganizationStore interface {
-	CreateOrganization(ctx context.Context, o Organization) error
+	CreateOrganization(ctx context.Context, o *Organization) error
 	GetOrganization(ctx context.Context, orgID string) (Organization, error)
 }

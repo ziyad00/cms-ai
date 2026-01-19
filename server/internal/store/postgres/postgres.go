@@ -574,7 +574,7 @@ func (p *postgresAuditStore) Append(ctx context.Context, a store.AuditLog) (stor
 
 type postgresUserStore PostgresStore
 
-func (p *postgresUserStore) CreateUser(ctx context.Context, u store.User) error {
+func (p *postgresUserStore) CreateUser(ctx context.Context, u *store.User) error {
 	ps := (*PostgresStore)(p)
 	// Let PostgreSQL generate the UUID automatically
 	query := `INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id, created_at, updated_at`
@@ -633,7 +633,7 @@ func (p *postgresUserStore) ListUserOrgs(ctx context.Context, userID string) ([]
 
 type postgresOrganizationStore PostgresStore
 
-func (p *postgresOrganizationStore) CreateOrganization(ctx context.Context, o store.Organization) error {
+func (p *postgresOrganizationStore) CreateOrganization(ctx context.Context, o *store.Organization) error {
 	ps := (*PostgresStore)(p)
 	// Let PostgreSQL generate the UUID automatically
 	query := `INSERT INTO organizations (name) VALUES ($1) RETURNING id, created_at`

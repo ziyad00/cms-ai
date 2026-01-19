@@ -674,15 +674,19 @@ func (s *Server) handleSignup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create all records
-	if err := s.Store.Users().CreateUser(r.Context(), user); err != nil {
+	if err := s.Store.Users().CreateUser(r.Context(), &user); err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed to create user")
 		return
 	}
 
-	if err := s.Store.Organizations().CreateOrganization(r.Context(), org); err != nil {
+	if err := s.Store.Organizations().CreateOrganization(r.Context(), &org); err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed to create organization")
 		return
 	}
+
+	// Update membership with the actual UUIDs returned from database
+	membership.UserID = user.ID
+	membership.OrgID = org.ID
 
 	if err := s.Store.Users().CreateUserOrg(r.Context(), membership); err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed to create user membership")

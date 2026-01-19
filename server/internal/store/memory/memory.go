@@ -397,7 +397,7 @@ func (m *auditStore) Append(_ context.Context, a store.AuditLog) (store.AuditLog
 	return a, nil
 }
 
-func (m *userStore) CreateUser(_ context.Context, u store.User) error {
+func (m *userStore) CreateUser(_ context.Context, u *store.User) error {
 	ms := (*MemoryStore)(m)
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
@@ -405,7 +405,7 @@ func (m *userStore) CreateUser(_ context.Context, u store.User) error {
 	now := time.Now().UTC()
 	u.CreatedAt = now
 	u.UpdatedAt = now
-	ms.users[u.ID] = u
+	ms.users[u.ID] = *u
 	return nil
 }
 
@@ -454,7 +454,7 @@ func (m *userStore) ListUserOrgs(_ context.Context, userID string) ([]store.User
 	return result, nil
 }
 
-func (m *organizationStore) CreateOrganization(_ context.Context, o store.Organization) error {
+func (m *organizationStore) CreateOrganization(_ context.Context, o *store.Organization) error {
 	ms := (*MemoryStore)(m)
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
@@ -462,7 +462,7 @@ func (m *organizationStore) CreateOrganization(_ context.Context, o store.Organi
 	now := time.Now().UTC()
 	o.CreatedAt = now
 	o.UpdatedAt = now
-	ms.orgs[o.ID] = o
+	ms.orgs[o.ID] = *o
 	return nil
 }
 
