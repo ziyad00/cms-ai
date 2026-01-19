@@ -257,12 +257,10 @@ func (p *postgresTemplateStore) UpdateTemplate(ctx context.Context, t store.Temp
 
 func (p *postgresTemplateStore) CreateVersion(ctx context.Context, v store.TemplateVersion) (store.TemplateVersion, error) {
 	ps := (*PostgresStore)(p)
-	query := `INSERT INTO template_versions (id, template_id, org_id, version_no, spec_json, created_by, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	if v.ID == "" {
-		v.ID = fmt.Sprintf("ver-%s", generateID())
-	}
-	v.CreatedAt = time.Now().UTC()
-	_, err := ps.db.ExecContext(ctx, query, v.ID, v.Template, v.OrgID, v.VersionNo, v.SpecJSON, v.CreatedBy, v.CreatedAt)
+	// Let PostgreSQL generate the UUID automatically
+	query := `INSERT INTO template_versions (template_id, org_id, version_no, spec_json, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at`
+	err := ps.db.QueryRowContext(ctx, query, v.Template, v.OrgID, v.VersionNo, v.SpecJSON, v.CreatedBy).
+		Scan(&v.ID, &v.CreatedAt)
 	if err != nil {
 		return store.TemplateVersion{}, err
 	}

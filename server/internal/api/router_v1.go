@@ -179,7 +179,6 @@ func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) 
 	}
 
 	version := store.TemplateVersion{
-		ID:        newID("ver"),
 		Template:  created.ID,
 		OrgID:     id.OrgID,
 		VersionNo: 1,
@@ -188,6 +187,7 @@ func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) 
 	}
 	createdVer, err := s.Store.Templates().CreateVersion(r.Context(), version)
 	if err != nil {
+		log.Printf("ERROR: Failed to create version: %v", err)
 		writeError(w, r, http.StatusInternalServerError, "failed to create version")
 		return
 	}
@@ -288,7 +288,7 @@ func (s *Server) handleCreateVersion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newNo := tpl.LatestVersionNo + 1
-	ver := store.TemplateVersion{ID: newID("ver"), Template: tpl.ID, OrgID: tpl.OrgID, VersionNo: newNo, SpecJSON: specJSON, CreatedBy: id.UserID}
+	ver := store.TemplateVersion{Template: tpl.ID, OrgID: tpl.OrgID, VersionNo: newNo, SpecJSON: specJSON, CreatedBy: id.UserID}
 	created, err := s.Store.Templates().CreateVersion(r.Context(), ver)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed to create version")
@@ -337,7 +337,7 @@ func (s *Server) handlePatchVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	newNo := tpl.LatestVersionNo + 1
-	newV := store.TemplateVersion{ID: newID("ver"), Template: tpl.ID, OrgID: tpl.OrgID, VersionNo: newNo, SpecJSON: req.Spec, CreatedBy: id.UserID}
+	newV := store.TemplateVersion{Template: tpl.ID, OrgID: tpl.OrgID, VersionNo: newNo, SpecJSON: req.Spec, CreatedBy: id.UserID}
 	created, err := s.Store.Templates().CreateVersion(r.Context(), newV)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed to create version")
