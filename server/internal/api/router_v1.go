@@ -40,6 +40,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/auth/me", s.handleGetMe) // Get current user from JWT
 
 	mux.HandleFunc("POST /v1/templates/validate", s.handleValidateTemplateSpec)
+	mux.HandleFunc("POST /v1/templates/analyze", s.handleAnalyzeTemplate)
 	mux.HandleFunc("POST /v1/templates/generate", s.handleGenerateTemplate)
 	mux.HandleFunc("GET /v1/templates", s.handleListTemplates)
 	mux.HandleFunc("GET /v1/templates/{id}", s.handleGetTemplate)
@@ -109,6 +110,91 @@ func (s *Server) handleValidateTemplateSpec(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true})
 }
 
+func (s *Server) handleAnalyzeTemplate(w http.ResponseWriter, r *http.Request) {
+	var req AnalyzeTemplateRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if strings.TrimSpace(req.Prompt) == "" {
+		writeError(w, r, http.StatusBadRequest, "prompt is required")
+		return
+	}
+
+	// Analyze the prompt to determine template type and required fields
+	analysis := analyzeTemplatePrompt(req.Prompt)
+
+	writeJSON(w, http.StatusOK, analysis)
+}
+
+func analyzeTemplatePrompt(prompt string) AnalyzeTemplateResponse {
+	prompt = strings.ToLower(prompt)
+
+	// Simple pattern matching for template types
+	if strings.Contains(prompt, "sales") || strings.Contains(prompt, "revenue") {
+		return AnalyzeTemplateResponse{
+			TemplateType:    "sales-report",
+			SuggestedName:   "Sales Report",
+			EstimatedSlides: 8,
+			Description:     "A comprehensive sales performance report with metrics, trends, and insights",
+			RequiredFields: []RequiredField{
+				{Key: "period", Label: "Reporting Period", Type: "text", Required: true, Example: "Q4 2024", Description: "The time period this report covers"},
+				{Key: "revenue", Label: "Total Revenue", Type: "currency", Required: true, Example: "$2.5M", Description: "Total revenue for the period"},
+				{Key: "growth", Label: "Growth Rate", Type: "percentage", Required: false, Example: "15%", Description: "Revenue growth compared to previous period"},
+				{Key: "deals", Label: "Number of Deals", Type: "number", Required: false, Example: "47", Description: "Total deals closed"},
+				{Key: "topProducts", Label: "Top Products", Type: "list", Required: false, Example: "Product A, Product B", Description: "Best performing products"},
+				{Key: "teamSize", Label: "Team Size", Type: "number", Required: false, Example: "25", Description: "Sales team size"},
+				{Key: "goals", Label: "Goals Met", Type: "percentage", Required: false, Example: "105%", Description: "Percentage of goals achieved"},
+			},
+		}
+	}
+
+	if strings.Contains(prompt, "meeting") || strings.Contains(prompt, "agenda") {
+		return AnalyzeTemplateResponse{
+			TemplateType:    "meeting-notes",
+			SuggestedName:   "Meeting Agenda",
+			EstimatedSlides: 5,
+			Description:     "Meeting agenda and notes template for team meetings",
+			RequiredFields: []RequiredField{
+				{Key: "title", Label: "Meeting Title", Type: "text", Required: true, Example: "Weekly Team Sync", Description: "Title of the meeting"},
+				{Key: "date", Label: "Meeting Date", Type: "date", Required: true, Example: "2024-01-19", Description: "Date and time of meeting"},
+				{Key: "attendees", Label: "Attendees", Type: "list", Required: false, Example: "John, Jane, Mike", Description: "List of attendees"},
+				{Key: "agenda", Label: "Agenda Items", Type: "list", Required: true, Example: "Project updates, Budget review", Description: "Main topics to discuss"},
+				{Key: "duration", Label: "Duration", Type: "text", Required: false, Example: "60 minutes", Description: "Expected meeting duration"},
+			},
+		}
+	}
+
+	if strings.Contains(prompt, "product") || strings.Contains(prompt, "demo") {
+		return AnalyzeTemplateResponse{
+			TemplateType:    "product-demo",
+			SuggestedName:   "Product Demo",
+			EstimatedSlides: 12,
+			Description:     "Product demonstration and feature showcase presentation",
+			RequiredFields: []RequiredField{
+				{Key: "productName", Label: "Product Name", Type: "text", Required: true, Example: "My Product", Description: "Name of the product being presented"},
+				{Key: "version", Label: "Version", Type: "text", Required: false, Example: "v2.1", Description: "Product version"},
+				{Key: "keyFeatures", Label: "Key Features", Type: "list", Required: true, Example: "Feature A, Feature B", Description: "Main features to highlight"},
+				{Key: "benefits", Label: "Benefits", Type: "list", Required: false, Example: "Saves time, Increases efficiency", Description: "Key benefits for users"},
+				{Key: "audience", Label: "Target Audience", Type: "text", Required: false, Example: "Enterprise customers", Description: "Who this demo is for"},
+			},
+		}
+	}
+
+	// Default/generic template
+	return AnalyzeTemplateResponse{
+		TemplateType:    "generic",
+		SuggestedName:   "Custom Presentation",
+		EstimatedSlides: 6,
+		Description:     "A general-purpose presentation template",
+		RequiredFields: []RequiredField{
+			{Key: "title", Label: "Presentation Title", Type: "text", Required: true, Example: "My Presentation", Description: "Main title for the presentation"},
+			{Key: "subtitle", Label: "Subtitle", Type: "text", Required: false, Example: "Subtitle here", Description: "Optional subtitle"},
+			{Key: "mainContent", Label: "Main Content", Type: "text", Required: false, Example: "Key points to present", Description: "Main content or talking points"},
+		},
+	}
+}
+
 func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) {
 	id, _ := auth.GetIdentity(r.Context())
 	log.Printf("DEBUG: handleGenerateTemplate - UserID: %s, OrgID: %s", id.UserID, id.OrgID)
@@ -146,36 +232,20 @@ func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Generate template spec using AI
+	// Generate template spec using AI with user content
 	aiReq := ai.GenerationRequest{
-		Prompt:   req.Prompt,
-		Language: req.Language,
-		Tone:     req.Tone,
-		RTL:      req.RTL,
+		Prompt:      req.Prompt,
+		Language:    req.Language,
+		Tone:        req.Tone,
+		RTL:         req.RTL,
+		ContentData: req.ContentData, // Pass user content to AI
 	}
 
 	templateSpec, aiResp, err := s.AIService.GenerateTemplateForRequest(r.Context(), id.OrgID, id.UserID, aiReq, req.BrandKitID)
 	if err != nil {
-		// Fall back to stub spec if AI generation fails
-		templateSpec = &spec.TemplateSpec{
-			Tokens: map[string]any{
-				"colors": map[string]any{
-					"primary":    "#3366FF",
-					"background": "#FFFFFF",
-					"text":       "#111111",
-				},
-			},
-			Constraints: spec.Constraints{SafeMargin: 0.05},
-			Layouts: []spec.Layout{
-				{
-					Name: "Title Slide",
-					Placeholders: []spec.Placeholder{
-						{ID: "title", Type: "text", Geometry: spec.Geometry{X: 0.1, Y: 0.3, W: 0.8, H: 0.15}},
-						{ID: "subtitle", Type: "text", Geometry: spec.Geometry{X: 0.1, Y: 0.5, W: 0.8, H: 0.1}},
-					},
-				},
-			},
-		}
+		log.Printf("ERROR: AI template generation failed: %v", err)
+		writeError(w, r, http.StatusInternalServerError, "failed to generate template with AI")
+		return
 	}
 
 	// Convert template spec to JSON for storage

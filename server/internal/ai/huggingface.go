@@ -20,13 +20,14 @@ type HuggingFaceClient struct {
 }
 
 type GenerationRequest struct {
-	Prompt     string         `json:"prompt"`
-	BrandKitID string         `json:"brandKitId,omitempty"`
-	BrandKit   map[string]any `json:"brandKit,omitempty"`
-	Language   string         `json:"language,omitempty"`
-	Tone       string         `json:"tone,omitempty"`
-	RTL        bool           `json:"rtl"`
-	Tokens     map[string]any `json:"tokens,omitempty"`
+	Prompt      string                 `json:"prompt"`
+	BrandKitID  string                 `json:"brandKitId,omitempty"`
+	BrandKit    map[string]any         `json:"brandKit,omitempty"`
+	Language    string                 `json:"language,omitempty"`
+	Tone        string                 `json:"tone,omitempty"`
+	RTL         bool                   `json:"rtl"`
+	Tokens      map[string]any         `json:"tokens,omitempty"`
+	ContentData map[string]interface{} `json:"contentData,omitempty"`
 }
 
 type GenerationResponse struct {
