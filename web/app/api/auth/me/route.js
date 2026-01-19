@@ -12,21 +12,27 @@ export async function GET(req) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    // Call Go backend to get user info
-    const result = await getJSON('/v1/auth/me', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    })
+    // Decode JWT to get user info (simple approach)
+    try {
+      const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString())
 
-    console.log('Me endpoint result:', { status: result.status, body: result.body })
+      // Check if token is expired
+      if (payload.exp && payload.exp < Date.now() / 1000) {
+        return NextResponse.json({ error: 'Token expired' }, { status: 401 })
+      }
 
-    if (result.status === 200 && result.body.user) {
-      return NextResponse.json({ user: result.body.user })
+      // Return user info from JWT payload
+      const user = {
+        userId: payload.userId,
+        orgId: payload.orgId,
+        role: payload.role,
+        email: payload.email || 'user@example.com' // Fallback if email not in token
+      }
+
+      return NextResponse.json({ user })
+    } catch (jwtError) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
     }
-
-    return NextResponse.json({
-      error: 'Failed to get user info',
-      debug: { status: result.status, body: result.body }
-    }, { status: result.status || 401 })
   } catch (error) {
     console.error('Me endpoint error:', error)
     return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 })
