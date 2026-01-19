@@ -33,7 +33,7 @@ if [ -z "$PORT" ]; then
 fi
 
 export NODE_ENV=production
-export GO_API_BASE_URL=http://localhost:$GO_API_PORT
+export GO_API_BASE_URL=http://127.0.0.1:$GO_API_PORT
 
 echo "Starting Next.js on port $PORT..."
 echo "GO_API_BASE_URL=$GO_API_BASE_URL"

@@ -12,6 +12,53 @@ export function joinUrl(base, path) {
 
 export async function postJSON(path, body, { baseUrl = goApiBaseUrl(), headers = {} } = {}) {
   const url = joinUrl(baseUrl, path)
+
+  // Try using node:http instead of fetch for server-side requests
+  if (typeof window === 'undefined') {
+    // Server-side environment
+    const http = await import('node:http')
+    const { URL } = await import('node:url')
+
+    return new Promise((resolve, reject) => {
+      const parsedUrl = new URL(url)
+      const postData = JSON.stringify(body)
+
+      const options = {
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port,
+        path: parsedUrl.pathname + parsedUrl.search,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(postData),
+          ...headers
+        }
+      }
+
+      const req = http.request(options, (res) => {
+        let data = ''
+        res.on('data', (chunk) => { data += chunk })
+        res.on('end', () => {
+          let parsed
+          try {
+            parsed = data ? JSON.parse(data) : null
+          } catch {
+            parsed = { raw: data }
+          }
+          resolve({ status: res.statusCode, body: parsed })
+        })
+      })
+
+      req.on('error', (error) => {
+        reject(error)
+      })
+
+      req.write(postData)
+      req.end()
+    })
+  }
+
+  // Client-side fallback to fetch
   const res = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...headers },
