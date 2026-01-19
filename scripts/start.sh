@@ -3,8 +3,8 @@ set -e
 
 echo "Starting CMS-AI services..."
 
-# Start Go backend on fixed internal port 8080
-GO_API_PORT=8080
+# Start Go backend on internal port 8081 (avoid conflict with Railway's PORT)
+GO_API_PORT=8081
 export ADDR=:$GO_API_PORT
 echo "Starting Go backend on port $GO_API_PORT..."
 /usr/local/bin/server &
