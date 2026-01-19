@@ -195,14 +195,14 @@ type postgresTemplateStore PostgresStore
 // Implement basic CreateTemplate and ListTemplates for demo
 func (p *postgresTemplateStore) CreateTemplate(ctx context.Context, t store.Template) (store.Template, error) {
 	ps := (*PostgresStore)(p)
+	// Let PostgreSQL generate the UUID automatically
 	query := `
-		INSERT INTO templates (id, org_id, owner_user_id, name, status, latest_version_no, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO templates (org_id, owner_user_id, name, status, latest_version_no)
+		VALUES ($1, $2, $3, $4, $5)
+		RETURNING id, created_at, updated_at
 	`
-	if t.ID == "" {
-		t.ID = fmt.Sprintf("tpl-%s", generateID())
-	}
-	_, err := ps.db.ExecContext(ctx, query, t.ID, t.OrgID, t.OwnerUserID, t.Name, t.Status, t.LatestVersionNo, t.CreatedAt, t.UpdatedAt)
+	err := ps.db.QueryRowContext(ctx, query, t.OrgID, t.OwnerUserID, t.Name, t.Status, t.LatestVersionNo).
+		Scan(&t.ID, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return store.Template{}, err
 	}

@@ -130,7 +130,6 @@ func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) 
 	}
 
 	template := store.Template{
-		ID:          newID("tpl"),
 		OrgID:       id.OrgID,
 		OwnerUserID: id.UserID,
 		Name:        req.Name,
