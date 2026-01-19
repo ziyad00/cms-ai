@@ -576,14 +576,9 @@ type postgresUserStore PostgresStore
 
 func (p *postgresUserStore) CreateUser(ctx context.Context, u store.User) error {
 	ps := (*PostgresStore)(p)
-	query := `INSERT INTO users (id, email, name, created_at, updated_at) VALUES ($1, $2, $3, $4, $5)`
-	if u.ID == "" {
-		u.ID = fmt.Sprintf("usr-%s", generateID())
-	}
-	now := time.Now().UTC()
-	u.CreatedAt = now
-	u.UpdatedAt = now
-	_, err := ps.db.ExecContext(ctx, query, u.ID, u.Email, u.Name, u.CreatedAt, u.UpdatedAt)
+	// Let PostgreSQL generate the UUID automatically
+	query := `INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id, created_at, updated_at`
+	err := ps.db.QueryRowContext(ctx, query, u.Email, u.Name).Scan(&u.ID, &u.CreatedAt, &u.UpdatedAt)
 	return err
 }
 
@@ -640,14 +635,9 @@ type postgresOrganizationStore PostgresStore
 
 func (p *postgresOrganizationStore) CreateOrganization(ctx context.Context, o store.Organization) error {
 	ps := (*PostgresStore)(p)
-	query := `INSERT INTO organizations (id, name, created_at, updated_at) VALUES ($1, $2, $3, $4)`
-	if o.ID == "" {
-		o.ID = fmt.Sprintf("org-%s", generateID())
-	}
-	now := time.Now().UTC()
-	o.CreatedAt = now
-	o.UpdatedAt = now
-	_, err := ps.db.ExecContext(ctx, query, o.ID, o.Name, o.CreatedAt, o.UpdatedAt)
+	// Let PostgreSQL generate the UUID automatically
+	query := `INSERT INTO organizations (name) VALUES ($1) RETURNING id, created_at`
+	err := ps.db.QueryRowContext(ctx, query, o.Name).Scan(&o.ID, &o.CreatedAt)
 	return err
 }
 
