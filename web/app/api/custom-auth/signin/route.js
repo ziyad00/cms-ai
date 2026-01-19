@@ -17,7 +17,7 @@ export async function POST(req) {
     if (result.status === 200 && result.body.token) {
       // Set httpOnly cookie with JWT token
       const response = NextResponse.json({ user: result.body.user })
-      
+
       response.cookies.set('auth-token', result.body.token, {
         httpOnly: true,
         secure: true, // Always use secure in production (Railway uses HTTPS)
@@ -25,7 +25,7 @@ export async function POST(req) {
         maxAge: 60 * 60 * 24 * 7, // 7 days
         path: '/',
       })
-      
+
       return response
     }
 
