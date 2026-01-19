@@ -643,9 +643,9 @@ func (p *postgresOrganizationStore) CreateOrganization(ctx context.Context, o *s
 
 func (p *postgresOrganizationStore) GetOrganization(ctx context.Context, orgID string) (store.Organization, error) {
 	ps := (*PostgresStore)(p)
-	query := `SELECT id, name, created_at, updated_at FROM organizations WHERE id = $1`
+	query := `SELECT id, name, created_at FROM organizations WHERE id = $1`
 	var o store.Organization
-	err := ps.db.QueryRowContext(ctx, query, orgID).Scan(&o.ID, &o.Name, &o.CreatedAt, &o.UpdatedAt)
+	err := ps.db.QueryRowContext(ctx, query, orgID).Scan(&o.ID, &o.Name, &o.CreatedAt)
 	if err == sql.ErrNoRows {
 		return o, fmt.Errorf("organization not found")
 	}
