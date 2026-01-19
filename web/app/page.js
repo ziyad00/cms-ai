@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import TemplateCreationWizard from '../components/TemplateCreationWizard'
 
 export default function Page() {
   const router = useRouter()
@@ -9,6 +10,7 @@ export default function Page() {
   const [templates, setTemplates] = useState([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
+  const [showWizard, setShowWizard] = useState(false)
 
   useEffect(() => {
     // Check if user is authenticated by calling /api/auth/me
@@ -52,31 +54,14 @@ export default function Page() {
     router.push('/auth/signin')
   }
 
-  async function generateTemplate() {
-    if (!user) return
-    setLoading(true)
-    setMessage('')
-    // Cookies are sent automatically by browser
-    try {
-      const res = await fetch('/api/templates/generate', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt: 'Corporate presentation template' }),
-      })
-      if (!res.ok) {
-        setMessage(`Error: ${res.status}`)
-        return
-      }
-      const data = await res.json()
-      setMessage(`Generated template: ${data.template.name}`)
-      loadTemplates()
-    } catch (err) {
-      setMessage(`Error: ${err.message}`)
-    } finally {
-      setLoading(false)
-    }
+  function handleWizardComplete(template) {
+    setMessage(`Generated template: ${template.name}`)
+    setShowWizard(false)
+    loadTemplates()
+  }
+
+  function handleWizardCancel() {
+    setShowWizard(false)
   }
 
   async function loadTemplates() {
@@ -130,12 +115,11 @@ export default function Page() {
       </header>
       <main className="max-w-7xl mx-auto px-4 py-8">
         <section className="mb-8">
-          <button 
-            onClick={generateTemplate} 
-            disabled={loading} 
-            className="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 disabled:opacity-50"
+          <button
+            onClick={() => setShowWizard(true)}
+            className="bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600"
           >
-            {loading ? 'Generating...' : 'Generate Template'}
+            Create New Template
           </button>
           {message && <p className="mt-2 text-green-600">{message}</p>}
         </section>
@@ -160,6 +144,14 @@ export default function Page() {
           </div>
         </section>
       </main>
+
+      {/* Template Creation Wizard */}
+      {showWizard && (
+        <TemplateCreationWizard
+          onComplete={handleWizardComplete}
+          onCancel={handleWizardCancel}
+        />
+      )}
     </div>
   )
 }

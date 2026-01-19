@@ -52,7 +52,7 @@ func NewHuggingFaceClient(apiKey, model string) *HuggingFaceClient {
 		apiKey = "hf_default" // Will be overridden by env var
 	}
 	if model == "" {
-		model = "meta-llama/Llama-2-7b-chat-hf"
+		model = "gpt2"
 	}
 
 	return &HuggingFaceClient{
