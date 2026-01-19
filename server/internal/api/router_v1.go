@@ -178,11 +178,19 @@ func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 
+	// Convert template spec to JSON for storage
+	specJSON, err := json.Marshal(templateSpec)
+	if err != nil {
+		log.Printf("ERROR: Failed to marshal template spec: %v", err)
+		writeError(w, r, http.StatusInternalServerError, "failed to create template")
+		return
+	}
+
 	version := store.TemplateVersion{
 		Template:  created.ID,
 		OrgID:     id.OrgID,
 		VersionNo: 1,
-		SpecJSON:  templateSpec,
+		SpecJSON:  specJSON,
 		CreatedBy: id.UserID,
 	}
 	createdVer, err := s.Store.Templates().CreateVersion(r.Context(), version)
@@ -288,7 +296,15 @@ func (s *Server) handleCreateVersion(w http.ResponseWriter, r *http.Request) {
 	}
 
 	newNo := tpl.LatestVersionNo + 1
-	ver := store.TemplateVersion{Template: tpl.ID, OrgID: tpl.OrgID, VersionNo: newNo, SpecJSON: specJSON, CreatedBy: id.UserID}
+	// Convert spec to JSON for storage
+	specJSONBytes, err := json.Marshal(specJSON)
+	if err != nil {
+		log.Printf("ERROR: Failed to marshal spec JSON: %v", err)
+		writeError(w, r, http.StatusInternalServerError, "failed to create version")
+		return
+	}
+
+	ver := store.TemplateVersion{Template: tpl.ID, OrgID: tpl.OrgID, VersionNo: newNo, SpecJSON: specJSONBytes, CreatedBy: id.UserID}
 	created, err := s.Store.Templates().CreateVersion(r.Context(), ver)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed to create version")
@@ -337,7 +353,15 @@ func (s *Server) handlePatchVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	newNo := tpl.LatestVersionNo + 1
-	newV := store.TemplateVersion{Template: tpl.ID, OrgID: tpl.OrgID, VersionNo: newNo, SpecJSON: req.Spec, CreatedBy: id.UserID}
+	// Convert spec to JSON for storage
+	specJSONBytes, err := json.Marshal(req.Spec)
+	if err != nil {
+		log.Printf("ERROR: Failed to marshal spec JSON: %v", err)
+		writeError(w, r, http.StatusInternalServerError, "failed to create version")
+		return
+	}
+
+	newV := store.TemplateVersion{Template: tpl.ID, OrgID: tpl.OrgID, VersionNo: newNo, SpecJSON: specJSONBytes, CreatedBy: id.UserID}
 	created, err := s.Store.Templates().CreateVersion(r.Context(), newV)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed to create version")
