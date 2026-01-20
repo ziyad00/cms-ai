@@ -8,17 +8,20 @@ export async function GET(req) {
     const headers = await getAuthHeaders(req)
 
     if (!headers || !headers['Authorization']) {
-      console.log('Templates API: No auth headers found')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    console.log('Templates API: Making request to Go backend with headers:', Object.keys(headers))
     const result = await getJSON('/v1/templates', { headers })
-    console.log('Templates API: Go backend response status:', result.status, 'body:', result.body)
+
+    // Forward the exact response from Go backend
+    if (result.status !== 200) {
+      // If Go backend returns an error, forward it exactly
+      return NextResponse.json(result.body, { status: result.status })
+    }
 
     return NextResponse.json(result.body, { status: result.status })
   } catch (error) {
-    console.error('Templates API: Error occurred:', error)
+    console.error('Templates API: Network or parsing error:', error)
     return NextResponse.json({ error: 'failed to list templates' }, { status: 500 })
   }
 }
