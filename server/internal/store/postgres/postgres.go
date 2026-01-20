@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -214,6 +215,7 @@ func (p *postgresTemplateStore) ListTemplates(ctx context.Context, orgID string)
 	query := `SELECT id, org_id, owner_user_id, name, status, current_version_id, created_at, updated_at, latest_version_no FROM templates WHERE org_id = $1`
 	rows, err := ps.db.QueryContext(ctx, query, orgID)
 	if err != nil {
+		log.Printf("ERROR: ListTemplates query failed - OrgID: %s, Error: %v", orgID, err)
 		return nil, err
 	}
 	defer rows.Close()
