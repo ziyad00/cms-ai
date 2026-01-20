@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/ziyad/cms-ai/server/internal/spec"
@@ -43,21 +44,21 @@ type chatMessage struct {
 	Content string `json:"content"`
 }
 
-type huggingFaceRequest struct {
-	Model       string        `json:"model"`
-	Messages    []chatMessage `json:"messages"`
-	MaxTokens   int           `json:"max_tokens"`
-	Temperature float64       `json:"temperature"`
+type hfChatRequest struct {
+	Messages []chatMessage `json:"messages"`
+	Model    string        `json:"model"`
+	Stream   bool          `json:"stream"`
 }
 
-type huggingFaceChoice struct {
+type hfChatChoice struct {
 	Index   int         `json:"index"`
 	Message chatMessage `json:"message"`
 }
 
-type huggingFaceResponse struct {
-	Choices []huggingFaceChoice `json:"choices"`
+type hfChatResponse struct {
+	Choices []hfChatChoice `json:"choices"`
 }
+
 
 func NewHuggingFaceClient(apiKey, model string) *HuggingFaceClient {
 	if apiKey == "" {
@@ -72,7 +73,7 @@ func NewHuggingFaceClient(apiKey, model string) *HuggingFaceClient {
 		model:   model,
 		baseURL: "https://router.huggingface.co/v1/chat/completions",
 		httpClient: &http.Client{
-			Timeout: 120 * time.Second, // Increased timeout for HuggingFace API
+			Timeout: 120 * time.Second,
 		},
 	}
 }
@@ -81,9 +82,8 @@ func (c *HuggingFaceClient) GenerateTemplateSpec(ctx context.Context, req Genera
 	// Build system prompt with user requirements
 	systemPrompt := c.buildSystemPrompt(req)
 
-	// Prepare request for HuggingFace chat completions API
-	hfReq := huggingFaceRequest{
-		Model: c.model,
+	// Prepare chat completion request
+	hfReq := hfChatRequest{
 		Messages: []chatMessage{
 			{
 				Role:    "system",
@@ -94,8 +94,8 @@ func (c *HuggingFaceClient) GenerateTemplateSpec(ctx context.Context, req Genera
 				Content: req.Prompt,
 			},
 		},
-		MaxTokens:   2048,
-		Temperature: 0.7,
+		Model:  c.model,
+		Stream: false,
 	}
 
 	// Marshal request
@@ -114,19 +114,10 @@ func (c *HuggingFaceClient) GenerateTemplateSpec(ctx context.Context, req Genera
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
 	httpReq.Header.Set("Content-Type", "application/json")
 
-	// Make request with error handling for network issues
+	// Make request to HuggingFace API
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		fmt.Printf("Network error with HuggingFace API, using fallback: %v\n", err)
-		// Return fallback template for network errors
-		templateSpec := c.generateMockTemplateSpec(req)
-		return &GenerationResponse{
-			Spec:       templateSpec,
-			TokenUsage: 100, // Mock token usage
-			Cost:       0.01, // Mock cost
-			Model:      c.model + " (fallback)",
-			Timestamp:  time.Now(),
-		}, nil
+		return nil, fmt.Errorf("network error with HuggingFace API: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -137,20 +128,11 @@ func (c *HuggingFaceClient) GenerateTemplateSpec(ctx context.Context, req Genera
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("HuggingFace API error (status %d): %s, using fallback\n", resp.StatusCode, string(respBody))
-		// Return fallback template for API errors
-		templateSpec := c.generateMockTemplateSpec(req)
-		return &GenerationResponse{
-			Spec:       templateSpec,
-			TokenUsage: 100, // Mock token usage
-			Cost:       0.01, // Mock cost
-			Model:      c.model + " (fallback)",
-			Timestamp:  time.Now(),
-		}, nil
+		return nil, fmt.Errorf("HuggingFace API error (status %d): %s", resp.StatusCode, string(respBody))
 	}
 
 	// Parse HuggingFace response
-	var hfResp huggingFaceResponse
+	var hfResp hfChatResponse
 	if err := json.Unmarshal(respBody, &hfResp); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
@@ -164,15 +146,12 @@ func (c *HuggingFaceClient) GenerateTemplateSpec(ctx context.Context, req Genera
 	// Parse the generated template spec
 	templateSpec, err := c.parseTemplateSpec(generatedText)
 	if err != nil {
-		// If parsing fails, fall back to mock with user content
-		fmt.Printf("Failed to parse AI response, using mock fallback: %v\n", err)
-		templateSpec = c.generateMockTemplateSpec(req)
-	} else {
-		// Validate the parsed spec
-		if err := c.validateTemplateSpec(templateSpec); err != nil {
-			fmt.Printf("Invalid template spec from AI, using mock fallback: %v\n", err)
-			templateSpec = c.generateMockTemplateSpec(req)
-		}
+		return nil, fmt.Errorf("failed to parse AI response: %w", err)
+	}
+
+	// Validate the parsed spec
+	if err := c.validateTemplateSpec(templateSpec); err != nil {
+		return nil, fmt.Errorf("invalid template spec from AI: %w", err)
 	}
 
 	// Calculate metrics
@@ -188,78 +167,6 @@ func (c *HuggingFaceClient) GenerateTemplateSpec(ctx context.Context, req Genera
 	}, nil
 }
 
-func (c *HuggingFaceClient) generateMockTemplateSpec(req GenerationRequest) *spec.TemplateSpec {
-	// Create a simple template with user content
-	layouts := []spec.Layout{
-		{
-			Name: "Title Slide",
-			Placeholders: []spec.Placeholder{
-				{
-					ID:      "title",
-					Type:    "text",
-					Content: c.getContentValue(req.ContentData, "title", "Sales Presentation"),
-					Geometry: spec.Geometry{X: 0.1, Y: 0.3, W: 0.8, H: 0.15},
-				},
-				{
-					ID:      "subtitle",
-					Type:    "text",
-					Content: c.getContentValue(req.ContentData, "period", "Q1 2024"),
-					Geometry: spec.Geometry{X: 0.1, Y: 0.5, W: 0.8, H: 0.1},
-				},
-			},
-		},
-		{
-			Name: "Content Slide",
-			Placeholders: []spec.Placeholder{
-				{
-					ID:      "revenue",
-					Type:    "text",
-					Content: "Revenue: " + c.getContentValue(req.ContentData, "revenue", "$2.5M"),
-					Geometry: spec.Geometry{X: 0.1, Y: 0.2, W: 0.8, H: 0.1},
-				},
-				{
-					ID:      "growth",
-					Type:    "text",
-					Content: "Growth: " + c.getContentValue(req.ContentData, "growth", "15%"),
-					Geometry: spec.Geometry{X: 0.1, Y: 0.4, W: 0.8, H: 0.1},
-				},
-				{
-					ID:      "deals",
-					Type:    "text",
-					Content: "Deals: " + c.getContentValue(req.ContentData, "deals", "40"),
-					Geometry: spec.Geometry{X: 0.1, Y: 0.6, W: 0.8, H: 0.1},
-				},
-			},
-		},
-	}
-
-	return &spec.TemplateSpec{
-		Tokens: map[string]any{
-			"colors": map[string]string{
-				"primary":    "#2563eb",
-				"background": "#ffffff",
-				"text":       "#1f2937",
-				"accent":     "#10b981",
-			},
-		},
-		Constraints: spec.Constraints{
-			SafeMargin: 0.05,
-		},
-		Layouts: layouts,
-	}
-}
-
-func (c *HuggingFaceClient) getContentValue(contentData map[string]interface{}, key, defaultValue string) string {
-	if contentData == nil {
-		return defaultValue
-	}
-	if value, ok := contentData[key]; ok {
-		if strValue, ok := value.(string); ok {
-			return strValue
-		}
-	}
-	return defaultValue
-}
 
 func (c *HuggingFaceClient) buildSystemPrompt(req GenerationRequest) string {
 	examples := c.getFewShotExamples()
@@ -372,8 +279,8 @@ ContentData: {"period": "Q4 2024", "revenue": "$2.5M", "growth": "15%"}`
 
 func (c *HuggingFaceClient) parseTemplateSpec(generatedText string) (*spec.TemplateSpec, error) {
 	// Look for JSON in the response
-	jsonStart := bytes.Index([]byte(generatedText), []byte("{"))
-	jsonEnd := bytes.LastIndex([]byte(generatedText), []byte("}"))
+	jsonStart := strings.Index(generatedText, "{")
+	jsonEnd := strings.LastIndex(generatedText, "}")
 
 	if jsonStart == -1 || jsonEnd == -1 || jsonStart >= jsonEnd {
 		return nil, fmt.Errorf("no valid JSON found in response")

@@ -15,11 +15,15 @@ export async function POST(req) {
     // Use runtime environment variable instead of build-time
     const backendUrl = process.env.GO_API_BASE_URL || 'http://127.0.0.1:8081'
 
+    console.log('Signup request:', { name, email, backendUrl })
+
     const result = await postJSON('/v1/auth/signup', {
       name: name || email.split('@')[0],
       email,
       password
     }, { baseUrl: backendUrl })
+
+    console.log('Backend response:', result)
 
     if (result.status === 200 && result.body.token) {
       // Set httpOnly cookie with JWT token
@@ -27,7 +31,7 @@ export async function POST(req) {
 
       response.cookies.set('auth-token', result.body.token, {
         httpOnly: true,
-        secure: true, // Always use secure in production (Railway uses HTTPS)
+        secure: process.env.NODE_ENV !== 'development', // Secure by default unless development
         sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 7, // 7 days
         path: '/',

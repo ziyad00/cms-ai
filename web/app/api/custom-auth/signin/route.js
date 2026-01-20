@@ -20,7 +20,7 @@ export async function POST(req) {
 
       response.cookies.set('auth-token', result.body.token, {
         httpOnly: true,
-        secure: true, // Always use secure in production (Railway uses HTTPS)
+        secure: process.env.NODE_ENV !== 'development', // Secure by default unless development
         sameSite: 'lax',
         maxAge: 60 * 60 * 24 * 7, // 7 days
         path: '/',

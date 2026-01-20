@@ -9,6 +9,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.19.7
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.95.1
 	github.com/golang-jwt/jwt/v5 v5.3.0
+	github.com/hupe1980/go-huggingface v0.0.15
 	github.com/lib/pq v1.10.9
 	github.com/stretchr/testify v1.11.1
 )
