@@ -30,7 +30,7 @@ export default function Page() {
       .then(data => {
         if (data?.user) {
           setUser(data.user)
-          loadTemplates() // Auto-load templates when user is set
+          // loadTemplates() will be called in the separate useEffect when user state updates
         } else if (data === null) {
           // Already redirected or error
           return
@@ -43,27 +43,6 @@ export default function Page() {
         router.push('/auth/signin')
       })
   }, [router])
-
-  async function handleLogout() {
-    try {
-      await fetch('/api/auth/logout', { method: 'POST' })
-    } catch (err) {
-      // Ignore errors
-    }
-    setUser(null)
-    setTemplates([])
-    router.push('/auth/signin')
-  }
-
-  function handleWizardComplete(template) {
-    setMessage(`Generated template: ${template.name}`)
-    setShowWizard(false)
-    loadTemplates() // Refresh templates automatically
-  }
-
-  function handleWizardCancel() {
-    setShowWizard(false)
-  }
 
   async function loadTemplates() {
     if (!user) return
@@ -84,6 +63,34 @@ export default function Page() {
       console.error('Failed to load templates:', err)
       setMessage(`Network error loading templates: ${err.message}`)
     }
+  }
+
+  // Load templates when user is set
+  useEffect(() => {
+    if (user) {
+      loadTemplates()
+    }
+  }, [user, loadTemplates])
+
+  async function handleLogout() {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch (err) {
+      // Ignore errors
+    }
+    setUser(null)
+    setTemplates([])
+    router.push('/auth/signin')
+  }
+
+  function handleWizardComplete(template) {
+    setMessage(`Generated template: ${template.name}`)
+    setShowWizard(false)
+    loadTemplates() // Refresh templates automatically
+  }
+
+  function handleWizardCancel() {
+    setShowWizard(false)
   }
 
   if (!user) {
