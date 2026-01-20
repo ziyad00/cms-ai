@@ -69,15 +69,20 @@ export default function Page() {
     if (!user) return
     // Cookies are sent automatically by browser
     try {
-      const res = await fetch('/api/templates', { 
+      const res = await fetch('/api/templates', {
         method: 'GET',
       })
       if (res.ok) {
         const data = await res.json()
         setTemplates(data.templates || [])
+      } else {
+        const errorData = await res.json().catch(() => ({}))
+        console.error('Failed to load templates:', res.status, errorData)
+        setMessage(`Error loading templates: ${errorData.error || 'Unknown error'}`)
       }
     } catch (err) {
       console.error('Failed to load templates:', err)
+      setMessage(`Network error loading templates: ${err.message}`)
     }
   }
 
