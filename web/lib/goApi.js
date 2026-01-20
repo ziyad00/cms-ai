@@ -83,6 +83,55 @@ export async function postJSON(path, body, { baseUrl = goApiBaseUrl(), headers =
 
 export async function getJSON(path, { baseUrl = goApiBaseUrl(), headers = {} } = {}) {
   const url = joinUrl(baseUrl, path)
+
+  // Force external HTTP request for server-side calls using node:http
+  if (typeof window === 'undefined') {
+    const http = await import('node:http')
+    const { URL } = await import('node:url')
+
+    return new Promise((resolve, reject) => {
+      const parsedUrl = new URL(url)
+
+      const options = {
+        hostname: parsedUrl.hostname,
+        port: parsedUrl.port || (parsedUrl.protocol === 'https:' ? 443 : 80),
+        path: parsedUrl.pathname + parsedUrl.search,
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Host': parsedUrl.hostname + (parsedUrl.port ? ':' + parsedUrl.port : ''),
+          ...headers
+        }
+      }
+
+      const req = http.request(options, (res) => {
+        let data = ''
+        res.on('data', (chunk) => { data += chunk })
+        res.on('end', () => {
+          let parsed
+          try {
+            parsed = data ? JSON.parse(data) : null
+          } catch {
+            parsed = { raw: data }
+          }
+          resolve({ status: res.statusCode, body: parsed })
+        })
+      })
+
+      req.on('error', (error) => {
+        reject(error)
+      })
+
+      req.setTimeout(10000, () => {
+        req.destroy()
+        reject(new Error('Request timeout'))
+      })
+
+      req.end()
+    })
+  }
+
+  // Client-side fallback to fetch
   const res = await fetch(url, {
     method: 'GET',
     headers: { 'Accept': 'application/json', ...headers },
