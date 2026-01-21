@@ -269,7 +269,7 @@ func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) 
 		writeError(w, r, http.StatusInternalServerError, "failed to create version")
 		return
 	}
-	created.CurrentVersion = createdVer.ID
+	created.CurrentVersion = &createdVer.ID
 	created.LatestVersionNo = 1
 	created, _ = s.Store.Templates().UpdateTemplate(r.Context(), created)
 

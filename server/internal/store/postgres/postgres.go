@@ -212,7 +212,7 @@ func (p *postgresTemplateStore) CreateTemplate(ctx context.Context, t store.Temp
 
 func (p *postgresTemplateStore) ListTemplates(ctx context.Context, orgID string) ([]store.Template, error) {
 	ps := (*PostgresStore)(p)
-	query := `SELECT id, org_id, owner_user_id, name, status, COALESCE(current_version_id, '') as current_version_id, created_at, updated_at, latest_version_no FROM templates WHERE org_id = $1`
+	query := `SELECT id, org_id, owner_user_id, name, status, current_version_id, created_at, updated_at, latest_version_no FROM templates WHERE org_id = $1`
 	rows, err := ps.db.QueryContext(ctx, query, orgID)
 	if err != nil {
 		log.Printf("ERROR: ListTemplates query failed - OrgID: %s, Error: %v", orgID, err)
@@ -223,9 +223,13 @@ func (p *postgresTemplateStore) ListTemplates(ctx context.Context, orgID string)
 	var ts []store.Template
 	for rows.Next() {
 		var t store.Template
-		err := rows.Scan(&t.ID, &t.OrgID, &t.OwnerUserID, &t.Name, &t.Status, &t.CurrentVersion, &t.CreatedAt, &t.UpdatedAt, &t.LatestVersionNo)
+		var nullCurrentVersion sql.NullString
+		err := rows.Scan(&t.ID, &t.OrgID, &t.OwnerUserID, &t.Name, &t.Status, &nullCurrentVersion, &t.CreatedAt, &t.UpdatedAt, &t.LatestVersionNo)
 		if err != nil {
 			return nil, err
+		}
+		if nullCurrentVersion.Valid {
+			t.CurrentVersion = &nullCurrentVersion.String
 		}
 		ts = append(ts, t)
 	}
@@ -234,9 +238,13 @@ func (p *postgresTemplateStore) ListTemplates(ctx context.Context, orgID string)
 
 func (p *postgresTemplateStore) GetTemplate(ctx context.Context, orgID, id string) (store.Template, bool, error) {
 	ps := (*PostgresStore)(p)
-	query := `SELECT id, org_id, owner_user_id, name, status, COALESCE(current_version_id, '') as current_version_id, created_at, updated_at, latest_version_no FROM templates WHERE org_id = $1 AND id = $2`
+	query := `SELECT id, org_id, owner_user_id, name, status, current_version_id, created_at, updated_at, latest_version_no FROM templates WHERE org_id = $1 AND id = $2`
 	var t store.Template
-	err := ps.db.QueryRowContext(ctx, query, orgID, id).Scan(&t.ID, &t.OrgID, &t.OwnerUserID, &t.Name, &t.Status, &t.CurrentVersion, &t.CreatedAt, &t.UpdatedAt, &t.LatestVersionNo)
+	var nullCurrentVersion sql.NullString
+	err := ps.db.QueryRowContext(ctx, query, orgID, id).Scan(&t.ID, &t.OrgID, &t.OwnerUserID, &t.Name, &t.Status, &nullCurrentVersion, &t.CreatedAt, &t.UpdatedAt, &t.LatestVersionNo)
+	if nullCurrentVersion.Valid {
+		t.CurrentVersion = &nullCurrentVersion.String
+	}
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return store.Template{}, false, nil
@@ -250,7 +258,11 @@ func (p *postgresTemplateStore) UpdateTemplate(ctx context.Context, t store.Temp
 	ps := (*PostgresStore)(p)
 	query := `UPDATE templates SET name = $1, status = $2, current_version_id = $3, updated_at = $4, latest_version_no = $5 WHERE id = $6 AND org_id = $7`
 	t.UpdatedAt = time.Now().UTC()
-	_, err := ps.db.ExecContext(ctx, query, t.Name, t.Status, t.CurrentVersion, t.UpdatedAt, t.LatestVersionNo, t.ID, t.OrgID)
+	var currentVersionParam interface{}
+	if t.CurrentVersion != nil {
+		currentVersionParam = *t.CurrentVersion
+	}
+	_, err := ps.db.ExecContext(ctx, query, t.Name, t.Status, currentVersionParam, t.UpdatedAt, t.LatestVersionNo, t.ID, t.OrgID)
 	if err != nil {
 		return store.Template{}, err
 	}

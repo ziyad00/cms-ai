@@ -17,7 +17,7 @@ type Template struct {
 	OwnerUserID     string         `json:"ownerUserId"`
 	Name            string         `json:"name"`
 	Status          TemplateStatus `json:"status"`
-	CurrentVersion  string         `json:"currentVersionId"`
+	CurrentVersion  *string        `json:"currentVersionId"`
 	CreatedAt       time.Time      `json:"createdAt"`
 	UpdatedAt       time.Time      `json:"updatedAt"`
 	LatestVersionNo int            `json:"latestVersionNo"`
