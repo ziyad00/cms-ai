@@ -44,6 +44,10 @@ func Initialize(config *Config) {
 		config = DefaultConfig()
 	}
 
+	if config.Output == nil {
+		config.Output = os.Stdout
+	}
+
 	// Convert string level to slog.Level
 	var level slog.Level
 	switch config.Level {
@@ -73,6 +77,13 @@ func Initialize(config *Config) {
 
 	Logger = slog.New(handler)
 	slog.SetDefault(Logger)
+}
+
+func init() {
+	// Ensure Logger is never nil by setting a default
+	if Logger == nil {
+		Initialize(nil)
+	}
 }
 
 // Context keys for structured logging
