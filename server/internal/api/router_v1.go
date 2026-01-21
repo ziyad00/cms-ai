@@ -59,6 +59,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/brand-kits", s.handleListBrandKits)
 	mux.HandleFunc("GET /v1/usage", s.handleUsage)
 
+	// Database diagnostics endpoints
+	mux.HandleFunc("GET /v1/admin/db/diagnostics", s.handleDatabaseDiagnostics)
+	mux.HandleFunc("GET /v1/admin/db/query", s.handleDatabaseQuery)
+
 	h := http.Handler(mux)
 	h = requireJSON(h)
 	h = withRequestID(h)

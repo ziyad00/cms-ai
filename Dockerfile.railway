@@ -1,0 +1,81 @@
+# Multi-stage build for Railway deployment
+FROM golang:1.23-alpine AS go-build
+WORKDIR /build
+
+# Install git for go modules
+RUN apk add --no-cache git
+
+# Copy all server source code
+COPY server/ ./
+
+# Verify files are copied correctly
+RUN ls -la internal/assets/ || echo "assets directory not found"
+RUN ls -la internal/ || echo "internal directory not found"
+
+# Download dependencies and build
+RUN go mod download
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/server ./cmd/server
+
+# Build Next.js frontend
+FROM node:18-alpine AS web-build
+WORKDIR /app
+
+# Install dependencies (including devDependencies for build)
+COPY web/package*.json ./
+RUN npm ci
+
+# Copy source code and build
+COPY web/ .
+RUN npm run build
+
+# Production runtime
+FROM alpine:3.19
+
+# Install runtime dependencies
+RUN apk --no-cache add \
+    ca-certificates \
+    python3 \
+    py3-pip \
+    curl \
+    && pip3 install --no-cache-dir --break-system-packages python-pptx
+
+# Create non-root user
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -S appuser -u 1001 -G appgroup
+
+# Install Node.js for Next.js runtime
+RUN apk --no-cache add nodejs npm
+
+# Copy artifacts from build stages
+COPY --from=go-build /app/server /usr/local/bin/server
+
+# Copy entire Next.js build (includes .next, node_modules, and source files)
+COPY --from=web-build /app /app/web
+
+COPY tools/renderer/ /app/tools/renderer/
+COPY scripts/start.sh /app/scripts/start.sh
+
+# Make start script executable
+RUN chmod +x /app/scripts/start.sh
+
+# Create directories with proper permissions
+RUN mkdir -p /app/uploads /app/logs /app/assets && \
+    chown -R appuser:appgroup /app
+
+# Switch to non-root user
+USER appuser
+
+# Set working directory
+WORKDIR /app
+
+# Health check - check Next.js health endpoint
+# Note: PORT is set by Railway, but HEALTHCHECK doesn't expand env vars
+# So we check both the default 3000 and use a script that reads PORT
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+    CMD sh -c 'PORT=${PORT:-3000} && curl -f http://localhost:$PORT/api/healthz || exit 1'
+
+EXPOSE 8080
+EXPOSE 3000
+
+# Use start script to run both services
+CMD ["/app/scripts/start.sh"]

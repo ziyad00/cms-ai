@@ -42,6 +42,11 @@ func (p *PostgresStore) Close() error {
 	return p.db.Close()
 }
 
+// DB exposes the underlying database connection for diagnostics
+func (p *PostgresStore) DB() *sql.DB {
+	return p.db
+}
+
 // runMigrations executes SQL migration scripts to set up the database schema
 func (p *PostgresStore) runMigrations() error {
 	// Check if users table exists to determine if migrations are needed
