@@ -212,7 +212,7 @@ func (p *postgresTemplateStore) CreateTemplate(ctx context.Context, t store.Temp
 
 func (p *postgresTemplateStore) ListTemplates(ctx context.Context, orgID string) ([]store.Template, error) {
 	ps := (*PostgresStore)(p)
-	query := `SELECT id, org_id, owner_user_id, name, status, current_version_id, created_at, updated_at, latest_version_no FROM templates WHERE org_id = $1`
+	query := `SELECT id, org_id, owner_user_id, name, status, COALESCE(current_version_id, '') as current_version_id, created_at, updated_at, latest_version_no FROM templates WHERE org_id = $1`
 	rows, err := ps.db.QueryContext(ctx, query, orgID)
 	if err != nil {
 		log.Printf("ERROR: ListTemplates query failed - OrgID: %s, Error: %v", orgID, err)
@@ -234,7 +234,7 @@ func (p *postgresTemplateStore) ListTemplates(ctx context.Context, orgID string)
 
 func (p *postgresTemplateStore) GetTemplate(ctx context.Context, orgID, id string) (store.Template, bool, error) {
 	ps := (*PostgresStore)(p)
-	query := `SELECT id, org_id, owner_user_id, name, status, current_version_id, created_at, updated_at, latest_version_no FROM templates WHERE org_id = $1 AND id = $2`
+	query := `SELECT id, org_id, owner_user_id, name, status, COALESCE(current_version_id, '') as current_version_id, created_at, updated_at, latest_version_no FROM templates WHERE org_id = $1 AND id = $2`
 	var t store.Template
 	err := ps.db.QueryRowContext(ctx, query, orgID, id).Scan(&t.ID, &t.OrgID, &t.OwnerUserID, &t.Name, &t.Status, &t.CurrentVersion, &t.CreatedAt, &t.UpdatedAt, &t.LatestVersionNo)
 	if err != nil {
