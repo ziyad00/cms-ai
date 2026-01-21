@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
@@ -10,9 +9,24 @@ import (
 	"time"
 
 	"github.com/ziyad/cms-ai/server/internal/api"
+	"github.com/ziyad/cms-ai/server/internal/logger"
 )
 
 func main() {
+	// Initialize structured logging
+	logLevel := logger.LogLevel(env("LOG_LEVEL", "info"))
+	logFormat := env("LOG_FORMAT", "json")
+
+	logger.Initialize(&logger.Config{
+		Level:  logLevel,
+		Format: logFormat,
+	})
+
+	logger.Logger.Info("server_starting",
+		"log_level", logLevel,
+		"log_format", logFormat,
+	)
+
 	// Support both PORT (Railway) and ADDR (local dev)
 	port := env("PORT", "")
 	addr := env("ADDR", "")
@@ -36,9 +50,10 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("listening on %s", addr)
+		logger.Logger.Info("server_listening", "addr", addr)
 		if err := httpSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("server error: %v", err)
+			logger.Logger.Error("server_error", "error", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -46,10 +61,13 @@ func main() {
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
 
+	logger.Logger.Info("server_shutting_down")
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := httpSrv.Shutdown(ctx); err != nil {
-		log.Printf("shutdown error: %v", err)
+		logger.Logger.Error("shutdown_error", "error", err)
+	} else {
+		logger.Logger.Info("server_shutdown_complete")
 	}
 }
 
