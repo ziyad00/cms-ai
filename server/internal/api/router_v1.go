@@ -300,11 +300,14 @@ func (s *Server) handleListTemplates(w http.ResponseWriter, r *http.Request) {
 	id, ok := auth.GetIdentity(r.Context())
 	log.Printf("DEBUG: handleListTemplates - Auth OK: %v, UserID: %s, OrgID: %s", ok, id.UserID, id.OrgID)
 
+	log.Printf("DEBUG: About to call ListTemplates for OrgID: %s", id.OrgID)
 	tpls, err := s.Store.Templates().ListTemplates(r.Context(), id.OrgID)
 	if err != nil {
+		log.Printf("ERROR: ListTemplates failed for OrgID %s: %v", id.OrgID, err)
 		writeError(w, r, http.StatusInternalServerError, "failed to list templates")
 		return
 	}
+	log.Printf("DEBUG: ListTemplates success for OrgID %s, found %d templates", id.OrgID, len(tpls))
 	writeJSON(w, http.StatusOK, map[string]any{"templates": tpls})
 }
 
