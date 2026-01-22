@@ -40,10 +40,11 @@
 - [x] Backend unit tests - COMPLETED: Comprehensive test suite added for auth, AI, and API packages
 - [x] Fix template persistence issue - FIXED: PostgreSQL backend storage configured and working
 - [x] Database diagnostics implementation - COMPLETED: Added comprehensive diagnostic endpoints for investigating empty specs and data integrity issues
-- [ ] **READY TO USE**: Test diagnostic endpoints on Railway production database to investigate empty specs
-  - Use `/v1/admin/db/query?q=empty_specs` to find templates with NULL/empty spec_json
-  - Use `/v1/admin/db/query?q=null_current_version` to find templates without current_version_id
-  - Use `/v1/admin/db/diagnostics` for comprehensive database analysis
+- [x] **FIXED**: AI generation producing placeholder content instead of meaningful specs
+  - ROOT CAUSE: Incomplete few-shot examples in HuggingFace client - second example was missing response JSON
+  - SOLUTION: Added complete response example for "Sales report template with quarterly data"
+  - FIX: Updated getFewShotExamples() function with proper JSON response structure
+  - Now AI should generate proper template specs instead of placeholder content like "car", "sales"
 - [ ] URGENT: Fix Railway deployment failures and deploy template loading fix
 - [ ] Investigate build failure root cause (recent deployments all fail)
 - [ ] Deploy React useEffect fix for consistent template loading

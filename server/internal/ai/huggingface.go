@@ -276,7 +276,32 @@ Response: {
 }
 
 User: "Sales report template with quarterly data"
-ContentData: {"period": "Q4 2024", "revenue": "$2.5M", "growth": "15%"}`
+ContentData: {"period": "Q4 2024", "revenue": "$2.5M", "growth": "15%"}
+Response: {
+  "tokens": {
+    "colors": {
+      "primary": "#1f2937",
+      "background": "#ffffff",
+      "text": "#374151",
+      "accent": "#059669"
+    },
+    "fonts": {
+      "heading": "Arial",
+      "body": "Arial"
+    }
+  },
+  "constraints": {"safeMargin": 0.05},
+  "layouts": [
+    {
+      "name": "Sales Report",
+      "placeholders": [
+        {"id": "period", "type": "text", "content": "Q4 2024", "geometry": {"x": 0.1, "y": 0.1, "w": 0.8, "h": 0.1}},
+        {"id": "revenue", "type": "text", "content": "$2.5M", "geometry": {"x": 0.1, "y": 0.3, "w": 0.35, "h": 0.15}},
+        {"id": "growth", "type": "text", "content": "15%", "geometry": {"x": 0.55, "y": 0.3, "w": 0.35, "h": 0.15}}
+      ]
+    }
+  ]
+}`
 }
 
 func (c *HuggingFaceClient) parseTemplateSpec(generatedText string) (*spec.TemplateSpec, error) {
