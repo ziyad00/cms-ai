@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import TemplateCreationWizard from '../components/TemplateCreationWizard'
 
@@ -44,7 +44,7 @@ export default function Page() {
       })
   }, [router])
 
-  async function loadTemplates() {
+  const loadTemplates = useCallback(async () => {
     if (!user) return
     // Cookies are sent automatically by browser
     try {
@@ -63,7 +63,7 @@ export default function Page() {
       console.error('Failed to load templates:', err)
       setMessage(`Network error loading templates: ${err.message}`)
     }
-  }
+  }, [user])
 
   // Load templates when user is set
   useEffect(() => {

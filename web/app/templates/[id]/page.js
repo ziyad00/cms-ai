@@ -28,6 +28,13 @@ export default function TemplatePage() {
     loadVersions()
   }, [id])
 
+  // Load current version spec when template is loaded
+  useEffect(() => {
+    if (template && template.currentVersion && versions.length > 0) {
+      loadCurrentVersionSpec()
+    }
+  }, [template, versions])
+
   useEffect(() => {
     if (spec) {
       try {
@@ -65,6 +72,24 @@ export default function TemplatePage() {
       }
     } catch (err) {
       console.error(err)
+    }
+  }
+
+  async function loadCurrentVersionSpec() {
+    try {
+      // Find the current version in the versions list
+      const currentVersion = versions.find(v => v.id === template.currentVersion)
+      if (currentVersion && currentVersion.specJson) {
+        setSpec(JSON.stringify(currentVersion.specJson, null, 2))
+      } else if (versions.length > 0) {
+        // Fallback to latest version if current version not found
+        const latestVersion = versions.find(v => v.versionNo === template.latestVersionNo)
+        if (latestVersion && latestVersion.specJson) {
+          setSpec(JSON.stringify(latestVersion.specJson, null, 2))
+        }
+      }
+    } catch (err) {
+      console.error('Failed to load spec:', err)
     }
   }
 
