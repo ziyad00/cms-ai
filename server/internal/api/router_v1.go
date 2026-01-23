@@ -479,7 +479,12 @@ func (s *Server) handleRenderVersion(w http.ResponseWriter, r *http.Request) {
 		InputRef:        versionID,
 		DeduplicationID: fmt.Sprintf("%s-%s", string(store.JobRender), versionID),
 	}
-	created, wasDuplicate, _ := s.Store.Jobs().EnqueueWithDeduplication(r.Context(), job)
+	created, wasDuplicate, err := s.Store.Jobs().EnqueueWithDeduplication(r.Context(), job)
+	if err != nil {
+		log.Printf("ERROR: Failed to enqueue render job: %v", err)
+		writeError(w, r, http.StatusInternalServerError, "failed to enqueue job")
+		return
+	}
 	if wasDuplicate {
 		writeJSON(w, http.StatusAccepted, map[string]any{"job": created, "duplicate": true})
 		return
@@ -529,7 +534,12 @@ func (s *Server) handleExportVersion(w http.ResponseWriter, r *http.Request) {
 		InputRef:        versionID,
 		DeduplicationID: fmt.Sprintf("%s-%s", string(store.JobExport), versionID),
 	}
-	createdJob, wasDuplicate, _ := s.Store.Jobs().EnqueueWithDeduplication(r.Context(), job)
+	createdJob, wasDuplicate, err := s.Store.Jobs().EnqueueWithDeduplication(r.Context(), job)
+	if err != nil {
+		log.Printf("ERROR: Failed to enqueue export job: %v", err)
+		writeError(w, r, http.StatusInternalServerError, "failed to enqueue job")
+		return
+	}
 	if wasDuplicate {
 		writeJSON(w, http.StatusAccepted, map[string]any{"job": createdJob, "duplicate": true})
 		return
@@ -569,6 +579,8 @@ func (s *Server) handleExportVersion(w http.ResponseWriter, r *http.Request) {
 	createdJob.Status = store.JobDone
 	createdJob.OutputRef = createdAsset.ID
 	if _, err := s.Store.Jobs().Update(r.Context(), createdJob); err != nil {
+		requestID, _ := r.Context().Value(ctxKeyRequestID{}).(string)
+		log.Printf("ERROR: Failed to update export job status: request_id=%s job_id=%s err=%v", requestID, createdJob.ID, err)
 		writeError(w, r, http.StatusInternalServerError, "failed to update job")
 		return
 	}

@@ -490,8 +490,15 @@ func (p *postgresJobStore) Update(ctx context.Context, j store.Job) (store.Job, 
 	ps := (*PostgresStore)(p)
 	query := `UPDATE jobs SET status = $1, output_ref = $2, error = $3, retry_count = $4, max_retries = $5, last_retry_at = $6, deduplication_id = $7, metadata = $8, updated_at = $9 WHERE id = $10 AND org_id = $11`
 	j.UpdatedAt = time.Now().UTC()
-	_, err := ps.db.ExecContext(ctx, query, j.Status, j.OutputRef, j.Error, j.RetryCount, j.MaxRetries, j.LastRetryAt, j.DeduplicationID, j.Metadata, j.UpdatedAt, j.ID, j.OrgID)
-	return j, err
+	res, err := ps.db.ExecContext(ctx, query, j.Status, j.OutputRef, j.Error, j.RetryCount, j.MaxRetries, j.LastRetryAt, j.DeduplicationID, j.Metadata, j.UpdatedAt, j.ID, j.OrgID)
+	if err != nil {
+		return store.Job{}, err
+	}
+	affected, err := res.RowsAffected()
+	if err == nil && affected == 0 {
+		return store.Job{}, sql.ErrNoRows
+	}
+	return j, nil
 }
 
 func (p *postgresJobStore) ListQueued(ctx context.Context) ([]store.Job, error) {
