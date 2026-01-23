@@ -21,7 +21,7 @@ func TestHuggingFaceClient_NewClient(t *testing.T) {
 func TestHuggingFaceClient_NewClientDefaults(t *testing.T) {
 	client := NewHuggingFaceClient("", "")
 
-	assert.Equal(t, "hf_default", client.apiKey)
+	assert.Equal(t, "", client.apiKey)
 	assert.Equal(t, "moonshotai/Kimi-K2-Instruct-0905", client.model)
 }
 

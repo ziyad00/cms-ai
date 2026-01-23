@@ -36,6 +36,16 @@ type CreateTemplateRequest struct {
 	Name string `json:"name"`
 }
 
+type CreateDeckRequest struct {
+	Name                  string `json:"name"`
+	SourceTemplateVersion string `json:"sourceTemplateVersionId"`
+	Content               string `json:"content"`
+}
+
+type CreateDeckVersionRequest struct {
+	Spec any `json:"spec"`
+}
+
 type CreateVersionRequest struct {
 	Spec any `json:"spec"`
 }

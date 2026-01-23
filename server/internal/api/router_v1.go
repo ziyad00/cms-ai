@@ -47,6 +47,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/templates/{id}", s.handleGetTemplate)
 	mux.HandleFunc("POST /v1/templates/{id}/versions", s.handleCreateVersion)
 	mux.HandleFunc("GET /v1/templates/{id}/versions", s.handleListVersions)
+
+	mux.HandleFunc("POST /v1/decks", s.handleCreateDeck)
+	mux.HandleFunc("GET /v1/decks", s.handleListDecks)
+	mux.HandleFunc("GET /v1/decks/{id}", s.handleGetDeck)
+	mux.HandleFunc("POST /v1/decks/{id}/versions", s.handleCreateDeckVersion)
+	mux.HandleFunc("GET /v1/decks/{id}/versions", s.handleListDeckVersions)
+	mux.HandleFunc("POST /v1/deck-versions/{versionId}/export", s.handleExportDeckVersion)
 	mux.HandleFunc("PATCH /v1/versions/{versionId}", s.handlePatchVersion)
 	mux.HandleFunc("POST /v1/versions/{versionId}/render", s.handleRenderVersion)
 	mux.HandleFunc("POST /v1/versions/{versionId}/export", s.handleExportVersion)
@@ -545,6 +552,228 @@ func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"job": job})
+}
+
+func (s *Server) handleCreateDeck(w http.ResponseWriter, r *http.Request) {
+	id, _ := auth.GetIdentity(r.Context())
+	if !auth.RequireRole(id, auth.RoleEditor) {
+		writeError(w, r, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	var req CreateDeckRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if strings.TrimSpace(req.Name) == "" {
+		writeError(w, r, http.StatusBadRequest, "name is required")
+		return
+	}
+	if strings.TrimSpace(req.SourceTemplateVersion) == "" {
+		writeError(w, r, http.StatusBadRequest, "sourceTemplateVersionId is required")
+		return
+	}
+	if strings.TrimSpace(req.Content) == "" {
+		writeError(w, r, http.StatusBadRequest, "content is required")
+		return
+	}
+
+	// Load template version spec (the "template")
+	tv, ok, err := s.Store.Templates().GetVersion(r.Context(), id.OrgID, req.SourceTemplateVersion)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to load template version")
+		return
+	}
+	if !ok {
+		writeError(w, r, http.StatusNotFound, "template version not found")
+		return
+	}
+
+	var templateSpec spec.TemplateSpec
+	specBytes, err := json.Marshal(tv.SpecJSON)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to read template spec")
+		return
+	}
+	if err := json.Unmarshal(specBytes, &templateSpec); err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid stored template spec")
+		return
+	}
+
+	boundSpec, aiResp, err := s.AIService.BindDeckSpec(r.Context(), id.OrgID, id.UserID, &templateSpec, req.Content)
+	if err != nil {
+		writeError(w, r, http.StatusBadGateway, "failed to bind deck with AI")
+		return
+	}
+
+	boundBytes, err := json.Marshal(boundSpec)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to marshal bound spec")
+		return
+	}
+
+	// Create deck + version 1
+	deck := store.Deck{
+		OrgID:                 id.OrgID,
+		OwnerUserID:           id.UserID,
+		Name:                  req.Name,
+		SourceTemplateVersion: req.SourceTemplateVersion,
+		Content:               req.Content,
+	}
+
+	createdDeck, err := s.Store.Decks().CreateDeck(r.Context(), deck)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to create deck")
+		return
+	}
+
+	ver := store.DeckVersion{Deck: createdDeck.ID, OrgID: id.OrgID, VersionNo: 1, SpecJSON: boundBytes, CreatedBy: id.UserID}
+	createdVer, err := s.Store.Decks().CreateDeckVersion(r.Context(), ver)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to create deck version")
+		return
+	}
+	createdDeck.CurrentVersion = &createdVer.ID
+	createdDeck.LatestVersionNo = 1
+	createdDeck, _ = s.Store.Decks().UpdateDeck(r.Context(), createdDeck)
+
+	resp := map[string]any{"deck": createdDeck, "version": createdVer}
+	if aiResp != nil {
+		resp["aiResponse"] = map[string]any{"model": aiResp.Model, "tokenUsage": aiResp.TokenUsage, "cost": aiResp.Cost, "timestamp": aiResp.Timestamp}
+	}
+	writeJSON(w, http.StatusOK, resp)
+}
+
+func (s *Server) handleListDecks(w http.ResponseWriter, r *http.Request) {
+	id, _ := auth.GetIdentity(r.Context())
+	ds, err := s.Store.Decks().ListDecks(r.Context(), id.OrgID)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to list decks")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"decks": ds})
+}
+
+func (s *Server) handleGetDeck(w http.ResponseWriter, r *http.Request) {
+	id, _ := auth.GetIdentity(r.Context())
+	deckID := r.PathValue("id")
+	d, ok, err := s.Store.Decks().GetDeck(r.Context(), id.OrgID, deckID)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to get deck")
+		return
+	}
+	if !ok {
+		writeError(w, r, http.StatusNotFound, "not found")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"deck": d})
+}
+
+func (s *Server) handleListDeckVersions(w http.ResponseWriter, r *http.Request) {
+	id, _ := auth.GetIdentity(r.Context())
+	deckID := r.PathValue("id")
+	vs, err := s.Store.Decks().ListDeckVersions(r.Context(), id.OrgID, deckID)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to list versions")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"versions": vs})
+}
+
+func (s *Server) handleCreateDeckVersion(w http.ResponseWriter, r *http.Request) {
+	id, _ := auth.GetIdentity(r.Context())
+	if !auth.RequireRole(id, auth.RoleEditor) {
+		writeError(w, r, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	deckID := r.PathValue("id")
+	d, ok, err := s.Store.Decks().GetDeck(r.Context(), id.OrgID, deckID)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to get deck")
+		return
+	}
+	if !ok {
+		writeError(w, r, http.StatusNotFound, "not found")
+		return
+	}
+
+	var req CreateDeckVersionRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	if req.Spec == nil {
+		writeError(w, r, http.StatusBadRequest, "spec is required")
+		return
+	}
+
+	newNo := d.LatestVersionNo + 1
+	specBytes, err := json.Marshal(req.Spec)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to marshal spec")
+		return
+	}
+
+	ver := store.DeckVersion{Deck: d.ID, OrgID: id.OrgID, VersionNo: newNo, SpecJSON: specBytes, CreatedBy: id.UserID}
+	created, err := s.Store.Decks().CreateDeckVersion(r.Context(), ver)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to create version")
+		return
+	}
+	d.LatestVersionNo = newNo
+	d.CurrentVersion = &created.ID
+	updated, _ := s.Store.Decks().UpdateDeck(r.Context(), d)
+
+	writeJSON(w, http.StatusOK, map[string]any{"deck": updated, "version": created})
+}
+
+func (s *Server) handleExportDeckVersion(w http.ResponseWriter, r *http.Request) {
+	id, _ := auth.GetIdentity(r.Context())
+	versionID := r.PathValue("versionId")
+	ver, ok, err := s.Store.Decks().GetDeckVersion(r.Context(), id.OrgID, versionID)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed")
+		return
+	}
+	if !ok {
+		writeError(w, r, http.StatusNotFound, "not found")
+		return
+	}
+	if isBlocked, usage := s.enforceExportQuota(r); isBlocked {
+		writeJSON(w, http.StatusPaymentRequired, usage)
+		return
+	}
+
+	// Synchronous export (same pattern as template export)
+	objectKey := newID("asset") + ".pptx"
+	tempPath := filepath.Join(os.TempDir(), objectKey)
+	if err := s.Renderer.RenderPPTX(r.Context(), ver.SpecJSON, tempPath); err != nil {
+		writeError(w, r, http.StatusInternalServerError, "render failed")
+		return
+	}
+	defer os.Remove(tempPath)
+
+	data, err := os.ReadFile(tempPath)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to read rendered file")
+		return
+	}
+	_, err = s.ObjectStorage.Upload(r.Context(), objectKey, data, "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to upload asset")
+		return
+	}
+
+	asset := store.Asset{OrgID: id.OrgID, Type: store.AssetPPTX, Path: objectKey, Mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation"}
+	createdAsset, err := s.Store.Assets().Create(r.Context(), asset)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to create asset")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"asset": createdAsset, "downloadUrl": "/v1/assets/" + createdAsset.ID})
 }
 
 func (s *Server) handleExportVersion(w http.ResponseWriter, r *http.Request) {

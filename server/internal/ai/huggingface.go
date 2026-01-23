@@ -59,10 +59,9 @@ type hfChatResponse struct {
 	Choices []hfChatChoice `json:"choices"`
 }
 
-
 func NewHuggingFaceClient(apiKey, model string) *HuggingFaceClient {
 	if apiKey == "" {
-		apiKey = "hf_default" // Will be overridden by env var
+		apiKey = ""
 	}
 	if model == "" {
 		model = "moonshotai/Kimi-K2-Instruct-0905"
@@ -117,9 +116,7 @@ func (c *HuggingFaceClient) GenerateTemplateSpec(ctx context.Context, req Genera
 	// Make request to HuggingFace API
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		// For local testing when HuggingFace is unreachable, return a mock response
-		fmt.Printf("HuggingFace API unreachable (%v), using mock response for testing\n", err)
-		return c.generateMockResponse(req), nil
+		return nil, fmt.Errorf("HuggingFace API unreachable: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -168,7 +165,6 @@ func (c *HuggingFaceClient) GenerateTemplateSpec(ctx context.Context, req Genera
 		Timestamp:  time.Now(),
 	}, nil
 }
-
 
 func (c *HuggingFaceClient) buildSystemPrompt(req GenerationRequest) string {
 	examples := c.getFewShotExamples()

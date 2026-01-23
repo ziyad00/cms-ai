@@ -207,7 +207,23 @@ type mockAIService struct {
 	shouldError bool
 }
 
+func (m *mockAIService) BindDeckSpec(ctx context.Context, orgID, userID string, templateSpec *spec.TemplateSpec, content string) (*spec.TemplateSpec, *ai.GenerationResponse, error) {
+	if m.shouldError {
+		return nil, nil, assert.AnError
+	}
+	// Minimal binder for tests: return the template spec as-is.
+	resp := &ai.GenerationResponse{
+		Spec:       templateSpec,
+		TokenUsage: 50,
+		Cost:       0,
+		Model:      "test-model",
+		Timestamp:  time.Now(),
+	}
+	return templateSpec, resp, nil
+}
+
 func (m *mockAIService) GenerateTemplateForRequest(ctx context.Context, orgID, userID string, req ai.GenerationRequest, brandKitID string) (*spec.TemplateSpec, *ai.GenerationResponse, error) {
+
 	if m.shouldError {
 		return nil, nil, assert.AnError
 	}

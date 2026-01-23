@@ -202,31 +202,118 @@ type postgresTemplateStore PostgresStore
 type postgresDeckStore PostgresStore
 
 func (p *postgresDeckStore) CreateDeck(ctx context.Context, d store.Deck) (store.Deck, error) {
-	return store.Deck{}, fmt.Errorf("not implemented")
+	ps := (*PostgresStore)(p)
+	query := `INSERT INTO decks (org_id, owner_user_id, name, source_template_version_id, content, current_version_id, latest_version_no, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, NULL, 0, NOW(), NOW())
+		RETURNING id, created_at, updated_at`
+	err := ps.db.QueryRowContext(ctx, query, d.OrgID, d.OwnerUserID, d.Name, d.SourceTemplateVersion, d.Content).Scan(&d.ID, &d.CreatedAt, &d.UpdatedAt)
+	if err != nil {
+		return store.Deck{}, err
+	}
+	return d, nil
 }
 
 func (p *postgresDeckStore) ListDecks(ctx context.Context, orgID string) ([]store.Deck, error) {
-	return nil, fmt.Errorf("not implemented")
+	ps := (*PostgresStore)(p)
+	query := `SELECT id, org_id, owner_user_id, name, source_template_version_id, content, current_version_id, latest_version_no, created_at, updated_at FROM decks WHERE org_id = $1 ORDER BY updated_at DESC`
+	rows, err := ps.db.QueryContext(ctx, query, orgID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []store.Deck
+	for rows.Next() {
+		var d store.Deck
+		var current sql.NullString
+		err := rows.Scan(&d.ID, &d.OrgID, &d.OwnerUserID, &d.Name, &d.SourceTemplateVersion, &d.Content, &current, &d.LatestVersionNo, &d.CreatedAt, &d.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		if current.Valid {
+			d.CurrentVersion = &current.String
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
 }
 
 func (p *postgresDeckStore) GetDeck(ctx context.Context, orgID, id string) (store.Deck, bool, error) {
-	return store.Deck{}, false, fmt.Errorf("not implemented")
+	ps := (*PostgresStore)(p)
+	query := `SELECT id, org_id, owner_user_id, name, source_template_version_id, content, current_version_id, latest_version_no, created_at, updated_at FROM decks WHERE org_id = $1 AND id = $2`
+	var d store.Deck
+	var current sql.NullString
+	err := ps.db.QueryRowContext(ctx, query, orgID, id).Scan(&d.ID, &d.OrgID, &d.OwnerUserID, &d.Name, &d.SourceTemplateVersion, &d.Content, &current, &d.LatestVersionNo, &d.CreatedAt, &d.UpdatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return store.Deck{}, false, nil
+		}
+		return store.Deck{}, false, err
+	}
+	if current.Valid {
+		d.CurrentVersion = &current.String
+	}
+	return d, true, nil
 }
 
 func (p *postgresDeckStore) UpdateDeck(ctx context.Context, d store.Deck) (store.Deck, error) {
-	return store.Deck{}, fmt.Errorf("not implemented")
+	ps := (*PostgresStore)(p)
+	query := `UPDATE decks SET name = $1, content = $2, current_version_id = $3, updated_at = $4, latest_version_no = $5 WHERE id = $6 AND org_id = $7`
+	d.UpdatedAt = time.Now().UTC()
+	var current any
+	if d.CurrentVersion != nil {
+		current = *d.CurrentVersion
+	}
+	_, err := ps.db.ExecContext(ctx, query, d.Name, d.Content, current, d.UpdatedAt, d.LatestVersionNo, d.ID, d.OrgID)
+	if err != nil {
+		return store.Deck{}, err
+	}
+	return d, nil
 }
 
 func (p *postgresDeckStore) CreateDeckVersion(ctx context.Context, v store.DeckVersion) (store.DeckVersion, error) {
-	return store.DeckVersion{}, fmt.Errorf("not implemented")
+	ps := (*PostgresStore)(p)
+	query := `INSERT INTO deck_versions (deck_id, org_id, version_no, spec_json, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING id, created_at`
+	err := ps.db.QueryRowContext(ctx, query, v.Deck, v.OrgID, v.VersionNo, v.SpecJSON, v.CreatedBy).Scan(&v.ID, &v.CreatedAt)
+	if err != nil {
+		return store.DeckVersion{}, err
+	}
+	return v, nil
 }
 
 func (p *postgresDeckStore) ListDeckVersions(ctx context.Context, orgID, deckID string) ([]store.DeckVersion, error) {
-	return nil, fmt.Errorf("not implemented")
+	ps := (*PostgresStore)(p)
+	query := `SELECT id, deck_id, org_id, version_no, spec_json, created_by, created_at FROM deck_versions WHERE org_id = $1 AND deck_id = $2 ORDER BY version_no DESC`
+	rows, err := ps.db.QueryContext(ctx, query, orgID, deckID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []store.DeckVersion
+	for rows.Next() {
+		var v store.DeckVersion
+		err := rows.Scan(&v.ID, &v.Deck, &v.OrgID, &v.VersionNo, &v.SpecJSON, &v.CreatedBy, &v.CreatedAt)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
 }
 
 func (p *postgresDeckStore) GetDeckVersion(ctx context.Context, orgID, versionID string) (store.DeckVersion, bool, error) {
-	return store.DeckVersion{}, false, fmt.Errorf("not implemented")
+	ps := (*PostgresStore)(p)
+	query := `SELECT id, deck_id, org_id, version_no, spec_json, created_by, created_at FROM deck_versions WHERE org_id = $1 AND id = $2`
+	var v store.DeckVersion
+	err := ps.db.QueryRowContext(ctx, query, orgID, versionID).Scan(&v.ID, &v.Deck, &v.OrgID, &v.VersionNo, &v.SpecJSON, &v.CreatedBy, &v.CreatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return store.DeckVersion{}, false, nil
+		}
+		return store.DeckVersion{}, false, err
+	}
+	return v, true, nil
 }
 
 // Implement basic CreateTemplate and ListTemplates for demo

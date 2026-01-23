@@ -93,6 +93,7 @@ func (o *orchestrator) buildRepairPrompt(invalidSpec *spec.TemplateSpec, errors 
 // AIServiceInterface defines the interface for AI template generation
 type AIServiceInterface interface {
 	GenerateTemplateForRequest(ctx context.Context, orgID, userID string, req GenerationRequest, brandKitID string) (*spec.TemplateSpec, *GenerationResponse, error)
+	BindDeckSpec(ctx context.Context, orgID, userID string, templateSpec *spec.TemplateSpec, content string) (*spec.TemplateSpec, *GenerationResponse, error)
 }
 
 // AIService handles AI generation for templates
@@ -137,6 +138,38 @@ func (s *AIService) GenerateTemplateForRequest(ctx context.Context, orgID, userI
 		OrgID:    orgID,
 		UserID:   userID,
 		Type:     "ai_generation",
+		Quantity: resp.TokenUsage,
+	}
+	_, _ = s.store.Metering().Record(ctx, meteringEvent)
+
+	return resp.Spec, resp, nil
+}
+
+func (s *AIService) BindDeckSpec(ctx context.Context, orgID, userID string, templateSpec *spec.TemplateSpec, content string) (*spec.TemplateSpec, *GenerationResponse, error) {
+	// We keep this intentionally small: reuse the existing generation pipeline by
+	// asking the model to fill placeholder.content based on a template + content blob.
+	// No fallback here; caller expects AI to be required.
+
+	b, err := json.Marshal(templateSpec)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to marshal template spec: %w", err)
+	}
+
+	bindReq := GenerationRequest{
+		Prompt: fmt.Sprintf("Bind the following content into the provided TemplateSpec by filling placeholders.content. Do not change geometry or placeholder IDs. Return ONLY valid JSON TemplateSpec.\n\nCONTENT:\n%s\n\nTEMPLATE_SPEC_JSON:\n%s", content, string(b)),
+		RTL:    false,
+	}
+
+	resp, err := s.orchestrator.GenerateTemplateSpec(ctx, bindReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to bind deck spec: %w", err)
+	}
+
+	meteringEvent := store.MeteringEvent{
+		ID:       newID("met"),
+		OrgID:    orgID,
+		UserID:   userID,
+		Type:     "ai_bind",
 		Quantity: resp.TokenUsage,
 	}
 	_, _ = s.store.Metering().Record(ctx, meteringEvent)
