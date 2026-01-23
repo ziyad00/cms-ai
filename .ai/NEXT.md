@@ -54,6 +54,7 @@
 - [ ] Configure HUGGINGFACE_API_KEY environment variable for production AI generation
 - [ ] (Recommended) Add integration test that exercises one-click deck flow against a running Go API (generate -> export -> download)
 - [ ] Investigate NextAuth route error in Railway logs: `TypeError: (intermediate value).POST is not a function` at `app/api/auth/[...nextauth]/route.js`
+- [ ] Add data migration/cleanup: existing assets with non-UUID IDs (asset-...) will be orphaned and should be re-exported or deleted
 - [ ] Test AI generation with real Hugging Face API and Mixtral model
 - [ ] Add more comprehensive prompt engineering for different business verticals
 - [ ] Add AI generation cost tracking and quota management

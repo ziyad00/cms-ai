@@ -31,3 +31,4 @@
 - 2026-01-23: Implemented one-click "Create deck" flow in the home wizard: generate template + auto-export PPTX and trigger download; added filename sanitizer + deck flow helper + tests; tightened web test runner to avoid importing Next route handlers.
 - 2026-01-23: Hid internal spec/visual editor UI from template page; template page now focuses on exporting/downloading PPTX only.
 - 2026-01-23: Fixed prod export "render failed" caused by Postgres JSONB scanning spec into []byte; renderer now accepts raw JSON bytes without base64-marshal, and server uses configured authenticator (JWT vs header) so API tests work.
+- 2026-01-23: Fixed asset download failures on Postgres by letting DB generate UUID asset IDs; export now stores PPTX under an object key and persists an Asset row with UUID id.

@@ -360,13 +360,19 @@ type postgresAssetStore PostgresStore
 
 func (p *postgresAssetStore) Create(ctx context.Context, a store.Asset) (store.Asset, error) {
 	ps := (*PostgresStore)(p)
-	query := `INSERT INTO assets (id, org_id, type, path, mime, created_at) VALUES ($1, $2, $3, $4, $5, $6)`
-	if a.ID == "" {
-		a.ID = fmt.Sprintf("asset-%s", generateID())
+	// Let PostgreSQL generate the UUID automatically.
+	query := `INSERT INTO assets (org_id, type, path, mime, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`
+	if a.ID != "" {
+		// We no longer allow caller-supplied IDs for Postgres because assets.id is UUID.
+		// If needed later, we can add a separate code path with explicit UUID validation.
+		a.ID = ""
 	}
 	a.CreatedAt = time.Now().UTC()
-	_, err := ps.db.ExecContext(ctx, query, a.ID, a.OrgID, a.Type, a.Path, a.Mime, a.CreatedAt)
-	return a, err
+	err := ps.db.QueryRowContext(ctx, query, a.OrgID, a.Type, a.Path, a.Mime, a.CreatedAt).Scan(&a.ID)
+	if err != nil {
+		return store.Asset{}, err
+	}
+	return a, nil
 }
 
 func (p *postgresAssetStore) Get(ctx context.Context, orgID, id string) (store.Asset, bool, error) {

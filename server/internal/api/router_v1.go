@@ -535,11 +535,11 @@ func (s *Server) handleExportVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	assetID := newID("asset")
-	assetPath := assetID + ".pptx"
+	// Use a random filename for the stored object; the DB asset ID will be a UUID.
+	objectKey := newID("asset") + ".pptx"
 
 	// Render to temporary file first
-	tempPath := filepath.Join(os.TempDir(), assetID+".pptx")
+	tempPath := filepath.Join(os.TempDir(), objectKey)
 	if err := s.Renderer.RenderPPTX(r.Context(), ver.SpecJSON, tempPath); err != nil {
 		writeError(w, r, http.StatusInternalServerError, "render failed")
 		return
@@ -553,18 +553,25 @@ func (s *Server) handleExportVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = s.ObjectStorage.Upload(r.Context(), assetPath, data, "application/vnd.openxmlformats-officedocument.presentationml.presentation")
+	_, err = s.ObjectStorage.Upload(r.Context(), objectKey, data, "application/vnd.openxmlformats-officedocument.presentationml.presentation")
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed to upload asset")
 		return
 	}
 
-	asset := store.Asset{ID: assetID, OrgID: id.OrgID, Type: store.AssetPPTX, Path: assetPath, Mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation"}
-	createdAsset, _ := s.Store.Assets().Create(r.Context(), asset)
+	asset := store.Asset{OrgID: id.OrgID, Type: store.AssetPPTX, Path: objectKey, Mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation"}
+	createdAsset, err := s.Store.Assets().Create(r.Context(), asset)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to create asset")
+		return
+	}
 
 	createdJob.Status = store.JobDone
 	createdJob.OutputRef = createdAsset.ID
-	s.Store.Jobs().Update(r.Context(), createdJob)
+	if _, err := s.Store.Jobs().Update(r.Context(), createdJob); err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to update job")
+		return
+	}
 	_, _ = s.Store.Metering().Record(r.Context(), store.MeteringEvent{ID: newID("met"), OrgID: id.OrgID, UserID: id.UserID, Type: "export", Quantity: 1})
 	_, _ = s.Store.Audit().Append(r.Context(), store.AuditLog{ID: newID("aud"), OrgID: id.OrgID, ActorID: id.UserID, Action: "version.export", TargetRef: versionID, Metadata: map[string]any{"jobId": createdJob.ID, "assetId": createdAsset.ID}})
 
