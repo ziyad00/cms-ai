@@ -427,7 +427,12 @@ func (p *postgresJobStore) Enqueue(ctx context.Context, j store.Job) (store.Job,
 	j.CreatedAt = time.Now().UTC()
 	j.UpdatedAt = j.CreatedAt
 
-	err := ps.db.QueryRowContext(ctx, query, j.OrgID, j.Type, j.Status, j.InputRef, j.OutputRef, j.Error, j.RetryCount, j.MaxRetries, j.LastRetryAt, j.DeduplicationID, j.Metadata, j.CreatedAt, j.UpdatedAt).Scan(&j.ID)
+	var meta any
+	if j.Metadata != nil {
+		meta = j.Metadata
+	}
+
+	err := ps.db.QueryRowContext(ctx, query, j.OrgID, j.Type, j.Status, j.InputRef, j.OutputRef, j.Error, j.RetryCount, j.MaxRetries, j.LastRetryAt, j.DeduplicationID, meta, j.CreatedAt, j.UpdatedAt).Scan(&j.ID)
 	if err != nil {
 		return store.Job{}, err
 	}
@@ -490,7 +495,12 @@ func (p *postgresJobStore) Update(ctx context.Context, j store.Job) (store.Job, 
 	ps := (*PostgresStore)(p)
 	query := `UPDATE jobs SET status = $1, output_ref = $2, error = $3, retry_count = $4, max_retries = $5, last_retry_at = $6, deduplication_id = $7, metadata = $8, updated_at = $9 WHERE id = $10 AND org_id = $11`
 	j.UpdatedAt = time.Now().UTC()
-	res, err := ps.db.ExecContext(ctx, query, j.Status, j.OutputRef, j.Error, j.RetryCount, j.MaxRetries, j.LastRetryAt, j.DeduplicationID, j.Metadata, j.UpdatedAt, j.ID, j.OrgID)
+	var meta any
+	if j.Metadata != nil {
+		meta = j.Metadata
+	}
+
+	res, err := ps.db.ExecContext(ctx, query, j.Status, j.OutputRef, j.Error, j.RetryCount, j.MaxRetries, j.LastRetryAt, j.DeduplicationID, meta, j.UpdatedAt, j.ID, j.OrgID)
 	if err != nil {
 		return store.Job{}, err
 	}
