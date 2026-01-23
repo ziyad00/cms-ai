@@ -2,6 +2,7 @@ package assets
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"testing"
@@ -59,6 +60,47 @@ func TestGoPPTXRenderer_RenderPPTXBytes(t *testing.T) {
 
 	// Verify it's a valid PPTX by checking file signature
 	assert.Equal(t, []byte{0x50, 0x4B, 0x03, 0x04}, data[:4]) // ZIP signature
+}
+
+func TestGoPPTXRenderer_RenderPPTXBytes_WithJSONBytes(t *testing.T) {
+	renderer := GoPPTXRenderer{}
+
+	// Same as other tests, but passed as raw JSON bytes.
+	templateSpec := map[string]interface{}{
+		"tokens": map[string]interface{}{
+			"colors": map[string]interface{}{
+				"primary":    "#0078d4",
+				"secondary":  "#107c10",
+				"background": "#ffffff",
+				"text":       "#323130",
+			},
+		},
+		"layouts": []map[string]interface{}{
+			{
+				"name": "title-slide",
+				"placeholders": []map[string]interface{}{
+					{
+						"id":   "title",
+						"type": "text",
+						"geometry": map[string]interface{}{
+							"x": 0.1,
+							"y": 0.1,
+							"w": 0.8,
+							"h": 0.2,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	b, err := json.Marshal(templateSpec)
+	require.NoError(t, err)
+
+	data, err := renderer.RenderPPTXBytes(context.Background(), b)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(data), 4)
+	assert.Equal(t, []byte{0x50, 0x4B, 0x03, 0x04}, data[:4])
 }
 
 func TestGoPPTXRenderer_RenderPPTX(t *testing.T) {

@@ -35,7 +35,7 @@ func (s *Server) Handler() http.Handler {
 	})
 	mux.HandleFunc("POST /v1/auth/signin", s.handleSignin)
 	mux.HandleFunc("POST /v1/auth/user", s.handleGetOrCreateUser) // Legacy endpoint
-	
+
 	// Protected auth endpoint (requires auth)
 	mux.HandleFunc("GET /v1/auth/me", s.handleGetMe) // Get current user from JWT
 
@@ -74,12 +74,13 @@ func (s *Server) Handler() http.Handler {
 		"/v1/auth/user", // Legacy endpoint
 		"/healthz",
 	}
-	authMiddleware := withAuth(auth.JWTAuthenticator{})
+	// Use the server's configured authenticator (JWT in prod, header-based in dev/tests)
+	authMiddleware := withAuth(s.Authenticator)
 	h = skipAuthForPaths(h, skipPaths, authMiddleware)
 
 	h = withRecovery(h)
 	h = withLogging(h)
-	
+
 	// Wrap with catch-all handler that returns 404 for unmatched routes
 	// This prevents auth middleware from returning unauthorized for non-API routes
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

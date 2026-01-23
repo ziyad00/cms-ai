@@ -23,6 +23,19 @@ type Renderer interface {
 	GenerateSlideThumbnails(ctx context.Context, spec any) ([][]byte, error)
 }
 
+func specToJSONBytes(spec any) ([]byte, error) {
+	// In our stores, spec_json may come back as []byte from the DB driver.
+	// If we json.Marshal([]byte), it becomes a base64 string and breaks parsing.
+	switch v := spec.(type) {
+	case []byte:
+		return v, nil
+	case json.RawMessage:
+		return []byte(v), nil
+	default:
+		return json.Marshal(spec)
+	}
+}
+
 type PythonPPTXRenderer struct {
 	PythonPath string
 	ScriptPath string
@@ -50,7 +63,7 @@ func (r PythonPPTXRenderer) RenderPPTX(ctx context.Context, spec any, outPath st
 	defer os.Remove(tmpSpec.Name())
 	defer tmpSpec.Close()
 
-	b, err := json.Marshal(spec)
+	b, err := specToJSONBytes(spec)
 	if err != nil {
 		return err
 	}
@@ -88,7 +101,7 @@ func (r PythonPPTXRenderer) RenderPPTXBytes(ctx context.Context, spec any) ([]by
 // GenerateSlideThumbnails creates preview thumbnails for each slide
 // For Python renderer, this returns placeholder thumbnails
 func (r PythonPPTXRenderer) GenerateSlideThumbnails(ctx context.Context, spec any) ([][]byte, error) {
-	specBytes, err := json.Marshal(spec)
+	specBytes, err := specToJSONBytes(spec)
 	if err != nil {
 		return nil, err
 	}
@@ -158,7 +171,7 @@ func (r GoPPTXRenderer) RenderPPTX(ctx context.Context, spec any, outPath string
 
 func (r GoPPTXRenderer) RenderPPTXBytes(ctx context.Context, spec any) ([]byte, error) {
 	// Parse the template spec
-	specBytes, err := json.Marshal(spec)
+	specBytes, err := specToJSONBytes(spec)
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +272,7 @@ func (r GoPPTXRenderer) RenderPPTXBytes(ctx context.Context, spec any) ([]byte, 
 // GenerateSlideThumbnails creates preview thumbnails for each slide
 func (r GoPPTXRenderer) GenerateSlideThumbnails(ctx context.Context, spec any) ([][]byte, error) {
 	// Parse the template spec
-	specBytes, err := json.Marshal(spec)
+	specBytes, err := specToJSONBytes(spec)
 	if err != nil {
 		return nil, err
 	}
