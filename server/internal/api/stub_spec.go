@@ -1,5 +1,39 @@
 package api
 
+import (
+	"encoding/base64"
+	"encoding/json"
+)
+
+func assetsSpecBytes(v any) ([]byte, error) {
+	// TemplateVersion.SpecJSON is stored as JSONB in Postgres.
+	// Depending on the driver/scan target, it can arrive as:
+	// - []byte (raw JSON)
+	// - string (base64 or JSON string)
+	// - map[string]any (already decoded)
+	// We need bytes of JSON for parsing.
+	switch t := v.(type) {
+	case []byte:
+		return t, nil
+	case json.RawMessage:
+		return []byte(t), nil
+	case string:
+		// If it's already JSON, return bytes; otherwise, it may be base64.
+		b := []byte(t)
+		if len(b) > 0 && (b[0] == '{' || b[0] == '[') {
+			return b, nil
+		}
+		// Try base64 decode
+		decoded, err := base64.StdEncoding.DecodeString(t)
+		if err != nil {
+			return nil, err
+		}
+		return decoded, nil
+	default:
+		return json.Marshal(v)
+	}
+}
+
 func stubTemplateSpec() map[string]any {
 	return map[string]any{
 		"tokens": map[string]any{

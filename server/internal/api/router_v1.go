@@ -591,7 +591,7 @@ func (s *Server) handleCreateDeck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var templateSpec spec.TemplateSpec
-	specBytes, err := json.Marshal(tv.SpecJSON)
+	specBytes, err := assetsSpecBytes(tv.SpecJSON)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed to read template spec")
 		return
