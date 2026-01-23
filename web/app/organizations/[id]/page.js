@@ -66,7 +66,7 @@ export default function OrganizationDashboard() {
                 <div className="ml-5 w-0 flex-1">
                   <dl>
                     <dt className="text-sm font-medium text-gray-500 truncate">
-                      Templates Created
+                      Decks Created
                     </dt>
                     <dd className="text-lg font-medium text-gray-900">
                       {org.usage?.templatesGenerated || 0}
@@ -77,9 +77,9 @@ export default function OrganizationDashboard() {
             </div>
             <div className="bg-gray-50 px-5 py-3">
               <div className="text-sm">
-                <a href="/templates" className="font-medium text-blue-700 hover:text-blue-600">
-                  View all templates
-                </a>
+                  <a href="/decks" className="font-medium text-blue-700 hover:text-blue-600">
+                    View all decks
+                  </a>
               </div>
             </div>
           </div>
@@ -204,7 +204,7 @@ export default function OrganizationDashboard() {
           <div className="p-6">
             <div className="space-y-3">
               <a
-                href="/templates/new"
+                href="/decks/new"
                 className="block w-full text-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
               >
                 Create New Template

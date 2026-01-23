@@ -186,6 +186,7 @@ func (p *PostgresStore) runMigrations() error {
 }
 
 func (p *PostgresStore) Templates() store.TemplateStore { return (*postgresTemplateStore)(p) }
+func (p *PostgresStore) Decks() store.DeckStore         { return (*postgresDeckStore)(p) }
 func (p *PostgresStore) BrandKits() store.BrandKitStore { return (*postgresBrandKitStore)(p) }
 func (p *PostgresStore) Assets() store.AssetStore       { return (*postgresAssetStore)(p) }
 func (p *PostgresStore) Jobs() store.JobStore           { return (*postgresJobStore)(p) }
@@ -197,6 +198,36 @@ func (p *PostgresStore) Organizations() store.OrganizationStore {
 }
 
 type postgresTemplateStore PostgresStore
+
+type postgresDeckStore PostgresStore
+
+func (p *postgresDeckStore) CreateDeck(ctx context.Context, d store.Deck) (store.Deck, error) {
+	return store.Deck{}, fmt.Errorf("not implemented")
+}
+
+func (p *postgresDeckStore) ListDecks(ctx context.Context, orgID string) ([]store.Deck, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (p *postgresDeckStore) GetDeck(ctx context.Context, orgID, id string) (store.Deck, bool, error) {
+	return store.Deck{}, false, fmt.Errorf("not implemented")
+}
+
+func (p *postgresDeckStore) UpdateDeck(ctx context.Context, d store.Deck) (store.Deck, error) {
+	return store.Deck{}, fmt.Errorf("not implemented")
+}
+
+func (p *postgresDeckStore) CreateDeckVersion(ctx context.Context, v store.DeckVersion) (store.DeckVersion, error) {
+	return store.DeckVersion{}, fmt.Errorf("not implemented")
+}
+
+func (p *postgresDeckStore) ListDeckVersions(ctx context.Context, orgID, deckID string) ([]store.DeckVersion, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (p *postgresDeckStore) GetDeckVersion(ctx context.Context, orgID, versionID string) (store.DeckVersion, bool, error) {
+	return store.DeckVersion{}, false, fmt.Errorf("not implemented")
+}
 
 // Implement basic CreateTemplate and ListTemplates for demo
 func (p *postgresTemplateStore) CreateTemplate(ctx context.Context, t store.Template) (store.Template, error) {

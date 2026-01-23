@@ -4,6 +4,7 @@ import "context"
 
 type Store interface {
 	Templates() TemplateStore
+	Decks() DeckStore
 	BrandKits() BrandKitStore
 	Assets() AssetStore
 	Jobs() JobStore
@@ -11,6 +12,17 @@ type Store interface {
 	Audit() AuditStore
 	Users() UserStore
 	Organizations() OrganizationStore
+}
+
+type DeckStore interface {
+	CreateDeck(ctx context.Context, d Deck) (Deck, error)
+	ListDecks(ctx context.Context, orgID string) ([]Deck, error)
+	GetDeck(ctx context.Context, orgID, id string) (Deck, bool, error)
+	UpdateDeck(ctx context.Context, d Deck) (Deck, error)
+
+	CreateDeckVersion(ctx context.Context, v DeckVersion) (DeckVersion, error)
+	ListDeckVersions(ctx context.Context, orgID, deckID string) ([]DeckVersion, error)
+	GetDeckVersion(ctx context.Context, orgID, versionID string) (DeckVersion, bool, error)
 }
 
 type AssetStore interface {

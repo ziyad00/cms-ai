@@ -14,20 +14,20 @@ func authHeaders(req *http.Request) {
 	req.Header.Set("X-Role", "Editor")
 }
 
-func TestGenerateThenListTemplates(t *testing.T) {
+func TestCreateThenListTemplates(t *testing.T) {
 	s := NewServer()
 	h := s.Handler()
 
-	payload := map[string]any{"prompt": "Corporate minimal template"}
+	payload := map[string]any{"name": "Corporate minimal template"}
 	b, _ := json.Marshal(payload)
 
-	genReq := httptest.NewRequest(http.MethodPost, "/v1/templates/generate", bytes.NewReader(b))
-	genReq.Header.Set("Content-Type", "application/json")
-	authHeaders(genReq)
-	genW := httptest.NewRecorder()
-	h.ServeHTTP(genW, genReq)
-	if genW.Code != http.StatusOK {
-		t.Fatalf("expected 200, got %d: %s", genW.Code, genW.Body.String())
+	createReq := httptest.NewRequest(http.MethodPost, "/v1/templates", bytes.NewReader(b))
+	createReq.Header.Set("Content-Type", "application/json")
+	authHeaders(createReq)
+	createW := httptest.NewRecorder()
+	h.ServeHTTP(createW, createReq)
+	if createW.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", createW.Code, createW.Body.String())
 	}
 
 	listReq := httptest.NewRequest(http.MethodGet, "/v1/templates", nil)

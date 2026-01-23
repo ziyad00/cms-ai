@@ -38,6 +38,7 @@ func (m *mockStore) Metering() store.MeteringStore {
 	return &mockMeteringStore{metering: &m.metering}
 }
 
+func (m *mockStore) Decks() store.DeckStore                 { return nil }
 func (m *mockStore) Assets() store.AssetStore               { return nil }
 func (m *mockStore) Jobs() store.JobStore                   { return nil }
 func (m *mockStore) Audit() store.AuditStore                { return nil }

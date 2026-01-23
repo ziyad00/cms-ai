@@ -23,6 +23,29 @@ type Template struct {
 	LatestVersionNo int            `json:"latestVersionNo"`
 }
 
+type Deck struct {
+	ID                    string    `json:"id"`
+	OrgID                 string    `json:"orgId"`
+	OwnerUserID           string    `json:"ownerUserId"`
+	Name                  string    `json:"name"`
+	SourceTemplateVersion string    `json:"sourceTemplateVersionId"`
+	CurrentVersion        *string   `json:"currentVersionId"`
+	CreatedAt             time.Time `json:"createdAt"`
+	UpdatedAt             time.Time `json:"updatedAt"`
+	LatestVersionNo       int       `json:"latestVersionNo"`
+	Content               string    `json:"content"`
+}
+
+type DeckVersion struct {
+	ID        string    `json:"id"`
+	Deck      string    `json:"deckId"`
+	OrgID     string    `json:"orgId"`
+	VersionNo int       `json:"versionNo"`
+	SpecJSON  any       `json:"spec"`
+	CreatedBy string    `json:"createdBy"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
 type TemplateVersion struct {
 	ID        string    `json:"id"`
 	Template  string    `json:"templateId"`

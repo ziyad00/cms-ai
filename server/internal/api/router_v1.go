@@ -41,6 +41,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("POST /v1/templates/validate", s.handleValidateTemplateSpec)
 	mux.HandleFunc("POST /v1/templates/analyze", s.handleAnalyzeTemplate)
+	mux.HandleFunc("POST /v1/templates", s.handleCreateTemplate)
 	mux.HandleFunc("POST /v1/templates/generate", s.handleGenerateTemplate)
 	mux.HandleFunc("GET /v1/templates", s.handleListTemplates)
 	mux.HandleFunc("GET /v1/templates/{id}", s.handleGetTemplate)
@@ -198,6 +199,43 @@ func analyzeTemplatePrompt(prompt string) AnalyzeTemplateResponse {
 			{Key: "mainContent", Label: "Main Content", Type: "text", Required: false, Example: "Key points to present", Description: "Main content or talking points"},
 		},
 	}
+}
+
+func (s *Server) handleCreateTemplate(w http.ResponseWriter, r *http.Request) {
+	id, _ := auth.GetIdentity(r.Context())
+	if !auth.RequireRole(id, auth.RoleEditor) {
+		writeError(w, r, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	var req CreateTemplateRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	name := strings.TrimSpace(req.Name)
+	if name == "" {
+		writeError(w, r, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	template := store.Template{
+		OrgID:       id.OrgID,
+		OwnerUserID: id.UserID,
+		Name:        name,
+		Status:      store.TemplateDraft,
+	}
+
+	created, err := s.Store.Templates().CreateTemplate(r.Context(), template)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to create template")
+		return
+	}
+
+	_, _ = s.Store.Audit().Append(r.Context(), store.AuditLog{ID: newID("aud"), OrgID: id.OrgID, ActorID: id.UserID, Action: "template.create", TargetRef: created.ID, Metadata: map[string]any{"name": created.Name}})
+
+	writeJSON(w, http.StatusOK, map[string]any{"template": created})
 }
 
 func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) {

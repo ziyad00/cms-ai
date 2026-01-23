@@ -7,7 +7,7 @@ type AnalyzeTemplateRequest struct {
 type RequiredField struct {
 	Key         string   `json:"key"`
 	Label       string   `json:"label"`
-	Type        string   `json:"type"`        // text, number, currency, percentage, date, list
+	Type        string   `json:"type"` // text, number, currency, percentage, date, list
 	Required    bool     `json:"required"`
 	Example     string   `json:"example"`
 	Options     []string `json:"options,omitempty"` // for select fields
@@ -30,6 +30,10 @@ type GenerateTemplateRequest struct {
 	Language    string                 `json:"language,omitempty"`
 	Tone        string                 `json:"tone,omitempty"`
 	ContentData map[string]interface{} `json:"contentData,omitempty"`
+}
+
+type CreateTemplateRequest struct {
+	Name string `json:"name"`
 }
 
 type CreateVersionRequest struct {

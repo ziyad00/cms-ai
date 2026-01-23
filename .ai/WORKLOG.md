@@ -32,3 +32,4 @@
 - 2026-01-23: Hid internal spec/visual editor UI from template page; template page now focuses on exporting/downloading PPTX only.
 - 2026-01-23: Fixed prod export "render failed" caused by Postgres JSONB scanning spec into []byte; renderer now accepts raw JSON bytes without base64-marshal, and server uses configured authenticator (JWT vs header) so API tests work.
 - 2026-01-23: Fixed asset download failures on Postgres by letting DB generate UUID asset IDs; export now stores PPTX under an object key and persists an Asset row with UUID id.
+- 2026-01-24: Added non-AI template creation endpoint (POST /v1/templates), updated server tests to avoid hitting HF in unit tests, introduced Deck/DeckVersion types and store plumbing (memory + postgres stub) to begin deck-first UX; added /decks and /templates alias routes in web and updated org nav to point to /decks.

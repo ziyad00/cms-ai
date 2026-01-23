@@ -49,6 +49,9 @@
 - [x] Investigate build failure root cause (recent deployments all fail) - COMPLETED: Build issues resolved
 - [x] Deploy React useEffect fix for consistent template loading - COMPLETED: Deployed with commit 8975237
 - [x] Remove debug logging after verifying fix works in production - NOT NEEDED: No debug logging to remove
+- [ ] Decks: add persisted Deck + DeckVersion (DB migration + store + API)
+- [ ] Decks: implement AI binder (content blob -> filled spec) and deck export endpoint
+- [ ] Web: add real `/decks` pages (list/new/detail) with VisualEditor and no raw JSON UI
 - [ ] Add unit tests for spec package validation functions (geometry bounds checking)
 - [ ] Add unit tests for queue package (job processing, retry logic)
 - [ ] Configure HUGGINGFACE_API_KEY environment variable for production AI generation

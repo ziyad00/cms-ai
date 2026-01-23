@@ -15,6 +15,8 @@ type MemoryStore struct {
 
 	templates map[string]store.Template
 	versions  map[string]store.TemplateVersion
+	decks     map[string]store.Deck
+	deckVers  map[string]store.DeckVersion
 	brandKits map[string]store.BrandKit
 	assets    map[string]store.Asset
 	assetData map[string][]byte
@@ -30,6 +32,8 @@ func New() *MemoryStore {
 	return &MemoryStore{
 		templates: map[string]store.Template{},
 		versions:  map[string]store.TemplateVersion{},
+		decks:     map[string]store.Deck{},
+		deckVers:  map[string]store.DeckVersion{},
 		brandKits: map[string]store.BrandKit{},
 		assets:    map[string]store.Asset{},
 		assetData: map[string][]byte{},
@@ -43,6 +47,7 @@ func New() *MemoryStore {
 }
 
 func (m *MemoryStore) Templates() store.TemplateStore         { return (*templateStore)(m) }
+func (m *MemoryStore) Decks() store.DeckStore                 { return (*deckStore)(m) }
 func (m *MemoryStore) BrandKits() store.BrandKitStore         { return (*brandKitStore)(m) }
 func (m *MemoryStore) Assets() store.AssetStore               { return (*assetStore)(m) }
 func (m *MemoryStore) Jobs() store.JobStore                   { return (*jobStore)(m) }
@@ -52,6 +57,8 @@ func (m *MemoryStore) Users() store.UserStore                 { return (*userSto
 func (m *MemoryStore) Organizations() store.OrganizationStore { return (*organizationStore)(m) }
 
 type templateStore MemoryStore
+
+type deckStore MemoryStore
 
 type brandKitStore MemoryStore
 
@@ -152,6 +159,93 @@ func (m *templateStore) GetVersion(_ context.Context, orgID, versionID string) (
 	v, ok := ms.versions[versionID]
 	if !ok || v.OrgID != orgID {
 		return store.TemplateVersion{}, false, nil
+	}
+	return v, true, nil
+}
+
+func (m *deckStore) CreateDeck(_ context.Context, d store.Deck) (store.Deck, error) {
+	ms := (*MemoryStore)(m)
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	now := time.Now().UTC()
+	d.CreatedAt = now
+	d.UpdatedAt = now
+	ms.decks[d.ID] = d
+	return d, nil
+}
+
+func (m *deckStore) ListDecks(_ context.Context, orgID string) ([]store.Deck, error) {
+	ms := (*MemoryStore)(m)
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	out := make([]store.Deck, 0, len(ms.decks))
+	for _, d := range ms.decks {
+		if d.OrgID == orgID {
+			out = append(out, d)
+		}
+	}
+	return out, nil
+}
+
+func (m *deckStore) GetDeck(_ context.Context, orgID, id string) (store.Deck, bool, error) {
+	ms := (*MemoryStore)(m)
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	d, ok := ms.decks[id]
+	if !ok || d.OrgID != orgID {
+		return store.Deck{}, false, nil
+	}
+	return d, true, nil
+}
+
+func (m *deckStore) UpdateDeck(_ context.Context, d store.Deck) (store.Deck, error) {
+	ms := (*MemoryStore)(m)
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	if _, ok := ms.decks[d.ID]; !ok {
+		return store.Deck{}, errNotFound
+	}
+	d.UpdatedAt = time.Now().UTC()
+	ms.decks[d.ID] = d
+	return d, nil
+}
+
+func (m *deckStore) CreateDeckVersion(_ context.Context, v store.DeckVersion) (store.DeckVersion, error) {
+	ms := (*MemoryStore)(m)
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	v.CreatedAt = time.Now().UTC()
+	ms.deckVers[v.ID] = v
+	return v, nil
+}
+
+func (m *deckStore) ListDeckVersions(_ context.Context, orgID, deckID string) ([]store.DeckVersion, error) {
+	ms := (*MemoryStore)(m)
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	out := []store.DeckVersion{}
+	for _, v := range ms.deckVers {
+		if v.OrgID == orgID && v.Deck == deckID {
+			out = append(out, v)
+		}
+	}
+	return out, nil
+}
+
+func (m *deckStore) GetDeckVersion(_ context.Context, orgID, versionID string) (store.DeckVersion, bool, error) {
+	ms := (*MemoryStore)(m)
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+
+	v, ok := ms.deckVers[versionID]
+	if !ok || v.OrgID != orgID {
+		return store.DeckVersion{}, false, nil
 	}
 	return v, true, nil
 }

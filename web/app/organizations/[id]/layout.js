@@ -32,7 +32,7 @@ export default function OrganizationLayout({ children }) {
 
   const navigation = [
     { name: 'Dashboard', href: `/organizations/${params.id}`, icon: '📊' },
-    { name: 'Templates', href: `/templates`, icon: '📄' },
+    { name: 'Decks', href: `/decks`, icon: '📄' },
     { name: 'Team Members', href: `/organizations/${params.id}/members`, icon: '👥' },
     { name: 'Settings', href: `/organizations/${params.id}/settings`, icon: '⚙️' },
   ]
@@ -43,7 +43,7 @@ export default function OrganizationLayout({ children }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center space-x-4">
-              <Link href="/templates" className="text-xl font-bold text-gray-900">
+              <Link href="/decks" className="text-xl font-bold text-gray-900">
                 CMS AI
               </Link>
               <OrganizationSwitcher currentOrgId={params.id} />
@@ -51,10 +51,10 @@ export default function OrganizationLayout({ children }) {
             
             <div className="flex items-center space-x-4">
               <Link
-                href="/templates"
+                href="/decks"
                 className="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
               >
-                Templates
+                Decks
               </Link>
               
               <div className="flex items-center space-x-2">
