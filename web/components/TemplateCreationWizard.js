@@ -58,25 +58,25 @@ export default function TemplateCreationWizard({ onComplete, onCancel }) {
     setStep(3)
 
     try {
-      const res = await fetch('/v1/templates/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt: prompt.trim(),
-          name: templateName,
-          contentData
-        })
-      })
-
-      if (!res.ok) {
-        const errorData = await res.json()
-        setError(errorData.error || `Error: ${res.status}`)
-        setStep(2) // Go back to content step
-        return
-      }
-
-      const data = await res.json()
-      onComplete(data)
+       // One-click deck: generate template, then export a PPTX immediately.
+       const { createDeck } = await import('../lib/deckFlow.js')
+       const result = await createDeck({
+         prompt: prompt.trim(),
+         name: templateName,
+         contentData,
+       })
+ 
+       onComplete(result)
+ 
+       // Trigger download right away.
+       const { sanitizeFilename } = await import('../lib/filename.js')
+       const safe = sanitizeFilename(templateName)
+       const link = document.createElement('a')
+       link.href = `/api/assets/${result.assetId}`
+       link.download = `${safe}.pptx`
+       document.body.appendChild(link)
+       link.click()
+       document.body.removeChild(link)
     } catch (err) {
       setError(`Error: ${err.message}`)
       setStep(2) // Go back to content step

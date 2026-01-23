@@ -271,34 +271,35 @@ describe('Visual Editor API Integration', () => {
     assert.ok(errors.find(e => e.field === 'safeMargin'))
   })
 
-  test('Job polling integration', () => {
+  test('Job polling integration', async () => {
     // Test job status polling for visual editor operations
-    
     const jobStates = [
       { id: 'job-123', type: 'preview', status: 'Queued', progress: 0 },
       { id: 'job-123', type: 'preview', status: 'Running', progress: 50 },
       { id: 'job-123', type: 'preview', status: 'Done', progress: 100 }
     ]
-    
+
     let completedJobs = 0
     const jobPollingSimulation = (job, onComplete) => {
       // Simulate job progression
-      setTimeout(() => {
-        if (job.status === 'Done') {
-          completedJobs++
-          onComplete(job)
-        }
-      }, 100)
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          if (job.status === 'Done') {
+            completedJobs++
+            onComplete(job)
+          }
+          resolve()
+        }, 20)
+      })
     }
-    
-    // Simulate polling
-    jobStates.forEach(job => {
+
+    await Promise.all(jobStates.map(job =>
       jobPollingSimulation(job, (completedJob) => {
         assert.strictEqual(completedJob.status, 'Done')
         assert.strictEqual(completedJob.progress, 100)
       })
-    })
-    
+    ))
+
     assert.strictEqual(completedJobs, 1) // Only the "Done" job should trigger completion
   })
 })

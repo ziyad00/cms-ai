@@ -83,10 +83,16 @@ export default function Page() {
     router.push('/auth/signin')
   }
 
-  function handleWizardComplete(template) {
-    setMessage(`Generated template: ${template.name}`)
+  function handleWizardComplete(result) {
+    const tpl = result?.template || result
+    setMessage(`Created deck: ${tpl?.name || 'Untitled'}`)
     setShowWizard(false)
     loadTemplates() // Refresh templates automatically
+
+    // Optional: send user to template page after download kicks off.
+    if (tpl?.id) {
+      router.push(`/templates/${tpl.id}`)
+    }
   }
 
   function handleWizardCancel() {

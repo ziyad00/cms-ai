@@ -2,7 +2,7 @@ import { test, describe } from 'node:test'
 import assert from 'node:assert'
 
 // Mock DOM environment for component testing
-const { JSDOM } = require('jsdom')
+import { JSDOM } from 'jsdom'
 
 // Setup DOM
 const dom = new JSDOM('<!DOCTYPE html><html><body></body></html>')

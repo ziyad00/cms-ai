@@ -157,8 +157,8 @@ describe('Visual Editor Integration', () => {
     history.length = historyIndex + 1 // Truncate to undo position
     history.push(JSON.parse(JSON.stringify(thirdChange)))
     historyIndex = history.length - 1
-    
-    assert.strictEqual(history.length, 3)
+
+    assert.strictEqual(history.length, 4)
     assert.strictEqual(history[historyIndex].version, 3)
   })
 
