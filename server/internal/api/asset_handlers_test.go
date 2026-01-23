@@ -45,6 +45,52 @@ func (m *MockObjectStorage) GetURL(ctx context.Context, key string, expiration t
 	return "https://mock-signed-url.com/" + key, nil
 }
 
+type LocalURLObjectStorage struct {
+	assets map[string][]byte
+}
+
+func (l *LocalURLObjectStorage) Upload(ctx context.Context, key string, data []byte, contentType string) (*assets.ObjectMetadata, error) {
+	if l.assets == nil {
+		l.assets = make(map[string][]byte)
+	}
+	l.assets[key] = data
+	return &assets.ObjectMetadata{Key: key, Size: int64(len(data)), ContentType: contentType, LastModified: time.Now()}, nil
+}
+
+func (l *LocalURLObjectStorage) UploadStream(ctx context.Context, key string, reader io.Reader, contentType string) (*assets.ObjectMetadata, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (l *LocalURLObjectStorage) GetURL(ctx context.Context, key string, expiration time.Duration) (string, error) {
+	return "/assets/" + key, nil
+}
+
+func (l *LocalURLObjectStorage) Download(ctx context.Context, key string) ([]byte, error) {
+	if l.assets == nil {
+		return nil, fmt.Errorf("asset not found: %s", key)
+	}
+	b, ok := l.assets[key]
+	if !ok {
+		return nil, fmt.Errorf("asset not found: %s", key)
+	}
+	return b, nil
+}
+
+func (l *LocalURLObjectStorage) DownloadStream(ctx context.Context, key string) (io.ReadCloser, error) {
+	return nil, fmt.Errorf("not implemented")
+}
+
+func (l *LocalURLObjectStorage) Delete(ctx context.Context, key string) error { return nil }
+func (l *LocalURLObjectStorage) Exists(ctx context.Context, key string) (bool, error) {
+	return false, nil
+}
+func (l *LocalURLObjectStorage) ListObjects(ctx context.Context, prefix string) ([]*assets.ObjectMetadata, error) {
+	return nil, nil
+}
+func (l *LocalURLObjectStorage) GetMetadata(ctx context.Context, key string) (*assets.ObjectMetadata, error) {
+	return nil, nil
+}
+
 func (m *MockObjectStorage) Download(ctx context.Context, key string) ([]byte, error) {
 	data, ok := m.assets[key]
 	if !ok {
@@ -121,9 +167,10 @@ func (m *mockReadCloser) Close() error {
 func TestAssetDownloadHandlers(t *testing.T) {
 	s := NewServer()
 
-	// Replace with mock storage for testing
-	mockStorage := NewMockObjectStorage()
-	s.ObjectStorage = mockStorage
+	// Use a storage that returns a *local* URL (relative path), which should trigger
+	// the handler's download fallback (not an HTTP redirect).
+	localStorage := &LocalURLObjectStorage{}
+	s.ObjectStorage = localStorage
 
 	h := s.Handler()
 
@@ -144,6 +191,17 @@ func TestAssetDownloadHandlers(t *testing.T) {
 			name:           "Asset download with auth but no asset",
 			method:         "GET",
 			path:           "/v1/assets/nonexistent-asset",
+			expectedStatus: http.StatusNotFound,
+			headers: map[string]string{
+				"X-User-Id": "user-1",
+				"X-Org-Id":  "org-1",
+				"X-Role":    "Editor",
+			},
+		},
+		{
+			name:           "Asset download with auth and local URL storage",
+			method:         "GET",
+			path:           "/v1/assets/test-asset-1",
 			expectedStatus: http.StatusNotFound,
 			headers: map[string]string{
 				"X-User-Id": "user-1",

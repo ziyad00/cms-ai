@@ -326,13 +326,16 @@ type postgresBrandKitStore PostgresStore
 
 func (p *postgresBrandKitStore) Create(ctx context.Context, b store.BrandKit) (store.BrandKit, error) {
 	ps := (*PostgresStore)(p)
-	query := `INSERT INTO brand_kits (id, org_id, name, tokens, created_at) VALUES ($1, $2, $3, $4, $5)`
-	if b.ID == "" {
-		b.ID = fmt.Sprintf("bk-%s", generateID())
-	}
+	// Let PostgreSQL generate the UUID automatically.
+	query := `INSERT INTO brand_kits (org_id, name, tokens, created_at) VALUES ($1, $2, $3, $4) RETURNING id`
+
+	// brand_kits.id is UUID in Postgres. Ignore any caller-supplied ID.
+	b.ID = ""
 	b.CreatedAt = time.Now().UTC()
-	_, err := ps.db.ExecContext(ctx, query, b.ID, b.OrgID, b.Name, b.Tokens, b.CreatedAt)
-	return b, err
+	if err := ps.db.QueryRowContext(ctx, query, b.OrgID, b.Name, b.Tokens, b.CreatedAt).Scan(&b.ID); err != nil {
+		return store.BrandKit{}, err
+	}
+	return b, nil
 }
 
 func (p *postgresBrandKitStore) List(ctx context.Context, orgID string) ([]store.BrandKit, error) {
@@ -411,17 +414,24 @@ type postgresJobStore PostgresStore
 
 func (p *postgresJobStore) Enqueue(ctx context.Context, j store.Job) (store.Job, error) {
 	ps := (*PostgresStore)(p)
-	query := `INSERT INTO jobs (id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, created_at, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`
-	if j.ID == "" {
-		j.ID = fmt.Sprintf("job-%s", generateID())
-	}
+	// Let PostgreSQL generate the UUID automatically.
+	query := `INSERT INTO jobs (org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		RETURNING id`
+
+	// jobs.id is UUID in Postgres. Ignore any caller-supplied ID.
+	j.ID = ""
 	if j.MaxRetries == 0 {
 		j.MaxRetries = 3
 	}
 	j.CreatedAt = time.Now().UTC()
 	j.UpdatedAt = j.CreatedAt
-	_, err := ps.db.ExecContext(ctx, query, j.ID, j.OrgID, j.Type, j.Status, j.InputRef, j.OutputRef, j.Error, j.RetryCount, j.MaxRetries, j.LastRetryAt, j.DeduplicationID, j.Metadata, j.CreatedAt, j.UpdatedAt)
-	return j, err
+
+	err := ps.db.QueryRowContext(ctx, query, j.OrgID, j.Type, j.Status, j.InputRef, j.OutputRef, j.Error, j.RetryCount, j.MaxRetries, j.LastRetryAt, j.DeduplicationID, j.Metadata, j.CreatedAt, j.UpdatedAt).Scan(&j.ID)
+	if err != nil {
+		return store.Job{}, err
+	}
+	return j, nil
 }
 
 func (p *postgresJobStore) EnqueueWithDeduplication(ctx context.Context, j store.Job) (store.Job, bool, error) {
@@ -565,13 +575,16 @@ type postgresMeteringStore PostgresStore
 
 func (p *postgresMeteringStore) Record(ctx context.Context, e store.MeteringEvent) (store.MeteringEvent, error) {
 	ps := (*PostgresStore)(p)
-	query := `INSERT INTO metering_events (id, org_id, user_id, event_type, quantity, created_at) VALUES ($1, $2, $3, $4, $5, $6)`
-	if e.ID == "" {
-		e.ID = fmt.Sprintf("met-%s", generateID())
-	}
+	// Let PostgreSQL generate the UUID automatically.
+	query := `INSERT INTO metering_events (org_id, user_id, event_type, quantity, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`
+
+	// metering_events.id is UUID in Postgres. Ignore any caller-supplied ID.
+	e.ID = ""
 	e.CreatedAt = time.Now().UTC()
-	_, err := ps.db.ExecContext(ctx, query, e.ID, e.OrgID, e.UserID, e.Type, e.Quantity, e.CreatedAt)
-	return e, err
+	if err := ps.db.QueryRowContext(ctx, query, e.OrgID, e.UserID, e.Type, e.Quantity, e.CreatedAt).Scan(&e.ID); err != nil {
+		return store.MeteringEvent{}, err
+	}
+	return e, nil
 }
 
 func (p *postgresMeteringStore) SumByType(ctx context.Context, orgID string, eventType string) (int, error) {
@@ -586,13 +599,16 @@ type postgresAuditStore PostgresStore
 
 func (p *postgresAuditStore) Append(ctx context.Context, a store.AuditLog) (store.AuditLog, error) {
 	ps := (*PostgresStore)(p)
-	query := `INSERT INTO audit_logs (id, org_id, actor_user_id, action, target_ref, metadata, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`
-	if a.ID == "" {
-		a.ID = fmt.Sprintf("aud-%s", generateID())
-	}
+	// Let PostgreSQL generate the UUID automatically.
+	query := `INSERT INTO audit_logs (org_id, actor_user_id, action, target_ref, metadata, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`
+
+	// audit_logs.id is UUID in Postgres. Ignore any caller-supplied ID.
+	a.ID = ""
 	a.CreatedAt = time.Now().UTC()
-	_, err := ps.db.ExecContext(ctx, query, a.ID, a.OrgID, a.ActorID, a.Action, a.TargetRef, a.Metadata, a.CreatedAt)
-	return a, err
+	if err := ps.db.QueryRowContext(ctx, query, a.OrgID, a.ActorID, a.Action, a.TargetRef, a.Metadata, a.CreatedAt).Scan(&a.ID); err != nil {
+		return store.AuditLog{}, err
+	}
+	return a, nil
 }
 
 type postgresUserStore PostgresStore

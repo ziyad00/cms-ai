@@ -24,40 +24,44 @@ func (s *Server) handleAssetDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Try to get signed URL first
+	// Try to get signed URL first.
+	// If the storage returns a relative URL (local storage), don't redirect because
+	// the API server is not serving that path; instead stream the bytes directly.
 	signedURL, err := s.ObjectStorage.GetURL(r.Context(), asset.Path, 15*time.Minute)
-	if err != nil {
-		// Fallback to direct download if signed URL generation fails
-		data, err := s.ObjectStorage.Download(r.Context(), asset.Path)
-		if err != nil {
-			writeError(w, r, http.StatusInternalServerError, "failed to download asset")
+	if err == nil {
+		if strings.HasPrefix(signedURL, "http://") || strings.HasPrefix(signedURL, "https://") {
+			// Redirect to a real signed URL (S3, etc.)
+			http.Redirect(w, r, signedURL, http.StatusTemporaryRedirect)
 			return
 		}
+	}
 
-		// Determine appropriate filename based on asset type
-		filename := assetID
-		switch asset.Type {
-		case store.AssetPPTX:
-			filename += ".pptx"
-		case store.AssetPNG:
-			filename += ".png"
-		default:
-			// For generic files, try to extract from path or use generic extension
-			if ext := filepath.Ext(asset.Path); ext != "" {
-				filename += ext
-			} else {
-				filename += ".bin"
-			}
-		}
-
-		w.Header().Set("Content-Type", asset.Mime)
-		w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
-		w.Write(data)
+	// Fallback: direct download
+	data, err := s.ObjectStorage.Download(r.Context(), asset.Path)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to download asset")
 		return
 	}
 
-	// Redirect to signed URL
-	http.Redirect(w, r, signedURL, http.StatusTemporaryRedirect)
+	// Determine appropriate filename based on asset type
+	filename := assetID
+	switch asset.Type {
+	case store.AssetPPTX:
+		filename += ".pptx"
+	case store.AssetPNG:
+		filename += ".png"
+	default:
+		// For generic files, try to extract from path or use generic extension
+		if ext := filepath.Ext(asset.Path); ext != "" {
+			filename += ext
+		} else {
+			filename += ".bin"
+		}
+	}
+
+	w.Header().Set("Content-Type", asset.Mime)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+	w.Write(data)
 }
 
 // handleJobAssetDownload handles GET /v1/jobs/{jobId}/assets/{filename}
@@ -110,22 +114,26 @@ func (s *Server) handleJobAssetDownload(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Try to get signed URL first
+	// Try to get signed URL first.
+	// If the storage returns a relative URL (local storage), don't redirect because
+	// the API server is not serving that path; instead stream the bytes directly.
 	signedURL, err := s.ObjectStorage.GetURL(r.Context(), asset.Path, 15*time.Minute)
-	if err != nil {
-		// Fallback to direct download if signed URL generation fails
-		data, err := s.ObjectStorage.Download(r.Context(), asset.Path)
-		if err != nil {
-			writeError(w, r, http.StatusInternalServerError, "failed to download asset")
+	if err == nil {
+		if strings.HasPrefix(signedURL, "http://") || strings.HasPrefix(signedURL, "https://") {
+			// Redirect to a real signed URL (S3, etc.)
+			http.Redirect(w, r, signedURL, http.StatusTemporaryRedirect)
 			return
 		}
+	}
 
-		w.Header().Set("Content-Type", asset.Mime)
-		w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
-		w.Write(data)
+	// Fallback: direct download
+	data, err := s.ObjectStorage.Download(r.Context(), asset.Path)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to download asset")
 		return
 	}
 
-	// Redirect to signed URL
-	http.Redirect(w, r, signedURL, http.StatusTemporaryRedirect)
+	w.Header().Set("Content-Type", asset.Mime)
+	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
+	w.Write(data)
 }
