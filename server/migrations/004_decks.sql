@@ -24,9 +24,16 @@ CREATE TABLE IF NOT EXISTS deck_versions (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-ALTER TABLE decks
-  ADD CONSTRAINT IF NOT EXISTS fk_decks_current_version
-  FOREIGN KEY (current_version_id) REFERENCES deck_versions(id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'fk_decks_current_version'
+  ) THEN
+    ALTER TABLE decks
+      ADD CONSTRAINT fk_decks_current_version
+      FOREIGN KEY (current_version_id) REFERENCES deck_versions(id);
+  END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_decks_org ON decks(org_id);
 CREATE INDEX IF NOT EXISTS idx_deck_versions_org_deck ON deck_versions(org_id, deck_id);
