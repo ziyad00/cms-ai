@@ -48,6 +48,8 @@ RUN apk --no-cache add nodejs npm
 
 # Copy artifacts from build stages
 COPY --from=go-build /app/server /usr/local/bin/server
+# Copy SQL migrations for runtime
+COPY --from=go-build /build/migrations /app/server/migrations
 
 # Copy entire Next.js build (includes .next, node_modules, and source files)
 COPY --from=web-build /app /app/web

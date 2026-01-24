@@ -19,6 +19,8 @@ RUN pip3 install --break-system-packages python-pptx
 
 # Copy Go server
 COPY --from=go-build /app/server /usr/local/bin/server
+# Copy SQL migrations for runtime
+COPY --from=go-build /app/migrations /app/server/migrations
 
 # Copy Next.js app with node_modules
 WORKDIR /app/web

@@ -50,6 +50,10 @@ func (p *PostgresStore) Close() error {
 func (p *PostgresStore) applySQLMigrations(dir string) error {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
+		if os.IsNotExist(err) {
+			log.Printf("WARNING: migrations dir not found: %s", dir)
+			return nil
+		}
 		return err
 	}
 
