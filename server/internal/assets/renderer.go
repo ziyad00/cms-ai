@@ -225,11 +225,14 @@ func (r GoPPTXRenderer) RenderPPTXBytes(ctx context.Context, spec any) ([]byte, 
 
 			textBox := slide.AddTextBox()
 
-			// Set position via properties (X and Y are in EMU units)
+			// Position and size (convert relative coords to 10x7.5in slide)
 			props := textBox.Properties()
-			x := measurement.Distance(ph.Geometry.X * 10 * measurement.Inch)  // 10 inches wide
-			y := measurement.Distance(ph.Geometry.Y * 7.5 * measurement.Inch) // 7.5 inches high
+			x := measurement.Distance(ph.Geometry.X * 10 * measurement.Inch)
+			y := measurement.Distance(ph.Geometry.Y * 7.5 * measurement.Inch)
+			w := measurement.Distance(ph.Geometry.W * 10 * measurement.Inch)
+			h := measurement.Distance(ph.Geometry.H * 7.5 * measurement.Inch)
 			props.SetPosition(x, y)
+			props.SetSize(w, h)
 
 			content := ph.Content
 			lines := strings.Split(content, "\n")
@@ -247,6 +250,15 @@ func (r GoPPTXRenderer) RenderPPTXBytes(ctx context.Context, spec any) ([]byte, 
 				}
 				run := para.AddRun()
 				run.SetText(line)
+
+				// Basic typography (keep it simple and readable)
+				rp := run.Properties()
+				if strings.Contains(strings.ToLower(ph.ID), "title") {
+					rp.SetBold(true)
+					rp.SetSize(28 * measurement.Point)
+				} else {
+					rp.SetSize(16 * measurement.Point)
+				}
 			}
 		}
 	}
