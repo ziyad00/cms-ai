@@ -1,6 +1,7 @@
 package assets
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -62,7 +63,7 @@ func (l *LocalObjectStorage) getFullPath(key string) string {
 
 // Upload uploads data to local filesystem
 func (l *LocalObjectStorage) Upload(ctx context.Context, key string, data []byte, contentType string) (*ObjectMetadata, error) {
-	return l.UploadStream(ctx, key, strings.NewReader(string(data)), contentType)
+	return l.UploadStream(ctx, key, bytes.NewReader(data), contentType)
 }
 
 // UploadStream uploads data from a reader to local filesystem

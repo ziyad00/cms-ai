@@ -1,11 +1,11 @@
 package assets
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -78,7 +78,7 @@ func NewS3Storage(ctx context.Context, config StorageConfig) (*S3Storage, error)
 
 // Upload uploads data to S3
 func (s *S3Storage) Upload(ctx context.Context, key string, data []byte, contentType string) (*ObjectMetadata, error) {
-	return s.UploadStream(ctx, key, strings.NewReader(string(data)), contentType)
+	return s.UploadStream(ctx, key, bytes.NewReader(data), contentType)
 }
 
 // UploadStream uploads data from a reader to S3

@@ -1,10 +1,10 @@
 package assets
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 )
 
@@ -39,7 +39,7 @@ func NewGCSStorage(ctx context.Context, config StorageConfig) (*GCSStorage, erro
 
 // Upload uploads data to GCS
 func (g *GCSStorage) Upload(ctx context.Context, key string, data []byte, contentType string) (*ObjectMetadata, error) {
-	return g.UploadStream(ctx, key, strings.NewReader(string(data)), contentType)
+	return g.UploadStream(ctx, key, bytes.NewReader(data), contentType)
 }
 
 // UploadStream uploads data from a reader to GCS
