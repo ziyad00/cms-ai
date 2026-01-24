@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"baliance.com/gooxml/measurement"
 	"baliance.com/gooxml/presentation"
@@ -230,11 +231,23 @@ func (r GoPPTXRenderer) RenderPPTXBytes(ctx context.Context, spec any) ([]byte, 
 			y := measurement.Distance(ph.Geometry.Y * 7.5 * measurement.Inch) // 7.5 inches high
 			props.SetPosition(x, y)
 
-			para := textBox.AddParagraph()
-			run := para.AddRun()
-
-			// Use actual content if available; leave blank if missing.
-			run.SetText(ph.Content)
+			content := ph.Content
+			lines := strings.Split(content, "\n")
+			for i, line := range lines {
+				line = strings.TrimSpace(line)
+				if line == "" {
+					continue
+				}
+				para := textBox.AddParagraph()
+				if len(lines) > 1 {
+					para.Properties().SetBulletChar("•")
+				}
+				if i > 0 {
+					para.Properties().SetLevel(0)
+				}
+				run := para.AddRun()
+				run.SetText(line)
+			}
 		}
 	}
 

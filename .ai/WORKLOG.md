@@ -37,3 +37,4 @@
 - 2026-01-24: Fixed prod stability for decks: ship SQL migrations in Docker, tolerate already-applied migrations, fix migration 004 constraint syntax, fix object storage binary upload (avoid string conversion), and fix Next /v1 proxy to stream binary responses so PPTX downloads are valid.
 - 2026-01-24: Added deck detail page in web: /decks/[id] with content view + VisualEditor layout editing (saves new deck version) + export; added Next API routes for decks and deck-version export.
 - 2026-01-24: Implemented outline-first deck workflow: API endpoint POST /v1/decks/outline (LLM returns {slides:[...]}); deck creation can now accept an outline and build per-slide layouts by cloning the base template layout; updated wizard and homepage to deck-first flow.
+- 2026-01-25: Improved Go renderer text rendering for outline-generated slides: newline-separated content now renders as bullet lines (instead of a single paragraph).
