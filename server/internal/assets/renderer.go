@@ -212,34 +212,29 @@ func (r GoPPTXRenderer) RenderPPTXBytes(ctx context.Context, spec any) ([]byte, 
 	// Create a new presentation
 	ppt := presentation.New()
 
-	// Add a slide for each layout (for demo, just first layout)
-	layout := templateSpec.Layouts[0]
-	slide := ppt.AddSlide()
+	// Add a slide for each layout
+	for _, layout := range templateSpec.Layouts {
+		slide := ppt.AddSlide()
 
-	// Add placeholders as text boxes (simplified implementation)
-	for _, ph := range layout.Placeholders {
-		if ph.Type == "text" {
-			// Add a text box
+		// Add placeholders as text boxes (simplified implementation)
+		for _, ph := range layout.Placeholders {
+			if ph.Type != "text" {
+				continue
+			}
+
 			textBox := slide.AddTextBox()
 
 			// Set position via properties (X and Y are in EMU units)
 			props := textBox.Properties()
-			// Convert relative coordinates to measurement.Distance
 			x := measurement.Distance(ph.Geometry.X * 10 * measurement.Inch)  // 10 inches wide
 			y := measurement.Distance(ph.Geometry.Y * 7.5 * measurement.Inch) // 7.5 inches high
 			props.SetPosition(x, y)
 
-			// Add actual content or placeholder text
 			para := textBox.AddParagraph()
 			run := para.AddRun()
 
-			// Use actual content if available, otherwise formatted placeholder
-			content := ph.Content
-			if content == "" {
-				content = "[" + ph.ID + "]"
-			}
-
-			run.SetText(content)
+			// Use actual content if available; leave blank if missing.
+			run.SetText(ph.Content)
 		}
 	}
 
