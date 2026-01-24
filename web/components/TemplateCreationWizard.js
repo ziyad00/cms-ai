@@ -24,7 +24,7 @@ export default function TemplateCreationWizard({ onComplete, onCancel }) {
     setError('')
 
     try {
-      const res = await fetch('/v1/decks/outline', {
+      const res = await fetch('/api/decks/outline', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

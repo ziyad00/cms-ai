@@ -38,3 +38,4 @@
 - 2026-01-24: Added deck detail page in web: /decks/[id] with content view + VisualEditor layout editing (saves new deck version) + export; added Next API routes for decks and deck-version export.
 - 2026-01-24: Implemented outline-first deck workflow: API endpoint POST /v1/decks/outline (LLM returns {slides:[...]}); deck creation can now accept an outline and build per-slide layouts by cloning the base template layout; updated wizard and homepage to deck-first flow.
 - 2026-01-25: Improved Go renderer text rendering for outline-generated slides: newline-separated content now renders as bullet lines (instead of a single paragraph).
+- 2026-01-25: Added Next API route /api/decks/outline and switched deck wizard to use it (keeps auth/proxy consistent).
