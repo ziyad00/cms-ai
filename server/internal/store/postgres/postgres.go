@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 
 	_ "github.com/lib/pq" // PostgreSQL driver
@@ -75,7 +76,14 @@ func (p *PostgresStore) applySQLMigrations(dir string) error {
 		if err != nil {
 			return err
 		}
+		// The migrations folder is mostly idempotent (IF NOT EXISTS), but some legacy
+		// files may not be. If the DB already has earlier tables, skip those errors.
 		if _, err := p.db.Exec(string(sqlBytes)); err != nil {
+			msg := err.Error()
+			if strings.Contains(msg, "already exists") {
+				log.Printf("WARNING: skipping migration %s: %v", f, err)
+				continue
+			}
 			return fmt.Errorf("%s: %w", f, err)
 		}
 	}
