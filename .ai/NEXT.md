@@ -52,6 +52,7 @@
 - [x] Decks: add persisted Deck + DeckVersion (DB migration + store + API)
 - [x] Decks: implement AI binder (content blob -> filled spec) and deck export endpoint
 - [ ] Web: add real `/decks` detail page with VisualEditor + content editor + export (no raw JSON UI)
+- [ ] Deck binder: improve prompt so it fills more placeholders from content (currently only fills some fields)
 - [ ] Add unit tests for spec package validation functions (geometry bounds checking)
 - [ ] Add unit tests for queue package (job processing, retry logic)
 - [ ] Configure HUGGINGFACE_API_KEY environment variable for production AI generation
