@@ -148,8 +148,8 @@ export default function Page() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-3xl font-bold text-gray-900">Templates</h2>
-              <p className="text-gray-600 mt-1">Create and manage your presentation templates</p>
+               <h2 className="text-3xl font-bold text-gray-900">Decks</h2>
+               <p className="text-gray-600 mt-1">Create and export decks from your content</p>
             </div>
             <button
               onClick={() => setShowWizard(true)}
@@ -158,7 +158,7 @@ export default function Page() {
               <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
               </svg>
-              Create New Template
+               Create New Deck
             </button>
           </div>
           {message && (
@@ -183,13 +183,13 @@ export default function Page() {
             <svg className="mx-auto h-24 w-24 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <h3 className="mt-6 text-xl font-medium text-gray-900">No templates yet</h3>
-            <p className="mt-2 text-gray-500">Get started by creating your first template</p>
+             <h3 className="mt-6 text-xl font-medium text-gray-900">No decks yet</h3>
+             <p className="mt-2 text-gray-500">Get started by creating your first deck</p>
             <button
               onClick={() => setShowWizard(true)}
               className="mt-6 inline-flex items-center px-4 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors"
             >
-              Create Template
+               Create Deck
             </button>
           </div>
         ) : (
@@ -213,11 +213,11 @@ export default function Page() {
                   <p className="text-gray-600 text-sm mb-4">
                     Latest version: {t.latestVersionNo}
                   </p>
-                  <a
-                    href={`/templates/${t.id}`}
-                    className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium text-sm transition-colors"
-                  >
-                    Edit template
+                   <a
+                     href={`/decks/${t.id}`}
+                     className="inline-flex items-center text-blue-600 hover:text-blue-800 font-medium text-sm transition-colors"
+                   >
+                     Open deck
                     <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
