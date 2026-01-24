@@ -624,6 +624,8 @@ func (s *Server) handleCreateDeck(w http.ResponseWriter, r *http.Request) {
 
 	createdDeck, err := s.Store.Decks().CreateDeck(r.Context(), deck)
 	if err != nil {
+		requestID, _ := r.Context().Value(ctxKeyRequestID{}).(string)
+		log.Printf("ERROR: Failed to create deck: request_id=%s err=%v", requestID, err)
 		writeError(w, r, http.StatusInternalServerError, "failed to create deck")
 		return
 	}

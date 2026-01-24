@@ -9,6 +9,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"time"
 
 	_ "github.com/lib/pq" // PostgreSQL driver
@@ -34,12 +35,48 @@ func New(dsn string) (*PostgresStore, error) {
 	if err := store.runMigrations(); err != nil {
 		return nil, fmt.Errorf("failed to run migrations: %w", err)
 	}
+	// Apply incremental SQL migrations (server/migrations/*.sql)
+	if err := store.applySQLMigrations("server/migrations"); err != nil {
+		return nil, fmt.Errorf("failed to apply SQL migrations: %w", err)
+	}
 
 	return store, nil
 }
 
 func (p *PostgresStore) Close() error {
 	return p.db.Close()
+}
+
+func (p *PostgresStore) applySQLMigrations(dir string) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
+	files := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		name := e.Name()
+		if filepath.Ext(name) != ".sql" {
+			continue
+		}
+		files = append(files, filepath.Join(dir, name))
+	}
+	sort.Strings(files)
+
+	for _, f := range files {
+		sqlBytes, err := os.ReadFile(f)
+		if err != nil {
+			return err
+		}
+		if _, err := p.db.Exec(string(sqlBytes)); err != nil {
+			return fmt.Errorf("%s: %w", f, err)
+		}
+	}
+
+	return nil
 }
 
 // DB exposes the underlying database connection for diagnostics
