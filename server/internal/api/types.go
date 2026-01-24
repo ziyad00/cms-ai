@@ -36,10 +36,30 @@ type CreateTemplateRequest struct {
 	Name string `json:"name"`
 }
 
+type SlideOutline struct {
+	SlideNumber int      `json:"slide_number"`
+	Title       string   `json:"title"`
+	Content     []string `json:"content"`
+}
+
+type DeckOutline struct {
+	Slides []SlideOutline `json:"slides"`
+}
+
+type CreateDeckOutlineRequest struct {
+	Prompt  string `json:"prompt"`
+	Content string `json:"content"`
+}
+
+type CreateDeckOutlineResponse struct {
+	Outline DeckOutline `json:"outline"`
+}
+
 type CreateDeckRequest struct {
 	Name                  string `json:"name"`
 	SourceTemplateVersion string `json:"sourceTemplateVersionId"`
 	Content               string `json:"content"`
+	Outline               any    `json:"outline,omitempty"`
 }
 
 type CreateDeckVersionRequest struct {

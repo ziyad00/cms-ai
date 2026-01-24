@@ -48,6 +48,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/templates/{id}/versions", s.handleCreateVersion)
 	mux.HandleFunc("GET /v1/templates/{id}/versions", s.handleListVersions)
 
+	mux.HandleFunc("POST /v1/decks/outline", s.handleCreateDeckOutline)
 	mux.HandleFunc("POST /v1/decks", s.handleCreateDeck)
 	mux.HandleFunc("GET /v1/decks", s.handleListDecks)
 	mux.HandleFunc("GET /v1/decks/{id}", s.handleGetDeck)
@@ -554,6 +555,150 @@ func (s *Server) handleGetJob(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"job": job})
 }
 
+func (s *Server) handleCreateDeckOutline(w http.ResponseWriter, r *http.Request) {
+	id, _ := auth.GetIdentity(r.Context())
+	if !auth.RequireRole(id, auth.RoleEditor) {
+		writeError(w, r, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	var req CreateDeckOutlineRequest
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 2<<20)).Decode(&req); err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	content := strings.TrimSpace(req.Content)
+	if content == "" {
+		writeError(w, r, http.StatusBadRequest, "content is required")
+		return
+	}
+
+	prompt := strings.TrimSpace(req.Prompt)
+	if prompt == "" {
+		prompt = "Create a clear slide-by-slide outline from the provided content."
+	}
+
+	// Ask the model to output JSON with the required schema.
+	genReq := ai.GenerationRequest{
+		Prompt: fmt.Sprintf(
+			"You are a presentation writer. Convert the following content into a slide outline JSON with this exact shape: {\"slides\":[{\"slide_number\":1,\"title\":\"...\",\"content\":[\"...\"]}]}. \nRules: 6-12 slides by default unless the content is very long; each slide content should be 3-6 bullet lines; keep slide_number sequential starting at 1; return ONLY valid JSON (no markdown).\n\nUSER_INTENT:\n%s\n\nSOURCE_CONTENT:\n%s",
+			prompt,
+			content,
+		),
+		RTL: false,
+	}
+
+	jsonText, err := ai.NewOrchestrator().GenerateJSON(r.Context(), genReq.Prompt)
+	if err != nil {
+		writeError(w, r, http.StatusBadGateway, "failed to generate outline")
+		return
+	}
+
+	// Extract JSON from the model response.
+	start := strings.Index(jsonText, "{")
+	end := strings.LastIndex(jsonText, "}")
+	if start == -1 || end == -1 || start >= end {
+		writeError(w, r, http.StatusBadGateway, "invalid outline JSON")
+		return
+	}
+
+	var outline DeckOutline
+	if err := json.Unmarshal([]byte(jsonText[start:end+1]), &outline); err != nil {
+		writeError(w, r, http.StatusBadGateway, "invalid outline JSON")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"outline": outline})
+}
+
+func parseDeckOutline(v any) (*DeckOutline, error) {
+	b, err := assetsSpecBytes(v)
+	if err != nil {
+		return nil, err
+	}
+	var out DeckOutline
+	if err := json.Unmarshal(b, &out); err != nil {
+		return nil, err
+	}
+	if len(out.Slides) == 0 {
+		return nil, fmt.Errorf("no slides")
+	}
+	return &out, nil
+}
+
+func buildDeckSpecFromOutline(templateSpec *spec.TemplateSpec, outline *DeckOutline) *spec.TemplateSpec {
+	// Clone tokens/constraints but replace layouts with one per slide.
+	out := &spec.TemplateSpec{
+		Tokens:      templateSpec.Tokens,
+		Constraints: templateSpec.Constraints,
+		Layouts:     []spec.Layout{},
+	}
+
+	// Pick a base layout to clone.
+	base := spec.Layout{Name: "Slide", Placeholders: []spec.Placeholder{}}
+	if len(templateSpec.Layouts) > 0 {
+		base = templateSpec.Layouts[0]
+	}
+
+	// Choose title + body placeholders by convention.
+	titleID := ""
+	bodyID := ""
+	for _, ph := range base.Placeholders {
+		if ph.Type != "text" {
+			continue
+		}
+		id := strings.ToLower(ph.ID)
+		if titleID == "" && strings.Contains(id, "title") {
+			titleID = ph.ID
+			continue
+		}
+		if bodyID == "" && (strings.Contains(id, "body") || strings.Contains(id, "content") || strings.Contains(id, "subtitle")) {
+			bodyID = ph.ID
+			continue
+		}
+	}
+	// Fallback to first/second text placeholders.
+	if titleID == "" || bodyID == "" {
+		textIDs := []string{}
+		for _, ph := range base.Placeholders {
+			if ph.Type == "text" {
+				textIDs = append(textIDs, ph.ID)
+			}
+		}
+		if titleID == "" && len(textIDs) > 0 {
+			titleID = textIDs[0]
+		}
+		if bodyID == "" {
+			if len(textIDs) > 1 {
+				bodyID = textIDs[1]
+			} else if len(textIDs) == 1 {
+				bodyID = textIDs[0]
+			}
+		}
+	}
+
+	for _, sld := range outline.Slides {
+		layout := spec.Layout{Name: sld.Title, Placeholders: []spec.Placeholder{}}
+		for _, ph := range base.Placeholders {
+			p := ph
+			if p.Type == "text" {
+				if p.ID == titleID {
+					p.Content = sld.Title
+				} else if p.ID == bodyID {
+					p.Content = strings.Join(sld.Content, "\n")
+				} else {
+					p.Content = ""
+				}
+			}
+			layout.Placeholders = append(layout.Placeholders, p)
+		}
+		out.Layouts = append(out.Layouts, layout)
+	}
+
+	return out
+}
+
 func (s *Server) handleCreateDeck(w http.ResponseWriter, r *http.Request) {
 	id, _ := auth.GetIdentity(r.Context())
 	if !auth.RequireRole(id, auth.RoleEditor) {
@@ -601,10 +746,22 @@ func (s *Server) handleCreateDeck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	boundSpec, aiResp, err := s.AIService.BindDeckSpec(r.Context(), id.OrgID, id.UserID, &templateSpec, req.Content)
-	if err != nil {
-		writeError(w, r, http.StatusBadGateway, "failed to bind deck with AI")
-		return
+	var boundSpec *spec.TemplateSpec
+	var aiResp *ai.GenerationResponse
+
+	if req.Outline != nil {
+		outline, err := parseDeckOutline(req.Outline)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid outline")
+			return
+		}
+		boundSpec = buildDeckSpecFromOutline(&templateSpec, outline)
+	} else {
+		boundSpec, aiResp, err = s.AIService.BindDeckSpec(r.Context(), id.OrgID, id.UserID, &templateSpec, req.Content)
+		if err != nil {
+			writeError(w, r, http.StatusBadGateway, "failed to bind deck with AI")
+			return
+		}
 	}
 
 	boundBytes, err := json.Marshal(boundSpec)

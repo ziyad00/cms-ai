@@ -152,6 +152,14 @@ func (m *mockOrchestrator) GenerateTemplateSpec(ctx context.Context, req Generat
 	return m.response, nil
 }
 
+func (m *mockOrchestrator) GenerateJSON(ctx context.Context, prompt string) (string, error) {
+	if m.err != nil {
+		return "", m.err
+	}
+	// Not used in these tests.
+	return "{}", nil
+}
+
 func (m *mockOrchestrator) RepairTemplateSpec(ctx context.Context, invalidSpec *spec.TemplateSpec, errors []spec.ValidationError) (*spec.TemplateSpec, error) {
 	if m.err != nil {
 		return nil, m.err

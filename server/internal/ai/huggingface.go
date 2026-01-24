@@ -77,6 +77,54 @@ func NewHuggingFaceClient(apiKey, model string) *HuggingFaceClient {
 	}
 }
 
+func (c *HuggingFaceClient) GenerateRaw(ctx context.Context, prompt string) (string, error) {
+	// Build a minimal system prompt emphasizing valid JSON output.
+	hfReq := hfChatRequest{
+		Messages: []chatMessage{
+			{Role: "system", Content: "Return ONLY valid JSON. No markdown, no explanations."},
+			{Role: "user", Content: prompt},
+		},
+		Model:  c.model,
+		Stream: false,
+	}
+
+	reqBody, err := json.Marshal(hfReq)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL, bytes.NewReader(reqBody))
+	if err != nil {
+		return "", fmt.Errorf("failed to create request: %w", err)
+	}
+	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	resp, err := c.httpClient.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("HuggingFace API unreachable: %w", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to read response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("HuggingFace API error (status %d): %s", resp.StatusCode, string(respBody))
+	}
+
+	var hfResp hfChatResponse
+	if err := json.Unmarshal(respBody, &hfResp); err != nil {
+		return "", fmt.Errorf("failed to unmarshal response: %w", err)
+	}
+	if len(hfResp.Choices) == 0 {
+		return "", fmt.Errorf("empty response from API")
+	}
+
+	return hfResp.Choices[0].Message.Content, nil
+}
+
 func (c *HuggingFaceClient) GenerateTemplateSpec(ctx context.Context, req GenerationRequest) (*GenerationResponse, error) {
 	// Build system prompt with user requirements
 	systemPrompt := c.buildSystemPrompt(req)

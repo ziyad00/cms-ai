@@ -13,6 +13,7 @@ import (
 
 type Orchestrator interface {
 	GenerateTemplateSpec(ctx context.Context, req GenerationRequest) (*GenerationResponse, error)
+	GenerateJSON(ctx context.Context, prompt string) (string, error)
 	RepairTemplateSpec(ctx context.Context, invalidSpec *spec.TemplateSpec, errors []spec.ValidationError) (*spec.TemplateSpec, error)
 }
 
@@ -41,6 +42,10 @@ func (o *orchestrator) GenerateTemplateSpec(ctx context.Context, req GenerationR
 
 	// If generation fails, try to repair with a fallback approach
 	return o.generateWithFallback(ctx, req)
+}
+
+func (o *orchestrator) GenerateJSON(ctx context.Context, prompt string) (string, error) {
+	return o.client.GenerateRaw(ctx, prompt)
 }
 
 func (o *orchestrator) RepairTemplateSpec(ctx context.Context, invalidSpec *spec.TemplateSpec, errors []spec.ValidationError) (*spec.TemplateSpec, error) {

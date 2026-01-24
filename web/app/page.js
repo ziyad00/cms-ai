@@ -7,7 +7,7 @@ import TemplateCreationWizard from '../components/TemplateCreationWizard'
 export default function Page() {
   const router = useRouter()
   const [user, setUser] = useState(null)
-  const [templates, setTemplates] = useState([])
+  const [decks, setDecks] = useState([])
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState('')
   const [showWizard, setShowWizard] = useState(false)
@@ -30,7 +30,7 @@ export default function Page() {
       .then(data => {
         if (data?.user) {
           setUser(data.user)
-          // loadTemplates() will be called in the separate useEffect when user state updates
+          // loadDecks() will be called in the separate useEffect when user state updates
         } else if (data === null) {
           // Already redirected or error
           return
@@ -44,33 +44,33 @@ export default function Page() {
       })
   }, [router])
 
-  const loadTemplates = useCallback(async () => {
+  const loadDecks = useCallback(async () => {
     if (!user) return
     // Cookies are sent automatically by browser
     try {
-      const res = await fetch('/api/templates', {
+      const res = await fetch('/api/decks', {
         method: 'GET',
       })
       if (res.ok) {
         const data = await res.json()
-        setTemplates(data.templates || [])
+        setDecks(data.decks || [])
       } else {
         const errorData = await res.json().catch(() => ({}))
-        console.error('Failed to load templates:', res.status, errorData)
-        setMessage(`Error loading templates: ${errorData.error || 'Unknown error'}`)
+        console.error('Failed to load decks:', res.status, errorData)
+        setMessage(`Error loading decks: ${errorData.error || 'Unknown error'}`)
       }
     } catch (err) {
-      console.error('Failed to load templates:', err)
-      setMessage(`Network error loading templates: ${err.message}`)
+      console.error('Failed to load decks:', err)
+      setMessage(`Network error loading decks: ${err.message}`)
     }
   }, [user])
 
-  // Load templates when user is set
+  // Load decks when user is set
   useEffect(() => {
-    if (user) {
-      loadTemplates()
-    }
-  }, [user, loadTemplates])
+      if (user) {
+        loadDecks()
+      }
+    }, [user, loadDecks])
 
   async function handleLogout() {
     try {
@@ -79,19 +79,18 @@ export default function Page() {
       // Ignore errors
     }
     setUser(null)
-    setTemplates([])
+    setDecks([])
     router.push('/auth/signin')
   }
 
   function handleWizardComplete(result) {
-    const tpl = result?.template || result
-    setMessage(`Created deck: ${tpl?.name || 'Untitled'}`)
+    const d = result?.deck || result
+    setMessage(`Created deck: ${d?.name || 'Untitled'}`)
     setShowWizard(false)
-    loadTemplates() // Refresh templates automatically
+    loadDecks() // Refresh decks automatically
 
-    // Optional: send user to template page after download kicks off.
-    if (tpl?.id) {
-      router.push(`/templates/${tpl.id}`)
+    if (d?.id) {
+      router.push(`/decks/${d.id}`)
     }
   }
 
@@ -176,9 +175,9 @@ export default function Page() {
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <span className="ml-2 text-gray-600">Loading templates...</span>
+            <span className="ml-2 text-gray-600">Loading decks...</span>
           </div>
-        ) : templates.length === 0 ? (
+         ) : decks.length === 0 ? (
           <div className="text-center py-12">
             <svg className="mx-auto h-24 w-24 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -194,7 +193,7 @@ export default function Page() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {templates.map(t => (
+             {decks.map(t => (
               <div key={t.id} className="bg-white rounded-xl shadow-sm hover:shadow-lg transition-all duration-200 border border-gray-200/50 overflow-hidden group hover:-translate-y-1">
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-4">
