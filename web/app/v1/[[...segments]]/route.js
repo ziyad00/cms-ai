@@ -38,13 +38,31 @@ async function proxyToGoBackend(request, segments) {
     })
 
     // Forward response
+    const contentType = response.headers.get('Content-Type') || 'application/octet-stream'
+
+    // If it's not JSON/text, stream bytes rather than `response.text()` which will corrupt.
+    if (!contentType.includes('application/json') && !contentType.startsWith('text/')) {
+      const bytes = await response.arrayBuffer()
+      const outHeaders = new Headers()
+      outHeaders.set('Content-Type', contentType)
+
+      const disp = response.headers.get('Content-Disposition')
+      if (disp) outHeaders.set('Content-Disposition', disp)
+
+      return new NextResponse(bytes, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: outHeaders,
+      })
+    }
+
     const responseBody = await response.text()
 
     return new NextResponse(responseBody, {
       status: response.status,
       statusText: response.statusText,
       headers: {
-        'Content-Type': response.headers.get('Content-Type') || 'application/json',
+        'Content-Type': contentType,
       },
     })
   } catch (error) {
