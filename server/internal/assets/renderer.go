@@ -233,6 +233,8 @@ func (r GoPPTXRenderer) RenderPPTXBytes(ctx context.Context, spec any) ([]byte, 
 			h := measurement.Distance(ph.Geometry.H * 7.5 * measurement.Inch)
 			props.SetPosition(x, y)
 			props.SetSize(w, h)
+			props.SetNoFill()
+			props.LineProperties().SetNoFill()
 
 			content := ph.Content
 			lines := strings.Split(content, "\n")

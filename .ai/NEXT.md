@@ -54,6 +54,7 @@
 - [x] Web: add real `/decks` detail page with VisualEditor + content editor + export (no raw JSON UI)
 - [x] Deck outline workflow: add Next API route for `/api/decks/outline` and use it from the wizard (avoid calling `/v1` directly)
 - [ ] Deck outline workflow: use template selection (existing vs AI-generate) rather than always generating a new template
+- [x] Add integration test: renderer produces multi-slide PPTX with expected text
 - [ ] Deck binder: improve prompt so it fills more placeholders from content (currently only fills some fields)
 - [ ] Add unit tests for spec package validation functions (geometry bounds checking)
 - [ ] Add unit tests for queue package (job processing, retry logic)
