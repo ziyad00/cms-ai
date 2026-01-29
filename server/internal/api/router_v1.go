@@ -41,6 +41,7 @@ func (s *Server) Handler() http.Handler {
 
 	mux.HandleFunc("POST /v1/templates/validate", s.handleValidateTemplateSpec)
 	mux.HandleFunc("POST /v1/templates/analyze", s.handleAnalyzeTemplate)
+	mux.HandleFunc("POST /v1/design/analyze", s.AnalyzeDesign)
 	mux.HandleFunc("POST /v1/templates", s.handleCreateTemplate)
 	mux.HandleFunc("POST /v1/templates/generate", s.handleGenerateTemplate)
 	mux.HandleFunc("GET /v1/templates", s.handleListTemplates)

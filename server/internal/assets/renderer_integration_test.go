@@ -13,7 +13,7 @@ import (
 )
 
 func TestGoPPTXRenderer_RendersBulletsAndMultipleSlides(t *testing.T) {
-	r := GoPPTXRenderer{}
+	r := NewGoPPTXRenderer()
 
 	spec := map[string]any{
 		"tokens": map[string]any{

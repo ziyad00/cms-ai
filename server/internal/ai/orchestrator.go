@@ -22,10 +22,20 @@ type orchestrator struct {
 }
 
 func NewOrchestrator() Orchestrator {
+	// Check if we should use mock mode
+	if os.Getenv("USE_MOCK_AI") == "true" {
+		return NewMockOrchestrator()
+	}
+
 	apiKey := os.Getenv("HUGGINGFACE_API_KEY")
 	model := os.Getenv("HUGGINGFACE_MODEL")
 	if model == "" {
 		model = "moonshotai/Kimi-K2-Instruct-0905"
+	}
+
+	// If no API key, use mock mode to avoid costs
+	if apiKey == "" {
+		return NewMockOrchestrator()
 	}
 
 	return &orchestrator{

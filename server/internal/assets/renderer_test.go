@@ -12,7 +12,7 @@ import (
 )
 
 func TestGoPPTXRenderer_RenderPPTXBytes(t *testing.T) {
-	renderer := GoPPTXRenderer{}
+	renderer := NewGoPPTXRenderer()
 
 	// Create a simple template spec
 	templateSpec := map[string]interface{}{
@@ -63,7 +63,7 @@ func TestGoPPTXRenderer_RenderPPTXBytes(t *testing.T) {
 }
 
 func TestGoPPTXRenderer_RenderPPTXBytes_WithJSONBytes(t *testing.T) {
-	renderer := GoPPTXRenderer{}
+	renderer := NewGoPPTXRenderer()
 
 	// Same as other tests, but passed as raw JSON bytes.
 	templateSpec := map[string]interface{}{
@@ -104,7 +104,7 @@ func TestGoPPTXRenderer_RenderPPTXBytes_WithJSONBytes(t *testing.T) {
 }
 
 func TestGoPPTXRenderer_RenderPPTX(t *testing.T) {
-	renderer := GoPPTXRenderer{}
+	renderer := NewGoPPTXRenderer()
 
 	// Create a simple template spec
 	templateSpec := map[string]interface{}{
@@ -156,7 +156,7 @@ func TestGoPPTXRenderer_RenderPPTX(t *testing.T) {
 }
 
 func TestGoPPTXRenderer_EmptyLayouts(t *testing.T) {
-	renderer := GoPPTXRenderer{}
+	renderer := NewGoPPTXRenderer()
 
 	// Create a template spec with no layouts
 	templateSpec := map[string]interface{}{
@@ -175,7 +175,7 @@ func TestGoPPTXRenderer_EmptyLayouts(t *testing.T) {
 }
 
 func TestGoPPTXRenderer_InvalidJSON(t *testing.T) {
-	renderer := GoPPTXRenderer{}
+	renderer := NewGoPPTXRenderer()
 
 	// Create an invalid spec that can't be marshaled
 	invalidSpec := make(chan int) // channels can't be marshaled to JSON
@@ -186,7 +186,7 @@ func TestGoPPTXRenderer_InvalidJSON(t *testing.T) {
 }
 
 func TestGoPPTXRenderer_GenerateSlideThumbnails(t *testing.T) {
-	renderer := GoPPTXRenderer{}
+	renderer := NewGoPPTXRenderer()
 
 	// Create a template spec with multiple layouts
 	templateSpec := map[string]interface{}{
@@ -251,7 +251,7 @@ func TestGoPPTXRenderer_GenerateSlideThumbnails(t *testing.T) {
 }
 
 func TestGoPPTXRenderer_GenerateSlideThumbnails_EmptyLayouts(t *testing.T) {
-	renderer := GoPPTXRenderer{}
+	renderer := NewGoPPTXRenderer()
 
 	// Create a template spec with no layouts
 	templateSpec := map[string]interface{}{

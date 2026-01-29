@@ -38,11 +38,16 @@ func specToJSONBytes(spec any) ([]byte, error) {
 }
 
 type PythonPPTXRenderer struct {
-	PythonPath string
-	ScriptPath string
+	PythonPath         string
+	ScriptPath         string
+	HuggingFaceAPIKey  string
 }
 
 func (r PythonPPTXRenderer) RenderPPTX(ctx context.Context, spec any, outPath string) error {
+	return r.RenderPPTXWithCompany(ctx, spec, outPath, nil)
+}
+
+func (r PythonPPTXRenderer) RenderPPTXWithCompany(ctx context.Context, spec any, outPath string, company *CompanyContext) error {
 	python := r.PythonPath
 	if python == "" {
 		python = "python3"
@@ -57,6 +62,7 @@ func (r PythonPPTXRenderer) RenderPPTX(ctx context.Context, spec any, outPath st
 		return err
 	}
 
+	// Create temporary spec file
 	tmpSpec, err := os.CreateTemp(tmpDir, "spec-*.json")
 	if err != nil {
 		return err
@@ -75,11 +81,47 @@ func (r PythonPPTXRenderer) RenderPPTX(ctx context.Context, spec any, outPath st
 		return err
 	}
 
-	cmd := exec.CommandContext(ctx, python, script, tmpSpec.Name(), outPath)
-	cmd.Env = append(os.Environ(), "PYTHONUNBUFFERED=1")
+	// Create command arguments
+	args := []string{script, tmpSpec.Name(), outPath}
+
+	// Add company info if provided
+	var tmpCompany *os.File
+	if company != nil {
+		tmpCompany, err = os.CreateTemp(tmpDir, "company-*.json")
+		if err != nil {
+			return err
+		}
+		defer os.Remove(tmpCompany.Name())
+		defer tmpCompany.Close()
+
+		companyBytes, err := json.Marshal(company)
+		if err != nil {
+			return err
+		}
+		if _, err := tmpCompany.Write(companyBytes); err != nil {
+			return err
+		}
+		if err := tmpCompany.Close(); err != nil {
+			return err
+		}
+
+		args = append(args, "--company-info", tmpCompany.Name())
+	}
+
+	// Add Hugging Face API key if available
+	if r.HuggingFaceAPIKey != "" {
+		args = append(args, "--hf-api-key", r.HuggingFaceAPIKey)
+	}
+
+	cmd := exec.CommandContext(ctx, python, args...)
+	cmd.Env = append(os.Environ(),
+		"PYTHONUNBUFFERED=1",
+		"HUGGING_FACE_API_KEY="+r.HuggingFaceAPIKey,
+	)
+
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return errors.New(string(out))
+		return fmt.Errorf("python renderer failed: %s", string(out))
 	}
 	return nil
 }
@@ -155,7 +197,29 @@ func (r PythonPPTXRenderer) GenerateSlideThumbnails(ctx context.Context, spec an
 	return thumbnails, nil
 }
 
-type GoPPTXRenderer struct{}
+type GoPPTXRenderer struct {
+	layoutGenerator       *SmartLayoutGenerator
+	aiDesignAnalyzer      *AIDesignAnalyzer
+	olamaAI               *OlamaAIBridge
+	backgroundRenderer    *AdvancedBackgroundRenderer
+	visualRenderer        *SmartVisualRenderer
+	visualEnhancer        *VisualEnhancementRenderer
+	typographySystem      *AdvancedTypographySystem
+	templateLibrary       *DesignTemplateLibrary
+}
+
+func NewGoPPTXRenderer() *GoPPTXRenderer {
+	return &GoPPTXRenderer{
+		layoutGenerator:    NewSmartLayoutGenerator(),
+		aiDesignAnalyzer:   NewAIDesignAnalyzer(),
+		olamaAI:            NewOlamaAIBridge(),
+		backgroundRenderer: NewAdvancedBackgroundRenderer(),
+		visualRenderer:     NewSmartVisualRenderer(),
+		visualEnhancer:     NewVisualEnhancementRenderer(),
+		typographySystem:   NewAdvancedTypographySystem(),
+		templateLibrary:    NewDesignTemplateLibrary(),
+	}
+}
 
 func (r GoPPTXRenderer) RenderPPTX(ctx context.Context, spec any, outPath string) error {
 	data, err := r.RenderPPTXBytes(ctx, spec)
@@ -210,58 +274,80 @@ func (r GoPPTXRenderer) RenderPPTXBytes(ctx context.Context, spec any) ([]byte, 
 		return nil, errors.New("no layouts found in template spec")
 	}
 
-	// Create a new presentation
+	// Create a new presentation with custom slide master
 	ppt := presentation.New()
 
-	// Add a slide for each layout
-	for _, layout := range templateSpec.Layouts {
+	// Note: Slide background will be applied per slide due to gooxml limitations
+
+	// Perform AI design analysis using olama's AI if available
+	jsonData := r.specToMap(templateSpec)
+	companyInfo := CompanyContext{} // Could be extracted from brand kit
+
+	var designIdentity *DesignIdentity
+
+	// Use olama's real AI for design analysis (no fallback)
+	var aiErr error
+	designIdentity, aiErr = r.olamaAI.AnalyzeContentForDesign(jsonData, companyInfo)
+	if aiErr != nil {
+		return nil, fmt.Errorf("AI design analysis failed: %v", aiErr)
+	}
+
+	designTheme := r.templateLibrary.GetThemeForAnalysis(designIdentity)
+
+	// Add a slide for each layout using advanced AI design
+	for i, layout := range templateSpec.Layouts {
 		slide := ppt.AddSlide()
 
-		// Add placeholders as text boxes (simplified implementation)
+		// Extract title and content for smart analysis
+		var title, content string
 		for _, ph := range layout.Placeholders {
-			if ph.Type != "text" {
-				continue
+			if strings.Contains(strings.ToLower(ph.ID), "title") {
+				title = ph.Content
+			} else {
+				if content != "" {
+					content += "\n"
+				}
+				content += ph.Content
 			}
+		}
 
-			textBox := slide.AddTextBox()
+		// Apply slide background first (using text box background)
+		r.visualEnhancer.AddSlideBackground(slide, designTheme.Colors["background"])
 
-			// Position and size (convert relative coords to 10x7.5in slide)
-			props := textBox.Properties()
-			x := measurement.Distance(ph.Geometry.X * 10 * measurement.Inch)
-			y := measurement.Distance(ph.Geometry.Y * 7.5 * measurement.Inch)
-			w := measurement.Distance(ph.Geometry.W * 10 * measurement.Inch)
-			h := measurement.Distance(ph.Geometry.H * 7.5 * measurement.Inch)
-			props.SetPosition(x, y)
-			props.SetSize(w, h)
-			props.SetNoFill()
-			props.LineProperties().SetNoFill()
+		// Apply advanced visual elements and enhancements
+		slideType := r.determineSlideType(title, content, i)
+		r.visualEnhancer.ApplySlideEnhancements(slide, designTheme, slideType)
+		r.visualRenderer.ApplyVisualElements(slide, designTheme, slideType)
 
-			content := ph.Content
-			lines := strings.Split(content, "\n")
-			for i, line := range lines {
-				line = strings.TrimSpace(line)
-				if line == "" {
-					continue
-				}
-				para := textBox.AddParagraph()
-				if len(lines) > 1 {
-					para.Properties().SetBulletChar("•")
-				}
-				if i > 0 {
-					para.Properties().SetLevel(0)
-				}
-				run := para.AddRun()
-				run.SetText(line)
+		// Generate smart layout with industry-specific adjustments
+		smartLayout := r.layoutGenerator.GenerateLayout(title, content, i+1, len(templateSpec.Layouts))
 
-				// Basic typography (keep it simple and readable)
-				rp := run.Properties()
-				if strings.Contains(strings.ToLower(ph.ID), "title") {
-					rp.SetBold(true)
-					rp.SetSize(28 * measurement.Point)
-				} else {
-					rp.SetSize(16 * measurement.Point)
+		// Override colors with theme colors
+		smartLayout.ColorScheme = ColorScheme{
+			Primary:    designTheme.Colors["primary"],
+			Secondary:  designTheme.Colors["secondary"],
+			Background: designTheme.Colors["background"],
+			Text:       designTheme.Colors["text"],
+			Accent:     designTheme.Colors["accent"],
+		}
+
+		// Add title with advanced typography
+		if title != "" {
+			titleBox := slide.AddTextBox()
+			r.configureAdvancedTextBox(titleBox, smartLayout.Title, title, smartLayout.ColorScheme, designTheme)
+		}
+
+		// Add content with advanced typography and industry-specific styling
+		for j, contentConfig := range smartLayout.Content {
+			contentBox := slide.AddTextBox()
+			contentText := content
+			if j < len(layout.Placeholders)-1 {
+				contentLines := strings.Split(content, "\n")
+				if j < len(contentLines) {
+					contentText = contentLines[j]
 				}
 			}
+			r.configureAdvancedTextBox(contentBox, contentConfig, contentText, smartLayout.ColorScheme, designTheme)
 		}
 	}
 
@@ -289,6 +375,134 @@ func (r GoPPTXRenderer) RenderPPTXBytes(ctx context.Context, spec any) ([]byte, 
 	os.Remove(tmpPath)
 
 	return data, nil
+}
+
+func (r GoPPTXRenderer) applySlideBackground(ppt presentation.Presentation, theme DesignTheme) {
+	// Apply background styling through slide master
+	// This is the proper way to set backgrounds in PowerPoint
+	if len(ppt.SlideMasters()) > 0 {
+		master := ppt.SlideMasters()[0]
+
+		// Apply theme background color to slide master
+		bgColor := theme.Colors["background"]
+		if bgColor != "" {
+			// Note: gooxml has limited slide master background API
+			// In a full implementation, this would use master.Background()
+			// or manipulate the XML directly for rich backgrounds
+			r.attemptSlideBackground(master, bgColor)
+		}
+	}
+}
+
+func (r GoPPTXRenderer) attemptSlideBackground(master presentation.SlideMaster, bgColor string) {
+	// Attempt to set background through available gooxml APIs
+	// Note: This may have limited effect due to gooxml constraints
+	// Background setting in PowerPoint typically requires slide master manipulation
+}
+
+func (r GoPPTXRenderer) applySmartBackground(slide presentation.Slide, bg BackgroundConfig, colors ColorScheme) {
+	// Apply background styling based on smart analysis
+	// Note: gooxml has limited background styling options
+	// This is a simplified implementation
+}
+
+func (r GoPPTXRenderer) configureTextBox(textBox presentation.TextBox, config PlaceholderConfig, text string, colors ColorScheme) {
+	// Position and size (convert relative coords to 10x7.5in slide)
+	props := textBox.Properties()
+	x := measurement.Distance(config.X * 10 * measurement.Inch)
+	y := measurement.Distance(config.Y * 7.5 * measurement.Inch)
+	w := measurement.Distance(config.W * 10 * measurement.Inch)
+	h := measurement.Distance(config.H * 7.5 * measurement.Inch)
+	props.SetPosition(x, y)
+	props.SetSize(w, h)
+	props.SetNoFill()
+	props.LineProperties().SetNoFill()
+
+	// Add text with smart formatting
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		para := textBox.AddParagraph()
+
+		// Smart bullet formatting for multi-line content
+		if len(lines) > 1 && i > 0 && !config.Bold {
+			para.Properties().SetBulletChar("•")
+		}
+
+		run := para.AddRun()
+		run.SetText(line)
+
+		// Smart typography
+		rp := run.Properties()
+		if config.Bold {
+			rp.SetBold(true)
+		}
+		rp.SetSize(measurement.Distance(config.FontSize) * measurement.Point)
+	}
+}
+
+// Helper methods for the enhanced renderer
+
+func (r GoPPTXRenderer) specToMap(spec any) map[string]any {
+	// Convert spec to map for AI analysis
+	specBytes, _ := json.Marshal(spec)
+	var specMap map[string]any
+	json.Unmarshal(specBytes, &specMap)
+	return specMap
+}
+
+func (r GoPPTXRenderer) determineSlideType(title, content string, slideIndex int) string {
+	if slideIndex == 0 {
+		return "title"
+	}
+
+	lowerContent := strings.ToLower(content)
+	if strings.Contains(lowerContent, "summary") || strings.Contains(lowerContent, "conclusion") {
+		return "conclusion"
+	}
+	if strings.Contains(lowerContent, "agenda") || strings.Contains(lowerContent, "outline") {
+		return "agenda"
+	}
+
+	return "content"
+}
+
+func (r GoPPTXRenderer) configureAdvancedTextBox(textBox presentation.TextBox, config PlaceholderConfig, text string, colors ColorScheme, theme DesignTheme) {
+	// Position and size (convert relative coords to 10x7.5in slide)
+	props := textBox.Properties()
+	x := measurement.Distance(config.X * 10 * measurement.Inch)
+	y := measurement.Distance(config.Y * 7.5 * measurement.Inch)
+	w := measurement.Distance(config.W * 10 * measurement.Inch)
+	h := measurement.Distance(config.H * 7.5 * measurement.Inch)
+	props.SetPosition(x, y)
+	props.SetSize(w, h)
+	props.SetNoFill()
+	props.LineProperties().SetNoFill()
+
+	// Determine optimal typography style
+	position := config.ID
+	style := r.typographySystem.GetOptimalStyle(text, position, theme.Name)
+
+	// Apply advanced typography
+	r.typographySystem.ApplyTypography(textBox, text, style, theme.Name)
+}
+
+func (r GoPPTXRenderer) parseColor(hexColor string) color.RGBA {
+	// Remove # if present
+	if strings.HasPrefix(hexColor, "#") {
+		hexColor = hexColor[1:]
+	}
+
+	// Default to black if parsing fails
+	if len(hexColor) != 6 {
+		return color.RGBA{0, 0, 0, 255}
+	}
+
+	// Parse RGB values (simplified - would need proper hex parsing)
+	return color.RGBA{0, 0, 0, 255} // Placeholder - would implement proper color parsing
 }
 
 // GenerateSlideThumbnails creates preview thumbnails for each slide

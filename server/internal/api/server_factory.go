@@ -25,7 +25,6 @@ func NewServer() *Server {
 		authenticator = auth.HeaderAuthenticator{}
 	}
 	validator := spec.DefaultValidator{}
-	renderer := assets.GoPPTXRenderer{}
 
 	// Create object storage
 	factory := assets.NewStorageFactory()
@@ -46,6 +45,24 @@ func NewServer() *Server {
 	} else {
 		log.Printf("Using in-memory storage (no DATABASE_URL)")
 		st = memory.New()
+	}
+
+	// Choose renderer based on environment configuration
+	var renderer assets.Renderer
+	if os.Getenv("USE_PYTHON_RENDERER") == "true" {
+		if os.Getenv("HUGGING_FACE_API_KEY") != "" {
+			log.Printf("Using AI-enhanced Python renderer with Hugging Face")
+			renderer = assets.NewAIEnhancedRenderer(st)
+		} else {
+			log.Printf("Using Python PPTX renderer (no AI key)")
+			renderer = &assets.PythonPPTXRenderer{
+				PythonPath: "python3",
+				ScriptPath: "tools/renderer/render_pptx.py",
+			}
+		}
+	} else {
+		log.Printf("Using Go PPTX renderer (basic)")
+		renderer = assets.NewGoPPTXRenderer()
 	}
 
 	// Create AI service
