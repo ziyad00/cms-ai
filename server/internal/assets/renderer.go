@@ -9,6 +9,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -284,12 +285,23 @@ func (r GoPPTXRenderer) RenderPPTXBytes(ctx context.Context, spec any) ([]byte, 
 	companyInfo := CompanyContext{} // Could be extracted from brand kit
 
 	var designIdentity *DesignIdentity
-
-	// Use olama's real AI for design analysis (no fallback)
 	var aiErr error
-	designIdentity, aiErr = r.olamaAI.AnalyzeContentForDesign(jsonData, companyInfo)
-	if aiErr != nil {
-		return nil, fmt.Errorf("AI design analysis failed: %v", aiErr)
+
+	// Try olama AI first (if HUGGINGFACE_API_KEY is available)
+	if r.olamaAI.IsAvailable() && os.Getenv("HUGGINGFACE_API_KEY") != "" {
+		designIdentity, aiErr = r.olamaAI.AnalyzeContentForDesign(jsonData, companyInfo)
+		if aiErr != nil {
+			// Log the error but fall back to the regular AI analyzer
+			log.Printf("Olama AI analysis failed, falling back to regular analyzer: %v", aiErr)
+		}
+	}
+
+	// Fall back to regular AI design analyzer if olama failed or is not available
+	if designIdentity == nil || aiErr != nil {
+		designIdentity, aiErr = r.aiDesignAnalyzer.AnalyzeContentForDesign(jsonData, companyInfo)
+		if aiErr != nil {
+			return nil, fmt.Errorf("AI design analysis failed: %v", aiErr)
+		}
 	}
 
 	designTheme := r.templateLibrary.GetThemeForAnalysis(designIdentity)

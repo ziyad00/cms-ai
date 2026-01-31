@@ -13,21 +13,21 @@ import (
 type OlamaAIBridge struct {
 	OlamaPath   string // Path to olama directory
 	PythonPath  string // Python executable path
-	APIKey      string // DigitalOcean AI API key (from env)
+	APIKey      string // Hugging Face API key (from env)
 }
 
 func NewOlamaAIBridge() *OlamaAIBridge {
 	return &OlamaAIBridge{
 		OlamaPath:  "/Users/ziyad/Documents/olama", // Default olama path
 		PythonPath: "/usr/bin/python3",             // System Python
-		APIKey:     os.Getenv("DO_AI_API_KEY"),     // Get from environment
+		APIKey:     os.Getenv("HUGGINGFACE_API_KEY"), // Use Hugging Face key
 	}
 }
 
 // AnalyzeContentForDesign calls olama's AI design generator
 func (o *OlamaAIBridge) AnalyzeContentForDesign(jsonData map[string]any, companyInfo CompanyContext) (*DesignIdentity, error) {
 	if o.APIKey == "" {
-		return nil, fmt.Errorf("DO_AI_API_KEY environment variable is required for AI analysis")
+		return nil, fmt.Errorf("HUGGINGFACE_API_KEY environment variable is required for AI analysis")
 	}
 
 	// Create temporary files for olama communication
@@ -106,7 +106,7 @@ if __name__ == '__main__':
 	// Execute olama AI analysis
 	cmd := exec.CommandContext(context.Background(), o.PythonPath, bridgeScript)
 	cmd.Env = append(os.Environ(),
-		fmt.Sprintf("DO_AI_API_KEY=%s", o.APIKey),
+		fmt.Sprintf("HUGGINGFACE_API_KEY=%s", o.APIKey),
 		"PYTHONPATH="+o.OlamaPath,
 	)
 
@@ -171,6 +171,6 @@ func (o *OlamaAIBridge) IsAvailable() bool {
 // GetRequiredEnvVars returns the environment variables needed for AI analysis
 func (o *OlamaAIBridge) GetRequiredEnvVars() []string {
 	return []string{
-		"DO_AI_API_KEY", // DigitalOcean AI API key
+		"HUGGINGFACE_API_KEY", // Hugging Face API key
 	}
 }
