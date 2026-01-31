@@ -105,14 +105,18 @@ export default function DeckDetailPage() {
     try {
       const contentParts = []
 
-      deckData.outline.slides.forEach(slide => {
+      deckData.outline.slides.forEach((slide, index) => {
+        // Add slide title exactly like outline UI
         if (slide.title) {
-          contentParts.push(`# ${slide.title}`)
+          contentParts.push(`Slide ${index + 1}`)
+          contentParts.push(slide.title)
         }
+
+        // Add bullet points exactly like outline UI
         if (slide.content && Array.isArray(slide.content)) {
           slide.content.forEach(bullet => {
             if (bullet.trim()) {
-              contentParts.push(`• ${bullet.trim()}`)
+              contentParts.push(bullet.trim())
             }
           })
         }
@@ -134,14 +138,18 @@ export default function DeckDetailPage() {
 
       // First, try to extract from outline structure (better structured content from step 2)
       if (spec.outline && spec.outline.slides) {
-        spec.outline.slides.forEach(slide => {
+        spec.outline.slides.forEach((slide, index) => {
+          // Add slide title exactly like outline UI
           if (slide.title) {
-            contentParts.push(`# ${slide.title}`)
+            contentParts.push(`Slide ${index + 1}`)
+            contentParts.push(slide.title)
           }
+
+          // Add bullet points exactly like outline UI
           if (slide.content && Array.isArray(slide.content)) {
             slide.content.forEach(bullet => {
               if (bullet.trim()) {
-                contentParts.push(`• ${bullet.trim()}`)
+                contentParts.push(bullet.trim())
               }
             })
           }
