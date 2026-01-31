@@ -45,7 +45,6 @@ export default function DeckDetailPage() {
 
       const deckBody = await deckRes.json()
       setDeck(deckBody.deck)
-      setContent(deckBody.deck?.content || '')
 
       if (versionsRes.ok) {
         const vb = await versionsRes.json()
@@ -58,7 +57,14 @@ export default function DeckDetailPage() {
 
         // Spec can arrive as object or base64 string; normalize to object.
         const chosen = vs.find(v => v.id === pick) || vs[0]
-        setSpec(normalizeSpec(chosen?.spec))
+        const normalizedSpec = normalizeSpec(chosen?.spec)
+        setSpec(normalizedSpec)
+
+        // Extract content from the AI-generated spec instead of raw deck content
+        setContent(extractContentFromSpec(normalizedSpec) || deckBody.deck?.content || '')
+      } else {
+        // Fallback to raw content if no versions available
+        setContent(deckBody.deck?.content || '')
       }
     } catch (err) {
       setMessage(err.message)
@@ -84,6 +90,35 @@ export default function DeckDetailPage() {
     }
 
     return null
+  }
+
+  function extractContentFromSpec(spec) {
+    if (!spec || !spec.layouts) return null
+
+    try {
+      // Extract text content from all placeholders in all layouts
+      const contentParts = []
+
+      spec.layouts.forEach(layout => {
+        if (layout.placeholders) {
+          layout.placeholders.forEach(placeholder => {
+            if (placeholder.type === 'text' && placeholder.content) {
+              // Clean up the content and add to our collection
+              const cleanContent = placeholder.content.replace(/\n+/g, '\n').trim()
+              if (cleanContent) {
+                contentParts.push(cleanContent)
+              }
+            }
+          })
+        }
+      })
+
+      // Join all content with double line breaks
+      return contentParts.length > 0 ? contentParts.join('\n\n') : null
+    } catch (err) {
+      console.error('Error extracting content from spec:', err)
+      return null
+    }
   }
 
   async function saveLayoutAsNewVersion() {
@@ -218,7 +253,10 @@ export default function DeckDetailPage() {
                 const vid = e.target.value
                 setActiveVersionId(vid)
                 const v = versions.find(x => x.id === vid)
-                setSpec(normalizeSpec(v?.spec))
+                const normalizedSpec = normalizeSpec(v?.spec)
+                setSpec(normalizedSpec)
+                // Update content to show AI-generated content from the selected version
+                setContent(extractContentFromSpec(normalizedSpec) || deck?.content || '')
               }}
               className="border border-gray-300 rounded-md px-2 py-2 text-sm"
             >

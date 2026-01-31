@@ -910,7 +910,8 @@ func (s *Server) handleExportDeckVersion(w http.ResponseWriter, r *http.Request)
 	objectKey := newID("asset") + ".pptx"
 	tempPath := filepath.Join(os.TempDir(), objectKey)
 	if err := s.Renderer.RenderPPTX(r.Context(), ver.SpecJSON, tempPath); err != nil {
-		writeError(w, r, http.StatusInternalServerError, "render failed")
+		log.Printf("ERROR: Deck version render failed for version %s: %v", versionID, err)
+		writeError(w, r, http.StatusInternalServerError, fmt.Sprintf("render failed: %v", err))
 		return
 	}
 	defer os.Remove(tempPath)
