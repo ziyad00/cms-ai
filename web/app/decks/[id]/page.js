@@ -65,11 +65,13 @@ export default function DeckDetailPage() {
         const normalizedSpec = normalizeSpec(chosen?.spec)
         setSpec(normalizedSpec)
 
-        // Extract content from the AI-generated spec instead of raw deck content
-        setContent(extractContentFromSpec(normalizedSpec) || deckData?.content || '')
+        // Extract content from the AI-generated spec or deck outline instead of raw deck content
+        const extractedContent = extractContentFromSpec(normalizedSpec) || extractContentFromDeckOutline(deckData) || deckData?.content || ''
+        setContent(extractedContent)
       } else {
-        // Fallback to raw content if no versions available
-        setContent(deckData?.content || '')
+        // Fallback to deck outline or raw content if no versions available
+        const fallbackContent = extractContentFromDeckOutline(deckData) || deckData?.content || ''
+        setContent(fallbackContent)
       }
     } catch (err) {
       setMessage(err.message)
@@ -95,6 +97,33 @@ export default function DeckDetailPage() {
     }
 
     return null
+  }
+
+  function extractContentFromDeckOutline(deckData) {
+    if (!deckData || !deckData.outline || !deckData.outline.slides) return null
+
+    try {
+      const contentParts = []
+
+      deckData.outline.slides.forEach(slide => {
+        if (slide.title) {
+          contentParts.push(`# ${slide.title}`)
+        }
+        if (slide.content && Array.isArray(slide.content)) {
+          slide.content.forEach(bullet => {
+            if (bullet.trim()) {
+              contentParts.push(`• ${bullet.trim()}`)
+            }
+          })
+        }
+        contentParts.push('') // Add spacing between slides
+      })
+
+      return contentParts.length > 0 ? contentParts.join('\n').trim() : null
+    } catch (err) {
+      console.error('Error extracting content from deck outline:', err)
+      return null
+    }
   }
 
   function extractContentFromSpec(spec) {
