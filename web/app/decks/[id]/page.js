@@ -13,12 +13,15 @@ export default function DeckDetailPage() {
   const [versions, setVersions] = useState([])
   const [activeVersionId, setActiveVersionId] = useState(null)
 
+  const [deckName, setDeckName] = useState('')
+  const [stylePrompt, setStylePrompt] = useState('')
   const [content, setContent] = useState('')
   const [spec, setSpec] = useState(null)
 
-  const [mode, setMode] = useState('content') // content | layout | export
+  const [mode, setMode] = useState('edit') // edit | layout | export
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [hasChanges, setHasChanges] = useState(false)
 
   const activeVersion = useMemo(() => {
     return versions.find(v => v.id === activeVersionId) || null
@@ -44,14 +47,16 @@ export default function DeckDetailPage() {
       }
 
       const deckBody = await deckRes.json()
-      setDeck(deckBody.deck)
+      const deckData = deckBody.deck
+      setDeck(deckData)
+      setDeckName(deckData?.name || '')
 
       if (versionsRes.ok) {
         const vb = await versionsRes.json()
         const vs = vb.versions || []
         setVersions(vs)
 
-        const current = deckBody.deck?.currentVersionId
+        const current = deckData?.currentVersionId
         const pick = current || (vs[0] && vs[0].id)
         setActiveVersionId(pick)
 
@@ -61,10 +66,10 @@ export default function DeckDetailPage() {
         setSpec(normalizedSpec)
 
         // Extract content from the AI-generated spec instead of raw deck content
-        setContent(extractContentFromSpec(normalizedSpec) || deckBody.deck?.content || '')
+        setContent(extractContentFromSpec(normalizedSpec) || deckData?.content || '')
       } else {
         // Fallback to raw content if no versions available
-        setContent(deckBody.deck?.content || '')
+        setContent(deckData?.content || '')
       }
     } catch (err) {
       setMessage(err.message)
@@ -119,6 +124,51 @@ export default function DeckDetailPage() {
       console.error('Error extracting content from spec:', err)
       return null
     }
+  }
+
+  async function updateDeck() {
+    if (!deckName.trim()) {
+      setMessage('Deck name is required')
+      return
+    }
+
+    setBusy(true)
+    setMessage('Updating deck...')
+    try {
+      const res = await fetch(`/v1/decks/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: deckName.trim(),
+          content: content.trim(),
+        }),
+      })
+
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setMessage(body.error || `Update failed (${res.status})`)
+        return
+      }
+
+      setMessage('Deck updated successfully')
+      setHasChanges(false)
+      setDeck(body.deck)
+    } catch (err) {
+      setMessage(`Update failed: ${err.message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Track changes to content and name
+  function handleContentChange(newContent) {
+    setContent(newContent)
+    setHasChanges(true)
+  }
+
+  function handleNameChange(newName) {
+    setDeckName(newName)
+    setHasChanges(true)
   }
 
   async function saveLayoutAsNewVersion() {
@@ -196,143 +246,187 @@ export default function DeckDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="min-w-0">
-            <h1 className="text-xl font-semibold text-gray-900 truncate">{deck.name}</h1>
-            <p className="text-xs text-gray-500">Deck ID: {deck.id}</p>
-          </div>
-
-          <div className="flex items-center gap-3">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <header className="bg-white/80 backdrop-blur-sm shadow-sm border-b border-gray-200/50">
+        <div className="max-w-7xl mx-auto px-6 py-5 flex justify-between items-center">
+          <div className="flex items-center space-x-3">
             <button
               onClick={() => router.back()}
-              className="px-3 py-2 text-sm rounded-md border border-gray-300 hover:bg-gray-50"
+              className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center hover:from-blue-700 hover:to-purple-700 transition-all"
             >
-              Back
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
             </button>
+            <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              {deck?.name || 'Loading...'}
+            </h1>
+          </div>
+          <div className="flex items-center space-x-6">
+            {versions.length > 0 && (
+              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                <span>Version:</span>
+                <select
+                  value={activeVersionId || ''}
+                  onChange={(e) => {
+                    const vid = e.target.value
+                    setActiveVersionId(vid)
+                    const v = versions.find(x => x.id === vid)
+                    const normalizedSpec = normalizeSpec(v?.spec)
+                    setSpec(normalizedSpec)
+                    // Update content to show AI-generated content from the selected version
+                    setContent(extractContentFromSpec(normalizedSpec) || deck?.content || '')
+                  }}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm bg-white"
+                >
+                  {versions.map(v => (
+                    <option key={v.id} value={v.id}>
+                      v{v.versionNo}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button
               onClick={exportActiveVersion}
               disabled={busy}
-              className="px-4 py-2 text-sm rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+              className="inline-flex items-center px-4 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
             >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
               Export PPTX
             </button>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-6 py-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-          <div className="flex gap-2">
+      <main className="max-w-4xl mx-auto px-6 py-8">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200/50 overflow-hidden">
+          {/* Tab Navigation */}
+          <div className="flex border-b border-gray-200/50">
             <button
-              onClick={() => setMode('content')}
-              className={`px-3 py-2 text-sm rounded-md border ${mode === 'content' ? 'bg-white border-gray-400' : 'border-gray-200 hover:bg-white'}`}
+              onClick={() => setMode('edit')}
+              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                mode === 'edit'
+                  ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
             >
-              Content
+              Edit Content
             </button>
             <button
               onClick={() => setMode('layout')}
-              className={`px-3 py-2 text-sm rounded-md border ${mode === 'layout' ? 'bg-white border-gray-400' : 'border-gray-200 hover:bg-white'}`}
+              className={`px-6 py-4 text-sm font-medium border-b-2 transition-colors ${
+                mode === 'layout'
+                  ? 'border-blue-600 text-blue-600 bg-blue-50/50'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+              }`}
             >
-              Layout
-            </button>
-            <button
-              onClick={() => setMode('export')}
-              className={`px-3 py-2 text-sm rounded-md border ${mode === 'export' ? 'bg-white border-gray-400' : 'border-gray-200 hover:bg-white'}`}
-            >
-              Export
+              Visual Editor
             </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <label className="text-sm text-gray-600">Version</label>
-            <select
-              value={activeVersionId || ''}
-              onChange={(e) => {
-                const vid = e.target.value
-                setActiveVersionId(vid)
-                const v = versions.find(x => x.id === vid)
-                const normalizedSpec = normalizeSpec(v?.spec)
-                setSpec(normalizedSpec)
-                // Update content to show AI-generated content from the selected version
-                setContent(extractContentFromSpec(normalizedSpec) || deck?.content || '')
-              }}
-              className="border border-gray-300 rounded-md px-2 py-2 text-sm"
-            >
-              {versions.map(v => (
-                <option key={v.id} value={v.id}>
-                  v{v.versionNo}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {message && (
-          <div className="mb-6 p-3 rounded-md border bg-white text-sm text-gray-700">
-            {message}
-          </div>
-        )}
-
-        {mode === 'content' && (
-          <section className="bg-white border rounded-lg p-5">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">Content</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Paste the content blob you want the AI to bind into the deck. Rebinding UI is coming next.
-            </p>
-            <textarea
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              rows={10}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 font-mono text-sm"
-            />
-            <div className="mt-4 text-xs text-gray-500">
-              This page currently doesn’t persist content edits yet (deck PATCH endpoint coming next).
-            </div>
-          </section>
-        )}
-
-        {mode === 'layout' && (
-          <section className="bg-white border rounded-lg overflow-hidden">
-            <div className="p-4 border-b flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-gray-900">Layout Editor</h2>
-                <p className="text-sm text-gray-600">Edit layout visually. Save creates a new deck version.</p>
+          {message && (
+            <div className={`m-6 p-4 rounded-lg border ${
+              message.includes('success') || message.includes('ready')
+                ? 'bg-green-50 border-green-200 text-green-700'
+                : message.includes('Error') || message.includes('failed')
+                ? 'bg-red-50 border-red-200 text-red-700'
+                : 'bg-blue-50 border-blue-200 text-blue-700'
+            }`}>
+              <div className="flex items-center">
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {message}
               </div>
-              <button
-                onClick={saveLayoutAsNewVersion}
-                disabled={busy}
-                className="px-4 py-2 text-sm rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-              >
-                Save Layout
-              </button>
             </div>
+          )}
 
-            <div style={{ height: 'calc(100vh - 220px)' }}>
-              <VisualEditor
-                initialSpec={spec}
-                onSpecChange={setSpec}
-              />
+          {/* Content Tab */}
+          {mode === 'edit' && (
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Deck name</label>
+                  <input
+                    type="text"
+                    value={deckName}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Style prompt (optional)</label>
+                  <input
+                    type="text"
+                    value={stylePrompt}
+                    onChange={(e) => setStylePrompt(e.target.value)}
+                    placeholder="e.g. technical proposal, government RFP response, modern minimal"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Content</label>
+                <p className="text-sm text-gray-600 mb-3">
+                  Edit the AI-generated content from your deck. Changes will update the deck content.
+                </p>
+                <textarea
+                  value={content}
+                  onChange={(e) => handleContentChange(e.target.value)}
+                  rows={12}
+                  className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                  placeholder="Your deck content will appear here..."
+                />
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => router.back()}
+                  className="px-6 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Back to Decks
+                </button>
+                <button
+                  onClick={updateDeck}
+                  disabled={busy || !hasChanges}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {busy ? 'Updating...' : hasChanges ? 'Update Deck' : 'No Changes'}
+                </button>
+              </div>
             </div>
-          </section>
-        )}
+          )}
 
-        {mode === 'export' && (
-          <section className="bg-white border rounded-lg p-5">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">Export</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Export uses the selected deck version.
-            </p>
-            <button
-              onClick={exportActiveVersion}
-              disabled={busy}
-              className="px-4 py-2 text-sm rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
-            >
-              Export PPTX
-            </button>
-          </section>
-        )}
+          {/* Layout Tab */}
+          {mode === 'layout' && (
+            <div className="overflow-hidden">
+              <div className="p-6 border-b border-gray-200/50 flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900">Visual Layout Editor</h2>
+                  <p className="text-sm text-gray-600">Edit layout visually. Save creates a new deck version.</p>
+                </div>
+                <button
+                  onClick={saveLayoutAsNewVersion}
+                  disabled={busy}
+                  className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  Save Layout
+                </button>
+              </div>
+
+              <div style={{ height: 'calc(100vh - 300px)' }}>
+                <VisualEditor
+                  initialSpec={spec}
+                  onSpecChange={setSpec}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </main>
     </div>
   )

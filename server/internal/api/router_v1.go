@@ -53,6 +53,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/decks", s.handleCreateDeck)
 	mux.HandleFunc("GET /v1/decks", s.handleListDecks)
 	mux.HandleFunc("GET /v1/decks/{id}", s.handleGetDeck)
+	mux.HandleFunc("PATCH /v1/decks/{id}", s.handleUpdateDeck)
 	mux.HandleFunc("POST /v1/decks/{id}/versions", s.handleCreateDeckVersion)
 	mux.HandleFunc("GET /v1/decks/{id}/versions", s.handleListDeckVersions)
 	mux.HandleFunc("POST /v1/deck-versions/{versionId}/export", s.handleExportDeckVersion)
@@ -828,6 +829,53 @@ func (s *Server) handleGetDeck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"deck": d})
+}
+
+func (s *Server) handleUpdateDeck(w http.ResponseWriter, r *http.Request) {
+	id, _ := auth.GetIdentity(r.Context())
+	if !auth.RequireRole(id, auth.RoleEditor) {
+		writeError(w, r, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	deckID := r.PathValue("id")
+
+	var req struct {
+		Name    *string `json:"name"`
+		Content *string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid JSON")
+		return
+	}
+
+	// Get existing deck
+	d, ok, err := s.Store.Decks().GetDeck(r.Context(), id.OrgID, deckID)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to get deck")
+		return
+	}
+	if !ok {
+		writeError(w, r, http.StatusNotFound, "not found")
+		return
+	}
+
+	// Update fields if provided
+	if req.Name != nil {
+		d.Name = *req.Name
+	}
+	if req.Content != nil {
+		d.Content = *req.Content
+	}
+
+	// Save updated deck
+	updated, err := s.Store.Decks().UpdateDeck(r.Context(), d)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to update deck")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{"deck": updated})
 }
 
 func (s *Server) handleListDeckVersions(w http.ResponseWriter, r *http.Request) {
