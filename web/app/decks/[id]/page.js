@@ -66,11 +66,17 @@ export default function DeckDetailPage() {
         setSpec(normalizedSpec)
 
         // Extract content from the AI-generated spec or deck outline instead of raw deck content
+        console.log('Debug: normalizedSpec:', normalizedSpec)
+        console.log('Debug: deckData:', deckData)
+
         const extractedContent = extractContentFromSpec(normalizedSpec) || extractContentFromDeckOutline(deckData) || deckData?.content || ''
+        console.log('Debug: extractedContent:', extractedContent)
         setContent(extractedContent)
       } else {
         // Fallback to deck outline or raw content if no versions available
+        console.log('Debug: fallback deckData:', deckData)
         const fallbackContent = extractContentFromDeckOutline(deckData) || deckData?.content || ''
+        console.log('Debug: fallbackContent:', fallbackContent)
         setContent(fallbackContent)
       }
     } catch (err) {
