@@ -44,7 +44,7 @@ echo ""
 echo "4️⃣  Testing Consistency (5 runs, same input)..."
 for i in {1..5}; do
   echo -n "Run $i: "
-  go test ./internal/ai -run TestMockConsistency -count=1 2>/dev/null | grep -q "PASS" && echo "✅ Healthcare detected" || echo "❌ Failed"
+  USE_MOCK_AI=true go test ./internal/ai -run TestMockConsistency -count=1 2>/dev/null | grep -q "ok" && echo "✅ Consistent" || echo "❌ Failed"
 done
 
 echo ""
