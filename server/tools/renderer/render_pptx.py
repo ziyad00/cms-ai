@@ -6,6 +6,8 @@ Generates presentations with intelligent design decisions based on content
 """
 
 import sys
+print(f"DEBUG: Python script starting, sys.argv: {sys.argv}", file=sys.stderr)
+
 import json
 import argparse
 import asyncio
@@ -14,20 +16,32 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
 
+print(f"DEBUG: Basic imports successful", file=sys.stderr)
+
 try:
+    print(f"DEBUG: Importing python-pptx...", file=sys.stderr)
     from pptx import Presentation
     from pptx.util import Inches, Pt
     from pptx.enum.shapes import MSO_SHAPE
     from pptx.dml.color import RGBColor
     from pptx.enum.text import PP_ALIGN
+    print(f"DEBUG: python-pptx import successful", file=sys.stderr)
 except ImportError as e:
-    print(f"Error: python-pptx library is required. Install with: pip install python-pptx", file=sys.stderr)
+    print(f"ERROR: python-pptx library is required. Install with: pip install python-pptx. Error: {e}", file=sys.stderr)
     sys.exit(1)
 
 # Import olama's AI and design modules (local copies)
-from ai_design_generator import AIDesignGenerator
-from design_templates import DesignTemplateLibrary, get_design_system_for_content
-from abstract_background_renderer import CompositeBackgroundRenderer
+try:
+    print(f"DEBUG: Importing olama modules...", file=sys.stderr)
+    print(f"DEBUG: Current working directory: {os.getcwd()}", file=sys.stderr)
+    print(f"DEBUG: Files in current directory: {os.listdir('.')}", file=sys.stderr)
+    from ai_design_generator import AIDesignGenerator
+    from design_templates import DesignTemplateLibrary, get_design_system_for_content
+    from abstract_background_renderer import CompositeBackgroundRenderer
+    print(f"DEBUG: Olama imports successful", file=sys.stderr)
+except ImportError as e:
+    print(f"ERROR: Failed to import olama modules: {e}", file=sys.stderr)
+    sys.exit(1)
 
 logging.basicConfig(level=logging.INFO)
 
