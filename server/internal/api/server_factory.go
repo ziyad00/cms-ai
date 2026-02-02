@@ -56,7 +56,7 @@ func NewServer() *Server {
 		log.Printf("Using Python PPTX renderer (no AI key)")
 		renderer = &assets.PythonPPTXRenderer{
 			PythonPath: "python3",
-			ScriptPath: "/app/tools/renderer/render_pptx.py",
+			ScriptPath: "/app/tools/renderer/test_script.py",
 		}
 	}
 
