@@ -65,18 +65,12 @@ export default function DeckDetailPage() {
         const normalizedSpec = normalizeSpec(chosen?.spec)
         setSpec(normalizedSpec)
 
-        // Extract content from the AI-generated spec or deck outline instead of raw deck content
-        console.log('Debug: normalizedSpec:', normalizedSpec)
-        console.log('Debug: deckData:', deckData)
-
-        const extractedContent = extractContentFromSpec(normalizedSpec) || extractContentFromDeckOutline(deckData) || deckData?.content || ''
-        console.log('Debug: extractedContent:', extractedContent)
+        // Extract content from outline structure (like creation wizard)
+        const extractedContent = extractContentFromOutline(normalizedSpec?.outline) || extractContentFromOutline(deckData?.outline) || deckData?.content || ''
         setContent(extractedContent)
       } else {
         // Fallback to deck outline or raw content if no versions available
-        console.log('Debug: fallback deckData:', deckData)
-        const fallbackContent = extractContentFromDeckOutline(deckData) || deckData?.content || ''
-        console.log('Debug: fallbackContent:', fallbackContent)
+        const fallbackContent = extractContentFromOutline(deckData?.outline) || deckData?.content || ''
         setContent(fallbackContent)
       }
     } catch (err) {
@@ -105,20 +99,19 @@ export default function DeckDetailPage() {
     return null
   }
 
-  function extractContentFromDeckOutline(deckData) {
-    if (!deckData || !deckData.outline || !deckData.outline.slides) return null
+  function extractContentFromOutline(outline) {
+    if (!outline || !outline.slides) return null
 
     try {
       const contentParts = []
 
-      deckData.outline.slides.forEach((slide, index) => {
-        // Add slide title exactly like outline UI
+      outline.slides.forEach((slide, index) => {
+        contentParts.push(`Slide ${index + 1}`)
+
         if (slide.title) {
-          contentParts.push(`Slide ${index + 1}`)
           contentParts.push(slide.title)
         }
 
-        // Add bullet points exactly like outline UI
         if (slide.content && Array.isArray(slide.content)) {
           slide.content.forEach(bullet => {
             if (bullet.trim()) {
@@ -131,56 +124,7 @@ export default function DeckDetailPage() {
 
       return contentParts.length > 0 ? contentParts.join('\n').trim() : null
     } catch (err) {
-      console.error('Error extracting content from deck outline:', err)
-      return null
-    }
-  }
-
-  function extractContentFromSpec(spec) {
-    if (!spec) return null
-
-    try {
-      const contentParts = []
-
-      // First, try to extract from outline structure (better structured content from step 2)
-      if (spec.outline && spec.outline.slides) {
-        spec.outline.slides.forEach((slide, index) => {
-          // Add slide title exactly like outline UI
-          if (slide.title) {
-            contentParts.push(`Slide ${index + 1}`)
-            contentParts.push(slide.title)
-          }
-
-          // Add bullet points exactly like outline UI
-          if (slide.content && Array.isArray(slide.content)) {
-            slide.content.forEach(bullet => {
-              if (bullet.trim()) {
-                contentParts.push(bullet.trim())
-              }
-            })
-          }
-          contentParts.push('') // Add spacing between slides
-        })
-      }
-      // Fallback: extract from layout placeholders if no outline
-      else if (spec.layouts) {
-        spec.layouts.forEach(layout => {
-          if (layout.placeholders) {
-            layout.placeholders.forEach(placeholder => {
-              if (placeholder.type === 'text' && placeholder.content) {
-                const cleanContent = placeholder.content.replace(/\n+/g, '\n').trim()
-                if (cleanContent) {
-                  contentParts.push(cleanContent)
-                }
-              }
-            })
-          }
-        })
-      }
-
-      return contentParts.length > 0 ? contentParts.join('\n').trim() : null
-    } catch (err) {
-      console.error('Error extracting content from spec:', err)
+      console.error('Error extracting content from outline:', err)
       return null
     }
   }
