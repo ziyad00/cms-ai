@@ -69,7 +69,18 @@ export default function DeckDetailPage() {
         setSpec(normalizedSpec)
 
         // Set outline for interactive editing (like creation wizard)
-        const outlineData = normalizedSpec?.outline || deckData?.outline || null
+        console.log('Debug spec outline:', normalizedSpec?.outline)
+        console.log('Debug deck outline:', deckData?.outline)
+        console.log('Debug layouts:', normalizedSpec?.layouts)
+
+        let outlineData = normalizedSpec?.outline || deckData?.outline || null
+
+        // If no outline exists, create one from layouts
+        if (!outlineData && normalizedSpec?.layouts) {
+          outlineData = createOutlineFromLayouts(normalizedSpec.layouts)
+          console.log('Debug created outline:', outlineData)
+        }
+
         setOutline(outlineData)
 
         // Also set content for fallback
@@ -77,7 +88,35 @@ export default function DeckDetailPage() {
         setContent(extractedContent)
       } else {
         // Fallback to deck outline or raw content if no versions available
-        const outlineData = deckData?.outline || null
+        let outlineData = deckData?.outline || null
+
+        // If no outline, try to create from content
+        if (!outlineData && deckData?.content) {
+          // Simple parsing from content string
+          const lines = deckData.content.split('\n').filter(line => line.trim())
+          const slides = []
+          let currentSlide = null
+
+          lines.forEach(line => {
+            const trimmedLine = line.trim()
+            // Check if this looks like a slide title (no bullet points)
+            if (trimmedLine && !trimmedLine.startsWith('•') && !trimmedLine.startsWith('-')) {
+              if (currentSlide) slides.push(currentSlide)
+              currentSlide = {
+                slide_number: slides.length + 1,
+                title: trimmedLine,
+                content: []
+              }
+            } else if (currentSlide && trimmedLine) {
+              // Add as bullet point
+              currentSlide.content.push(trimmedLine.replace(/^[•\-]\s*/, ''))
+            }
+          })
+
+          if (currentSlide) slides.push(currentSlide)
+          if (slides.length > 0) outlineData = { slides }
+        }
+
         setOutline(outlineData)
         const fallbackContent = extractContentFromOutline(outlineData) || deckData?.content || ''
         setContent(fallbackContent)
@@ -106,6 +145,50 @@ export default function DeckDetailPage() {
     }
 
     return null
+  }
+
+  function createOutlineFromLayouts(layouts) {
+    if (!layouts || !Array.isArray(layouts)) return null
+
+    try {
+      const slides = layouts.map((layout, layoutIndex) => {
+        let slideTitle = ''
+        let slideBullets = []
+
+        if (layout.placeholders) {
+          layout.placeholders.forEach(placeholder => {
+            if (placeholder.type === 'text' && placeholder.content) {
+              const cleanContent = placeholder.content.replace(/\n+/g, '\n').trim()
+              if (cleanContent) {
+                // Check if this looks like a title (shorter, usually first)
+                const lines = cleanContent.split('\n').filter(line => line.trim())
+                if (lines.length === 1 && lines[0].length < 100 && !slideTitle) {
+                  slideTitle = lines[0]
+                } else {
+                  slideBullets.push(...lines)
+                }
+              }
+            }
+          })
+        }
+
+        // If no title found, try to use first bullet as title
+        if (!slideTitle && slideBullets.length > 0) {
+          slideTitle = slideBullets.shift()
+        }
+
+        return {
+          slide_number: layoutIndex + 1,
+          title: slideTitle || `Slide ${layoutIndex + 1}`,
+          content: slideBullets
+        }
+      }).filter(slide => slide.title || slide.content.length > 0)
+
+      return slides.length > 0 ? { slides } : null
+    } catch (err) {
+      console.error('Error creating outline from layouts:', err)
+      return null
+    }
   }
 
   function updateSlide(idx, patch) {
