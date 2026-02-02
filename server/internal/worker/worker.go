@@ -117,22 +117,34 @@ func (w *Worker) processJob(ctx context.Context, job store.Job) error {
 		return fmt.Errorf("failed to update job status to running: %w", err)
 	}
 
-	// Get template version from inputRef
-	templateVersion, ok, err := w.store.Templates().GetVersion(ctx, job.OrgID, job.InputRef)
-	if err != nil {
-		return w.handleJobFailure(ctx, job, fmt.Errorf("failed to get template version: %w", err))
-	}
-	if !ok {
-		return w.handleJobFailure(ctx, job, fmt.Errorf("template version not found"))
-	}
-
 	var outputRef string
 	var processErr error
 
 	switch job.Type {
 	case store.JobRender, store.JobExport:
-		outputRef, processErr = w.processRenderJob(ctx, job, templateVersion)
+		// Check if it's a deck export (deck version ID) or template export
+		if deckVersion, ok, err := w.store.Decks().GetDeckVersion(ctx, job.OrgID, job.InputRef); err == nil && ok {
+			outputRef, processErr = w.processDeckRenderJob(ctx, job, deckVersion)
+		} else {
+			// Fall back to template version
+			templateVersion, ok, err := w.store.Templates().GetVersion(ctx, job.OrgID, job.InputRef)
+			if err != nil {
+				return w.handleJobFailure(ctx, job, fmt.Errorf("failed to get template version: %w", err))
+			}
+			if !ok {
+				return w.handleJobFailure(ctx, job, fmt.Errorf("template version not found"))
+			}
+			outputRef, processErr = w.processRenderJob(ctx, job, templateVersion)
+		}
 	case store.JobPreview:
+		// Preview only works for templates
+		templateVersion, ok, err := w.store.Templates().GetVersion(ctx, job.OrgID, job.InputRef)
+		if err != nil {
+			return w.handleJobFailure(ctx, job, fmt.Errorf("failed to get template version: %w", err))
+		}
+		if !ok {
+			return w.handleJobFailure(ctx, job, fmt.Errorf("template version not found"))
+		}
 		outputRef, processErr = w.processPreviewJob(ctx, job, templateVersion)
 	default:
 		return w.handleJobFailure(ctx, job, fmt.Errorf("unsupported job type: %s", job.Type))
@@ -178,6 +190,36 @@ func (w *Worker) processRenderJob(ctx context.Context, job store.Job, templateVe
 	path, err := w.store.Assets().Store(ctx, job.OrgID, assetID, data)
 	if err != nil {
 		return "", fmt.Errorf("failed to store asset data: %w", err)
+	}
+
+	return path, nil
+}
+
+func (w *Worker) processDeckRenderJob(ctx context.Context, job store.Job, deckVersion store.DeckVersion) (string, error) {
+	// Render PPTX for deck version
+	data, err := w.renderer.RenderPPTXBytes(ctx, deckVersion.SpecJSON)
+	if err != nil {
+		return "", fmt.Errorf("failed to render deck PPTX: %w", err)
+	}
+
+	// Generate asset ID
+	assetID := fmt.Sprintf("%s-%d.pptx", job.ID, time.Now().Unix())
+
+	// Store asset
+	asset := store.Asset{
+		ID:    assetID,
+		OrgID: job.OrgID,
+		Type:  store.AssetPPTX,
+		Mime:  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+	}
+	if _, err := w.store.Assets().Create(ctx, asset); err != nil {
+		return "", fmt.Errorf("failed to create deck asset record: %w", err)
+	}
+
+	// Store file
+	path, err := w.store.Assets().Store(ctx, job.OrgID, assetID, data)
+	if err != nil {
+		return "", fmt.Errorf("failed to store deck asset data: %w", err)
 	}
 
 	return path, nil

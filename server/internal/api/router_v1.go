@@ -954,35 +954,31 @@ func (s *Server) handleExportDeckVersion(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Synchronous export (same pattern as template export)
-	objectKey := newID("asset") + ".pptx"
-	tempPath := filepath.Join(os.TempDir(), objectKey)
-	if err := s.Renderer.RenderPPTX(r.Context(), ver.SpecJSON, tempPath); err != nil {
-		log.Printf("ERROR: Deck version render failed for version %s: %v", versionID, err)
-		writeError(w, r, http.StatusInternalServerError, fmt.Sprintf("render failed: %v", err))
+	// Async export using job queue
+	job := store.Job{
+		ID:              newID("job"),
+		OrgID:           id.OrgID,
+		Type:            store.JobExport,
+		Status:          store.JobQueued,
+		InputRef:        versionID,
+		DeduplicationID: fmt.Sprintf("%s-deck-%s", string(store.JobExport), versionID),
+	}
+	createdJob, wasDuplicate, err := s.Store.Jobs().EnqueueWithDeduplication(r.Context(), job)
+	if err != nil {
+		log.Printf("ERROR: Failed to enqueue deck export job: %v", err)
+		writeError(w, r, http.StatusInternalServerError, "failed to enqueue job")
 		return
 	}
-	defer os.Remove(tempPath)
-
-	data, err := os.ReadFile(tempPath)
-	if err != nil {
-		writeError(w, r, http.StatusInternalServerError, "failed to read rendered file")
-		return
-	}
-	_, err = s.ObjectStorage.Upload(r.Context(), objectKey, data, "application/vnd.openxmlformats-officedocument.presentationml.presentation")
-	if err != nil {
-		writeError(w, r, http.StatusInternalServerError, "failed to upload asset")
-		return
-	}
-
-	asset := store.Asset{OrgID: id.OrgID, Type: store.AssetPPTX, Path: objectKey, Mime: "application/vnd.openxmlformats-officedocument.presentationml.presentation"}
-	createdAsset, err := s.Store.Assets().Create(r.Context(), asset)
-	if err != nil {
-		writeError(w, r, http.StatusInternalServerError, "failed to create asset")
+	if wasDuplicate {
+		writeJSON(w, http.StatusAccepted, map[string]any{"job": createdJob, "duplicate": true})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"asset": createdAsset, "downloadUrl": "/v1/assets/" + createdAsset.ID})
+	// Return job ID immediately - frontend can poll for completion
+	_, _ = s.Store.Metering().Record(r.Context(), store.MeteringEvent{ID: newID("met"), OrgID: id.OrgID, UserID: id.UserID, Type: "export", Quantity: 1})
+	_, _ = s.Store.Audit().Append(r.Context(), store.AuditLog{ID: newID("aud"), OrgID: id.OrgID, ActorID: id.UserID, Action: "deck.export", TargetRef: versionID, Metadata: map[string]any{"jobId": createdJob.ID}})
+
+	writeJSON(w, http.StatusAccepted, map[string]any{"job": createdJob})
 }
 
 func (s *Server) handleExportVersion(w http.ResponseWriter, r *http.Request) {
