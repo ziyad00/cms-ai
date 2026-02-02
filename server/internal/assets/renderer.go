@@ -116,10 +116,11 @@ func (r PythonPPTXRenderer) RenderPPTXWithCompany(ctx context.Context, spec any,
 
 	// Debug logging for command execution
 	log.Printf("[DEBUG] Python command: %s %v", python, args)
+	log.Printf("[DEBUG] Script path: %s", script)
 	log.Printf("[DEBUG] Working directory: %s", filepath.Dir(script))
 
 	cmd := exec.CommandContext(ctx, python, args...)
-	cmd.Dir = filepath.Dir(script) // Set working directory to script location
+	cmd.Dir = "/app/tools/renderer" // Set working directory to script location
 	cmd.Env = append(os.Environ(),
 		"PYTHONUNBUFFERED=1",
 		"HUGGING_FACE_API_KEY="+r.HuggingFaceAPIKey,
