@@ -1,123 +1,12 @@
 #!/usr/bin/env python3
 """
-Simplified PPTX Renderer for CMS-AI
-Basic PPTX generation without AI features for now
+AI-Powered Python PPTX Renderer for CMS-AI
+Integrates olama's visual rendering with Hugging Face AI design analysis
+Generates presentations with intelligent design decisions based on content
 """
 
 import sys
-import json
-import argparse
-import os
-from pathlib import Path
-
-print(f"DEBUG: Python script starting with args: {sys.argv}", file=sys.stderr)
-
-try:
-    from pptx import Presentation
-    from pptx.util import Inches, Pt
-    from pptx.dml.color import RGBColor
-    print("DEBUG: python-pptx imported successfully", file=sys.stderr)
-except ImportError as e:
-    print(f"ERROR: python-pptx library is required: {e}", file=sys.stderr)
-    sys.exit(1)
-
-def create_basic_presentation(spec_data, output_path):
-    """Create a basic PPTX presentation without AI features"""
-    print(f"DEBUG: Creating basic presentation at {output_path}", file=sys.stderr)
-
-    prs = Presentation()
-
-    # Remove default slide if any
-    if len(prs.slides) > 0:
-        slide_to_remove = prs.slides[0]
-        rId = prs.slides._sldIdLst[0].rId
-        prs.part.drop_rel(rId)
-        del prs.slides._sldIdLst[0]
-
-    # Process layouts
-    layouts = spec_data.get('layouts', [])
-    print(f"DEBUG: Processing {len(layouts)} layouts", file=sys.stderr)
-
-    for i, layout in enumerate(layouts):
-        print(f"DEBUG: Processing layout {i+1}", file=sys.stderr)
-        slide = prs.slides.add_slide(prs.slide_layouts[5])  # Blank layout
-
-        # Add content
-        placeholders = layout.get('placeholders', [])
-        for ph in placeholders:
-            content = ph.get('content', '')
-            if not content:
-                continue
-
-            # Use geometry if available
-            if 'geometry' in ph:
-                x = ph['geometry'].get('x', 1.0)
-                y = ph['geometry'].get('y', 1.0)
-                w = ph['geometry'].get('w', 8.0)
-                h = ph['geometry'].get('h', 1.0)
-            else:
-                x = ph.get('x', 1.0)
-                y = ph.get('y', 1.0)
-                w = ph.get('width', 8.0)
-                h = ph.get('height', 1.0)
-
-            # Add text box
-            text_box = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
-            text_frame = text_box.text_frame
-            text_frame.clear()
-
-            p = text_frame.paragraphs[0]
-
-            # Handle multi-line content
-            lines = content.split('\\n')
-            for j, line in enumerate(lines):
-                if j > 0:
-                    p = text_frame.add_paragraph()
-                    p.text = f"• {line.strip()}" if line.strip() else ""
-                else:
-                    p.text = line.strip()
-
-                # Basic styling
-                p.font.name = 'Calibri'
-                p.font.size = Pt(14)
-
-    # Save presentation
-    prs.save(output_path)
-    print(f"DEBUG: Presentation saved successfully to {output_path}", file=sys.stderr)
-
-def main():
-    print("DEBUG: Reached main() function", file=sys.stderr)
-
-    parser = argparse.ArgumentParser(description='Basic PPTX Renderer')
-    parser.add_argument('spec_file', help='JSON spec file')
-    parser.add_argument('output_file', help='Output PPTX file')
-    parser.add_argument('--company-info', help='Company info JSON file (optional)')
-    parser.add_argument('--hf-api-key', help='API key (ignored for now)')
-
-    print(f"DEBUG: About to parse args: {sys.argv}", file=sys.stderr)
-    args = parser.parse_args()
-    print(f"DEBUG: Args parsed successfully", file=sys.stderr)
-
-    try:
-        # Load spec
-        print(f"DEBUG: Loading spec from {args.spec_file}", file=sys.stderr)
-        with open(args.spec_file, 'r') as f:
-            spec_data = json.load(f)
-        print("DEBUG: Spec loaded successfully", file=sys.stderr)
-
-        # Create presentation
-        create_basic_presentation(spec_data, args.output_file)
-
-        print(f"✅ Generated: {args.output_file}", file=sys.stderr)
-
-    except Exception as e:
-        print(f"❌ Error: {e}", file=sys.stderr)
-        import traceback
-        traceback.print_exc(file=sys.stderr)
-        sys.exit(1)
-
-if __name__ == '__main__':
-    main()
+print(f"DEBUG: Python script starting, sys.argv: {sys.argv}", file=sys.stderr)
 
 import json
 import argparse

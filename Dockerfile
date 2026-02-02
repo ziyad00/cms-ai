@@ -28,9 +28,11 @@ COPY --from=web-build /app /app/web
 RUN npm ci --production
 
 # Copy tools
-COPY tools/renderer/ /app/tools/renderer/
+COPY tools/ /app/tools/
 COPY scripts/start.sh /app/scripts/start.sh
 RUN chmod +x /app/scripts/start.sh
+# Verify files are copied correctly
+RUN ls -la /app/tools/renderer/ && echo "Files copied successfully"
 
 WORKDIR /app
 EXPOSE 3000 8080
