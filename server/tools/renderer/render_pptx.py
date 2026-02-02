@@ -24,7 +24,7 @@ except ImportError as e:
     print(f"Error: python-pptx library is required. Install with: pip install python-pptx", file=sys.stderr)
     sys.exit(1)
 
-# Import olama's AI and design modules
+# Import olama's AI and design modules (local copies)
 from ai_design_generator import AIDesignGenerator
 from design_templates import DesignTemplateLibrary, get_design_system_for_content
 from abstract_background_renderer import CompositeBackgroundRenderer
