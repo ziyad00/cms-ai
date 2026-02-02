@@ -114,7 +114,12 @@ func (r PythonPPTXRenderer) RenderPPTXWithCompany(ctx context.Context, spec any,
 		args = append(args, "--hf-api-key", r.HuggingFaceAPIKey)
 	}
 
+	// Debug logging for command execution
+	log.Printf("[DEBUG] Python command: %s %v", python, args)
+	log.Printf("[DEBUG] Working directory: %s", filepath.Dir(script))
+
 	cmd := exec.CommandContext(ctx, python, args...)
+	cmd.Dir = filepath.Dir(script) // Set working directory to script location
 	cmd.Env = append(os.Environ(),
 		"PYTHONUNBUFFERED=1",
 		"HUGGING_FACE_API_KEY="+r.HuggingFaceAPIKey,
@@ -122,6 +127,7 @@ func (r PythonPPTXRenderer) RenderPPTXWithCompany(ctx context.Context, spec any,
 
 	out, err := cmd.CombinedOutput()
 	if err != nil {
+		log.Printf("[DEBUG] Python command failed. Exit code: %v, Output: %s", err, string(out))
 		return fmt.Errorf("python renderer failed: %s", string(out))
 	}
 	return nil
