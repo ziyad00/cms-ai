@@ -15,7 +15,7 @@ RUN npm run build
 # Final image with Node.js runtime
 FROM node:18-alpine
 RUN apk --no-cache add ca-certificates python3 py3-pip
-RUN pip3 install --break-system-packages python-pptx
+RUN pip3 install --break-system-packages python-pptx httpx
 
 # Copy Go server
 COPY --from=go-build /app/server /usr/local/bin/server
