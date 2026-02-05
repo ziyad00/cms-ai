@@ -940,7 +940,7 @@ func (s *Server) handleCreateDeckVersion(w http.ResponseWriter, r *http.Request)
 func (s *Server) handleExportDeckVersion(w http.ResponseWriter, r *http.Request) {
 	id, _ := auth.GetIdentity(r.Context())
 	versionID := r.PathValue("versionId")
-	ver, ok, err := s.Store.Decks().GetDeckVersion(r.Context(), id.OrgID, versionID)
+	_, ok, err := s.Store.Decks().GetDeckVersion(r.Context(), id.OrgID, versionID)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed")
 		return
