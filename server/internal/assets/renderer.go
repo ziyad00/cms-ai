@@ -126,11 +126,28 @@ func (r PythonPPTXRenderer) RenderPPTXWithCompany(ctx context.Context, spec any,
 		"HUGGING_FACE_API_KEY="+r.HuggingFaceAPIKey,
 	)
 
-	out, err := cmd.CombinedOutput()
+	// Capture stdout and stderr separately for better debugging
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
 	if err != nil {
-		log.Printf("[DEBUG] Python command failed. Exit code: %v, Output: %s", err, string(out))
-		return fmt.Errorf("python renderer failed: %s", string(out))
+		stdoutStr := stdout.String()
+		stderrStr := stderr.String()
+		log.Printf("[DEBUG] Python command failed. Exit code: %v", err)
+		log.Printf("[DEBUG] Python stdout: %s", stdoutStr)
+		log.Printf("[DEBUG] Python stderr: %s", stderrStr)
+
+		// Return stderr if available (contains actual error), otherwise stdout
+		if stderrStr != "" {
+			return fmt.Errorf("python renderer failed: %s", stderrStr)
+		}
+		return fmt.Errorf("python renderer failed: %s", stdoutStr)
 	}
+
+	// Log successful output for debugging
+	log.Printf("[DEBUG] Python command succeeded. Output: %s", stdout.String())
 	return nil
 }
 
