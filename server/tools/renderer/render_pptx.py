@@ -272,6 +272,7 @@ class AIEnhancedPPTXRenderer:
 
 
 async def main():
+    print(f"ARGS DEBUG: {sys.argv}", file=sys.stderr, flush=True)
     parser = argparse.ArgumentParser(description='AI-Enhanced PPTX Renderer with Hugging Face')
     parser.add_argument('spec_file', help='JSON spec file')
     parser.add_argument('output_file', help='Output PPTX file')

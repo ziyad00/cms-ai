@@ -5,3 +5,9 @@ nixPkgs = ["python3", "python3.pkgs.pip", "uv"]
 cmds = [
   "uv pip install --system -r requirements.txt"
 ]
+
+[phases.build]
+cmds = [
+  "mkdir -p /app/tools/renderer",
+  "cp -r tools/renderer/* /app/tools/renderer/"
+]

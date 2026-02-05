@@ -47,7 +47,7 @@ func NewServer() *Server {
 		st = memory.New()
 	}
 
-	// Use AI-enhanced Python renderer as default (with Olama backgrounds) - force rebuild v2
+	// Use AI-enhanced Python renderer as default (with Olama backgrounds)
 	var renderer assets.Renderer
 	if os.Getenv("HUGGINGFACE_API_KEY") != "" {
 		log.Printf("Using AI-enhanced Python renderer with Hugging Face (default)")
