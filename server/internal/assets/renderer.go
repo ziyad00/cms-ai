@@ -148,6 +148,7 @@ func (r PythonPPTXRenderer) RenderPPTXWithCompany(ctx context.Context, spec any,
 
 	// Log successful output for debugging
 	log.Printf("[DEBUG] Python command succeeded. Output: %s", stdout.String())
+	log.Printf("[DEBUG] Enhanced debugging active - separate stdout/stderr capture")
 	return nil
 }
 
