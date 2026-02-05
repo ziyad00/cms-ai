@@ -110,7 +110,7 @@ type Job struct {
 	MaxRetries      int               `json:"maxRetries"`
 	LastRetryAt     *time.Time        `json:"lastRetryAt,omitempty"`
 	DeduplicationID string            `json:"deduplicationId,omitempty"`
-	Metadata        map[string]string `json:"metadata,omitempty"`
+	Metadata        *map[string]string `json:"metadata,omitempty"`
 	CreatedAt       time.Time         `json:"createdAt"`
 	UpdatedAt       time.Time         `json:"updatedAt"`
 }
