@@ -7,6 +7,9 @@ Generates presentations with intelligent design decisions based on content
 
 import sys
 print(f"DEBUG: Python script starting, sys.argv: {sys.argv}", file=sys.stderr)
+print(f"DEBUG: sys.argv length: {len(sys.argv)}", file=sys.stderr)
+for i, arg in enumerate(sys.argv):
+    print(f"DEBUG: sys.argv[{i}] = '{arg}'", file=sys.stderr)
 
 import json
 import argparse
