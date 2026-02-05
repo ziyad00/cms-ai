@@ -278,7 +278,19 @@ async def main():
     parser.add_argument('--company-info', help='Company info JSON file (optional)')
     parser.add_argument('--hf-api-key', help='Hugging Face API key (or set HUGGING_FACE_API_KEY env var)')
 
-    args = parser.parse_args()
+    try:
+        args = parser.parse_args()
+    except SystemExit:
+        # If parsing fails, try with minimal args for backward compatibility
+        if len(sys.argv) == 3:
+            args = type('Args', (), {
+                'spec_file': sys.argv[1],
+                'output_file': sys.argv[2],
+                'company_info': None,
+                'hf_api_key': None
+            })()
+        else:
+            raise
 
     try:
         # Load spec
