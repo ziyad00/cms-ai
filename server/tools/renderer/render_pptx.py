@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-AI-Powered Python PPTX Renderer for CMS-AI
+AI-Powered Python PPTX Renderer for CMS-AI v2
 Integrates olama's visual rendering with Hugging Face AI design analysis
 Generates presentations with intelligent design decisions based on content
 """
@@ -278,19 +278,7 @@ async def main():
     parser.add_argument('--company-info', help='Company info JSON file (optional)')
     parser.add_argument('--hf-api-key', help='Hugging Face API key (or set HUGGING_FACE_API_KEY env var)')
 
-    try:
-        args = parser.parse_args()
-    except SystemExit:
-        # If parsing fails, try with minimal args for backward compatibility
-        if len(sys.argv) == 3:
-            args = type('Args', (), {
-                'spec_file': sys.argv[1],
-                'output_file': sys.argv[2],
-                'company_info': None,
-                'hf_api_key': None
-            })()
-        else:
-            raise
+    args = parser.parse_args()
 
     try:
         # Load spec
