@@ -114,10 +114,10 @@ func (r PythonPPTXRenderer) RenderPPTXWithCompany(ctx context.Context, spec any,
 		args = append(args, "--hf-api-key", r.HuggingFaceAPIKey)
 	}
 
-	// Debug logging for command execution
-	log.Printf("[DEBUG] Python command: %s %v", python, args)
-	log.Printf("[DEBUG] Script path: %s", script)
-	log.Printf("[DEBUG] Working directory: %s", filepath.Dir(script))
+	// Check if script file exists
+	if _, err := os.Stat(script); err != nil {
+		return fmt.Errorf("script file not found: %v", err)
+	}
 
 	cmd := exec.CommandContext(ctx, python, args...)
 	cmd.Dir = "/app/tools/renderer" // Set working directory to script location
@@ -126,29 +126,17 @@ func (r PythonPPTXRenderer) RenderPPTXWithCompany(ctx context.Context, spec any,
 		"HUGGING_FACE_API_KEY="+r.HuggingFaceAPIKey,
 	)
 
-	// Capture stdout and stderr separately for better debugging
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
+	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
 	err = cmd.Run()
 	if err != nil {
-		stdoutStr := stdout.String()
 		stderrStr := stderr.String()
-		log.Printf("[DEBUG] Python command failed. Exit code: %v", err)
-		log.Printf("[DEBUG] Python stdout: %s", stdoutStr)
-		log.Printf("[DEBUG] Python stderr: %s", stderrStr)
-
-		// Return stderr if available (contains actual error), otherwise stdout
 		if stderrStr != "" {
 			return fmt.Errorf("python renderer failed: %s", stderrStr)
 		}
-		return fmt.Errorf("python renderer failed: %s", stdoutStr)
+		return fmt.Errorf("python renderer failed: %v", err)
 	}
-
-	// Log successful output for debugging
-	log.Printf("[DEBUG] Python command succeeded. Output: %s", stdout.String())
-	log.Printf("[DEBUG] Enhanced debugging active - separate stdout/stderr capture")
 	return nil
 }
 

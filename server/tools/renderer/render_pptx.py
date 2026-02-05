@@ -6,11 +6,6 @@ Generates presentations with intelligent design decisions based on content
 """
 
 import sys
-print(f"DEBUG: Python script starting, sys.argv: {sys.argv}", file=sys.stderr)
-print(f"DEBUG: sys.argv length: {len(sys.argv)}", file=sys.stderr)
-for i, arg in enumerate(sys.argv):
-    print(f"DEBUG: sys.argv[{i}] = '{arg}'", file=sys.stderr)
-
 import json
 import argparse
 import asyncio
@@ -19,44 +14,26 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-print(f"DEBUG: Basic imports successful", file=sys.stderr)
-
 try:
-    print(f"DEBUG: Importing python-pptx...", file=sys.stderr)
     from pptx import Presentation
     from pptx.util import Inches, Pt
     from pptx.enum.shapes import MSO_SHAPE
     from pptx.dml.color import RGBColor
     from pptx.enum.text import PP_ALIGN
-    print(f"DEBUG: python-pptx import successful", file=sys.stderr)
 except ImportError as e:
     print(f"ERROR: python-pptx library is required. Install with: pip install python-pptx. Error: {e}", file=sys.stderr)
     sys.exit(1)
 
 # Import olama's AI and design modules (local copies)
 try:
-    print(f"DEBUG: Importing olama modules...", file=sys.stderr)
-    print(f"DEBUG: Current working directory: {os.getcwd()}", file=sys.stderr)
-    print(f"DEBUG: Files in current directory: {os.listdir('.')}", file=sys.stderr)
-    print(f"DEBUG: Python path: {sys.path}", file=sys.stderr)
     from ai_design_generator import AIDesignGenerator
-    print(f"DEBUG: AIDesignGenerator imported successfully", file=sys.stderr)
     from design_templates import DesignTemplateLibrary, get_design_system_for_content
-    print(f"DEBUG: design_templates imported successfully", file=sys.stderr)
     from abstract_background_renderer import CompositeBackgroundRenderer
-    print(f"DEBUG: abstract_background_renderer imported successfully", file=sys.stderr)
-    print(f"DEBUG: All olama imports successful", file=sys.stderr)
 except ImportError as e:
     print(f"ERROR: Failed to import olama modules: {e}", file=sys.stderr)
-    print(f"ERROR: Traceback:", file=sys.stderr)
-    import traceback
-    traceback.print_exc(file=sys.stderr)
     sys.exit(1)
 except Exception as e:
     print(f"ERROR: Unexpected error during imports: {e}", file=sys.stderr)
-    print(f"ERROR: Traceback:", file=sys.stderr)
-    import traceback
-    traceback.print_exc(file=sys.stderr)
     sys.exit(1)
 
 logging.basicConfig(level=logging.INFO)
@@ -295,16 +272,13 @@ class AIEnhancedPPTXRenderer:
 
 
 async def main():
-    print(f"DEBUG: Reached main() function", file=sys.stderr)
     parser = argparse.ArgumentParser(description='AI-Enhanced PPTX Renderer with Hugging Face')
     parser.add_argument('spec_file', help='JSON spec file')
     parser.add_argument('output_file', help='Output PPTX file')
     parser.add_argument('--company-info', help='Company info JSON file (optional)')
     parser.add_argument('--hf-api-key', help='Hugging Face API key (or set HUGGING_FACE_API_KEY env var)')
 
-    print(f"DEBUG: About to parse args: {sys.argv}", file=sys.stderr)
     args = parser.parse_args()
-    print(f"DEBUG: Args parsed successfully", file=sys.stderr)
 
     try:
         # Load spec
