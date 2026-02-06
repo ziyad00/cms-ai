@@ -1,0 +1,7 @@
+{
+  "$schema": "https://railway.app/railway.schema.json",
+  "build": {
+    "builder": "nixpacks",
+    "buildCommand": "echo 'RAILWAY: Starting olama files copy...' && ls -la tools/renderer/ && mkdir -p /app/tools/renderer && cp tools/renderer/*.py /app/tools/renderer/ && chmod +x /app/tools/renderer/render_pptx.py && echo 'RAILWAY: Files copied, checking target:' && ls -la /app/tools/renderer/ && echo 'RAILWAY: Checking render_pptx.py content:' && head -5 /app/tools/renderer/render_pptx.py"
+  }
+}
