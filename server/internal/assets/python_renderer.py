@@ -74,7 +74,7 @@ class SimplePPTXRenderer:
         self.logger.info(f"Generated: {output_path}")
 
 async def main():
-    parser = argparse.ArgumentParser(description='Simple PPTX Renderer')
+    parser = argparse.ArgumentParser(description='Embedded PPTX Renderer v2', prog='embedded_renderer')
     parser.add_argument('spec_file', help='JSON spec file')
     parser.add_argument('output_file', help='Output PPTX file')
     parser.add_argument('--company-info', help='Company info JSON file (optional)')
