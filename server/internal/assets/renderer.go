@@ -58,6 +58,25 @@ func (r PythonPPTXRenderer) RenderPPTXWithCompany(ctx context.Context, spec any,
 		script = filepath.Join("tools", "renderer", "render_pptx.py")
 	}
 
+	// If script file doesn't exist, write embedded script to temp file
+	if _, err := os.Stat(script); err != nil {
+		scriptContent := GetEmbeddedPythonScript()
+		tmpScript, err := os.CreateTemp("", "render-*.py")
+		if err != nil {
+			return err
+		}
+		defer os.Remove(tmpScript.Name())
+		defer tmpScript.Close()
+
+		if _, err := tmpScript.Write([]byte(scriptContent)); err != nil {
+			return err
+		}
+		if err := os.Chmod(tmpScript.Name(), 0755); err != nil {
+			return err
+		}
+		script = tmpScript.Name()
+	}
+
 	tmpDir := filepath.Dir(outPath)
 	if err := os.MkdirAll(tmpDir, 0o755); err != nil {
 		return err
