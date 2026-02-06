@@ -9,5 +9,7 @@ cmds = [
 [phases.build]
 cmds = [
   "mkdir -p /app/tools/renderer",
-  "cp -r tools/renderer/* /app/tools/renderer/"
+  "cp -v tools/renderer/*.py /app/tools/renderer/",
+  "chmod +x /app/tools/renderer/render_pptx.py",
+  "ls -la /app/tools/renderer/"
 ]
