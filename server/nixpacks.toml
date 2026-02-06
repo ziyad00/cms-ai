@@ -8,8 +8,13 @@ cmds = [
 
 [phases.build]
 cmds = [
+  "echo 'BUILD: Starting olama files copy...'",
+  "ls -la tools/renderer/",
   "mkdir -p /app/tools/renderer",
   "cp -v tools/renderer/*.py /app/tools/renderer/",
   "chmod +x /app/tools/renderer/render_pptx.py",
-  "ls -la /app/tools/renderer/"
+  "echo 'BUILD: Files copied, listing contents:'",
+  "ls -la /app/tools/renderer/",
+  "echo 'BUILD: Checking render_pptx.py specifically:'",
+  "head -20 /app/tools/renderer/render_pptx.py"
 ]
