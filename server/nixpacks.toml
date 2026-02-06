@@ -11,7 +11,13 @@ cmds = [
 
 [phases.build]
 cmds = [
+  "echo 'NIXPACKS: Starting olama files copy...'",
+  "ls -la tools/renderer/",
   "mkdir -p /app/tools/renderer",
   "cp tools/renderer/*.py /app/tools/renderer/",
-  "chmod +x /app/tools/renderer/render_pptx.py"
+  "chmod +x /app/tools/renderer/render_pptx.py",
+  "echo 'NIXPACKS: Files copied, checking target:'",
+  "ls -la /app/tools/renderer/",
+  "echo 'NIXPACKS: Checking render_pptx.py content:'",
+  "head -5 /app/tools/renderer/render_pptx.py"
 ]
