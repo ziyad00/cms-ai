@@ -534,6 +534,17 @@ func (s *Server) handleRenderVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if wasDuplicate {
+		// If duplicate job is already completed, return the result immediately
+		if created.Status == store.JobDone && created.OutputRef != "" {
+			writeJSON(w, http.StatusOK, map[string]any{"job": created, "duplicate": true, "assetPath": created.OutputRef})
+			return
+		}
+		// If duplicate job failed, return error immediately
+		if created.Status == store.JobFailed || created.Status == store.JobDeadLetter {
+			writeJSON(w, http.StatusOK, map[string]any{"job": created, "duplicate": true, "error": created.Error})
+			return
+		}
+		// Otherwise, job is still in progress
 		writeJSON(w, http.StatusAccepted, map[string]any{"job": created, "duplicate": true})
 		return
 	}
@@ -970,6 +981,17 @@ func (s *Server) handleExportDeckVersion(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if wasDuplicate {
+		// If duplicate job is already completed, return the result immediately
+		if createdJob.Status == store.JobDone && createdJob.OutputRef != "" {
+			writeJSON(w, http.StatusOK, map[string]any{"job": createdJob, "duplicate": true, "assetPath": createdJob.OutputRef})
+			return
+		}
+		// If duplicate job failed, return error immediately
+		if createdJob.Status == store.JobFailed || createdJob.Status == store.JobDeadLetter {
+			writeJSON(w, http.StatusOK, map[string]any{"job": createdJob, "duplicate": true, "error": createdJob.Error})
+			return
+		}
+		// Otherwise, job is still in progress
 		writeJSON(w, http.StatusAccepted, map[string]any{"job": createdJob, "duplicate": true})
 		return
 	}
@@ -1013,6 +1035,17 @@ func (s *Server) handleExportVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if wasDuplicate {
+		// If duplicate job is already completed, return the result immediately
+		if createdJob.Status == store.JobDone && createdJob.OutputRef != "" {
+			writeJSON(w, http.StatusOK, map[string]any{"job": createdJob, "duplicate": true, "assetPath": createdJob.OutputRef})
+			return
+		}
+		// If duplicate job failed, return error immediately
+		if createdJob.Status == store.JobFailed || createdJob.Status == store.JobDeadLetter {
+			writeJSON(w, http.StatusOK, map[string]any{"job": createdJob, "duplicate": true, "error": createdJob.Error})
+			return
+		}
+		// Otherwise, job is still in progress
 		writeJSON(w, http.StatusAccepted, map[string]any{"job": createdJob, "duplicate": true})
 		return
 	}

@@ -610,7 +610,8 @@ func (p *postgresJobStore) EnqueueWithDeduplication(ctx context.Context, j store
 	ps := (*PostgresStore)(p)
 
 	if j.DeduplicationID != "" {
-		query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, created_at, updated_at FROM jobs WHERE org_id = $1 AND deduplication_id = $2 AND status IN ('Queued', 'Running')`
+		// First check for any existing job with this deduplication ID, regardless of status
+		query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, created_at, updated_at FROM jobs WHERE org_id = $1 AND deduplication_id = $2 ORDER BY created_at DESC LIMIT 1`
 		var existingJob store.Job
 		err := ps.db.QueryRowContext(ctx, query, j.OrgID, j.DeduplicationID).Scan(
 			&existingJob.ID, &existingJob.OrgID, &existingJob.Type, &existingJob.Status,
@@ -619,7 +620,18 @@ func (p *postgresJobStore) EnqueueWithDeduplication(ctx context.Context, j store
 			&existingJob.DeduplicationID, &existingJob.Metadata, &existingJob.CreatedAt, &existingJob.UpdatedAt,
 		)
 		if err == nil {
-			return existingJob, true, nil
+			// If job is still in progress, return existing job
+			if existingJob.Status == store.JobQueued || existingJob.Status == store.JobRunning || existingJob.Status == store.JobRetry {
+				return existingJob, true, nil
+			}
+
+			// If job is completed successfully, return it immediately
+			if existingJob.Status == store.JobDone {
+				return existingJob, true, nil
+			}
+
+			// If job failed permanently, allow creating a new one
+			// (JobFailed and JobDeadLetter cases fall through to create new job)
 		}
 		if err != sql.ErrNoRows {
 			return store.Job{}, false, err

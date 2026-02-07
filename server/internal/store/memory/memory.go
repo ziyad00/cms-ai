@@ -329,12 +329,24 @@ func (m *jobStore) EnqueueWithDeduplication(_ context.Context, j store.Job) (sto
 	defer ms.mu.Unlock()
 
 	if j.DeduplicationID != "" {
+		var latestJob *store.Job
 		for _, existingJob := range ms.jobs {
-			if existingJob.OrgID == j.OrgID &&
-				existingJob.DeduplicationID == j.DeduplicationID &&
-				(existingJob.Status == store.JobQueued || existingJob.Status == store.JobRunning) {
-				return existingJob, true, nil
+			if existingJob.OrgID == j.OrgID && existingJob.DeduplicationID == j.DeduplicationID {
+				if latestJob == nil || existingJob.CreatedAt.After(latestJob.CreatedAt) {
+					latestJob = &existingJob
+				}
 			}
+		}
+		if latestJob != nil {
+			// If job is still in progress, return existing job
+			if latestJob.Status == store.JobQueued || latestJob.Status == store.JobRunning || latestJob.Status == store.JobRetry {
+				return *latestJob, true, nil
+			}
+			// If job is completed successfully, return it immediately
+			if latestJob.Status == store.JobDone {
+				return *latestJob, true, nil
+			}
+			// If job failed permanently, allow creating a new one
 		}
 	}
 
