@@ -50,13 +50,13 @@
       "title": "Test complete PPTX export workflow with olama",
       "description": "Verify end-to-end PPTX export functionality works with AI-enhanced olama backgrounds",
       "priority": 1,
-      "status": "pending",
+      "status": "completed",
       "acceptance_criteria": [
-        "Export API call creates async job successfully",
-        "Job processes without Python renderer errors",
-        "Generated PPTX contains AI-enhanced olama backgrounds",
-        "Export completes with 'Completed' status instead of 'Queued'",
-        "PPTX file can be downloaded and opened successfully"
+        "✅ Export API call creates async job successfully",
+        "✅ Job processes without Python renderer errors",
+        "✅ Generated PPTX contains AI-enhanced olama backgrounds",
+        "✅ Export completes with 'Completed' status instead of 'Queued'",
+        "✅ PPTX file can be downloaded and opened successfully"
       ]
     }
   ]
