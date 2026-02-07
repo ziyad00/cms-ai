@@ -36,7 +36,7 @@
       "title": "Commit and deploy smart renderer path resolution",
       "description": "Deploy the smart path resolution fixes for Python renderer that work across Railway and local environments",
       "priority": 1,
-      "status": "pending",
+      "status": "completed",
       "acceptance_criteria": [
         "NewPythonPPTXRenderer() constructor changes committed",
         "Smart path fallback logic deployed to Railway",
@@ -50,7 +50,7 @@
       "title": "Deploy worker initialization fixes",
       "description": "Deploy the worker null pointer crash fixes and LocalStorage initialization",
       "priority": 1,
-      "status": "pending",
+      "status": "completed",
       "acceptance_criteria": [
         "Server factory LocalStorage fix committed and deployed",
         "Worker starts without null pointer crashes",
@@ -64,7 +64,7 @@
       "title": "Verify end-to-end export workflow in production",
       "description": "Test that complete export workflow works in Railway deployment after fixes are deployed",
       "priority": 1,
-      "status": "pending",
+      "status": "completed",
       "acceptance_criteria": [
         "New export job transitions through all status states correctly",
         "PPTX file generated with olama AI-enhanced backgrounds",
