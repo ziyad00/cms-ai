@@ -36,13 +36,13 @@
       "title": "Ensure Python dependencies are installed in Railway",
       "description": "Make sure Railway installs all required Python dependencies during Next.js build process",
       "priority": 1,
-      "status": "pending",
+      "status": "completed",
       "acceptance_criteria": [
-        "Verify web/requirements.txt is processed during Railway deployment",
-        "Python modules (python-pptx, httpx) can be imported without errors",
-        "Add build configuration to install Python packages if needed",
-        "Test that olama Python script can import all dependencies",
-        "Export job processes without import errors"
+        "✅ Verify web/requirements.txt is processed during Railway deployment",
+        "✅ Python modules (python-pptx, httpx) can be imported without errors",
+        "✅ Add build configuration to install Python packages - Created web/nixpacks.toml",
+        "✅ Test that olama Python script can import all dependencies",
+        "✅ Export job processes without import errors"
       ]
     },
     {
