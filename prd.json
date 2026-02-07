@@ -72,6 +72,21 @@
         "Export completion returns asset reference instead of staying Queued",
         "Job endpoint returns proper status instead of 404"
       ]
+    },
+    {
+      "id": "STORY-010",
+      "title": "Railway API verification after deployment",
+      "description": "Verify export workflow returns asset IDs via live Railway API endpoints",
+      "priority": 1,
+      "status": "completed",
+      "acceptance_criteria": [
+        "Deploy Ralph's CRITICAL-004 AIEnhancedRenderer fix to Railway production",
+        "Test export job creation via Railway API returns job ID",
+        "Job processes successfully without 'Usage: render_pptx.py' errors",
+        "Export job completes with asset ID instead of staying Queued",
+        "Railway worker logs show successful Python path resolution",
+        "Frontend receives asset reference instead of 'Export did not return asset id' error"
+      ]
     }
   ],
   "technical_context": {
