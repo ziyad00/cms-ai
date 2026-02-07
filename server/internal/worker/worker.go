@@ -175,21 +175,22 @@ func (w *Worker) processRenderJob(ctx context.Context, job store.Job, templateVe
 	// Generate asset ID
 	assetID := fmt.Sprintf("%s-%d.pptx", job.ID, time.Now().Unix())
 
-	// Store asset
+	// Store file first to get the storage path
+	path, err := w.store.Assets().Store(ctx, job.OrgID, assetID, data)
+	if err != nil {
+		return "", fmt.Errorf("failed to store asset data: %w", err)
+	}
+
+	// Create asset record with storage path
 	asset := store.Asset{
 		ID:    assetID,
 		OrgID: job.OrgID,
 		Type:  store.AssetPPTX,
+		Path:  path,
 		Mime:  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 	}
 	if _, err := w.store.Assets().Create(ctx, asset); err != nil {
 		return "", fmt.Errorf("failed to create asset record: %w", err)
-	}
-
-	// Store file
-	path, err := w.store.Assets().Store(ctx, job.OrgID, assetID, data)
-	if err != nil {
-		return "", fmt.Errorf("failed to store asset data: %w", err)
 	}
 
 	return path, nil
@@ -205,21 +206,22 @@ func (w *Worker) processDeckRenderJob(ctx context.Context, job store.Job, deckVe
 	// Generate asset ID
 	assetID := fmt.Sprintf("%s-%d.pptx", job.ID, time.Now().Unix())
 
-	// Store asset
+	// Store file first to get the storage path
+	path, err := w.store.Assets().Store(ctx, job.OrgID, assetID, data)
+	if err != nil {
+		return "", fmt.Errorf("failed to store deck asset data: %w", err)
+	}
+
+	// Create asset record with storage path
 	asset := store.Asset{
 		ID:    assetID,
 		OrgID: job.OrgID,
 		Type:  store.AssetPPTX,
+		Path:  path,
 		Mime:  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 	}
 	if _, err := w.store.Assets().Create(ctx, asset); err != nil {
 		return "", fmt.Errorf("failed to create deck asset record: %w", err)
-	}
-
-	// Store file
-	path, err := w.store.Assets().Store(ctx, job.OrgID, assetID, data)
-	if err != nil {
-		return "", fmt.Errorf("failed to store deck asset data: %w", err)
 	}
 
 	return path, nil
@@ -243,21 +245,22 @@ func (w *Worker) processPreviewJob(ctx context.Context, job store.Job, templateV
 		// Generate asset ID for this thumbnail
 		assetID := fmt.Sprintf("%s-%d-slide-%d.preview.png", job.ID, time.Now().Unix(), i+1)
 
-		// Store preview asset record
+		// Store the thumbnail data first to get storage path
+		path, err := w.store.Assets().Store(ctx, job.OrgID, assetID, thumbnailData)
+		if err != nil {
+			return "", fmt.Errorf("failed to store preview data for slide %d: %w", i+1, err)
+		}
+
+		// Create preview asset record with storage path
 		asset := store.Asset{
 			ID:    assetID,
 			OrgID: job.OrgID,
 			Type:  store.AssetPNG,
+			Path:  path,
 			Mime:  "image/png",
 		}
 		if _, err := w.store.Assets().Create(ctx, asset); err != nil {
 			return "", fmt.Errorf("failed to create preview asset record for slide %d: %w", i+1, err)
-		}
-
-		// Store the thumbnail data
-		path, err := w.store.Assets().Store(ctx, job.OrgID, assetID, thumbnailData)
-		if err != nil {
-			return "", fmt.Errorf("failed to store preview data for slide %d: %w", i+1, err)
 		}
 
 		assetPaths = append(assetPaths, path)
