@@ -55,7 +55,26 @@ func (r PythonPPTXRenderer) RenderPPTXWithCompany(ctx context.Context, spec any,
 	}
 	script := r.ScriptPath
 	if script == "" {
-		script = filepath.Join("tools", "renderer", "render_pptx.py")
+		// Use Railway deployment path by default, fall back to local path
+		script = "/app/tools/renderer/render_pptx.py"
+		if _, err := os.Stat(script); err != nil {
+			// Fall back to local development path (use absolute path)
+			script = filepath.Join("server", "tools", "renderer", "render_pptx.py")
+
+			// If still not found, try the current working directory's parent
+			if _, err := os.Stat(script); err != nil {
+				wd, _ := os.Getwd()
+				// Navigate up to find the server directory
+				for wd != "/" && wd != "" {
+					testScript := filepath.Join(wd, "tools", "renderer", "render_pptx.py")
+					if _, err := os.Stat(testScript); err == nil {
+						script = testScript
+						break
+					}
+					wd = filepath.Dir(wd)
+				}
+			}
+		}
 	}
 
 
@@ -121,7 +140,15 @@ func (r PythonPPTXRenderer) RenderPPTXWithCompany(ctx context.Context, spec any,
 	}
 
 	cmd := exec.CommandContext(ctx, python, args...)
-	cmd.Dir = "/app/tools/renderer" // Set working directory to script location
+	// Set working directory based on environment
+	workDir := "/app" // Railway deployment root
+	if strings.Contains(script, "tools/renderer/render_pptx.py") && !strings.HasPrefix(script, "/app/") {
+		// Local development - use current directory
+		workDir = ""
+	}
+	if workDir != "" {
+		cmd.Dir = workDir
+	}
 	cmd.Env = append(os.Environ(),
 		"PYTHONUNBUFFERED=1",
 		"HUGGING_FACE_API_KEY="+r.HuggingFaceAPIKey,

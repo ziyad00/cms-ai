@@ -21,7 +21,7 @@ func NewAIEnhancedRenderer(st store.Store) *AIEnhancedRenderer {
 	return &AIEnhancedRenderer{
 		pythonRenderer: &PythonPPTXRenderer{
 			PythonPath:        "python3",
-			ScriptPath:        "/app/tools/renderer/render_pptx.py",
+			ScriptPath:        "", // Use default with fallback logic
 			HuggingFaceAPIKey: os.Getenv("HUGGING_FACE_API_KEY"),
 		},
 		store: st,

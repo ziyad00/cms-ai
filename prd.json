@@ -1,0 +1,63 @@
+{
+  "project": "cms-ai",
+  "version": "1.0.0",
+  "description": "CMS AI project with PPTX generation and smart design features",
+  "stories": [
+    {
+      "id": "CRITICAL-001",
+      "title": "Validate Feb 5-6 2026 commits didn't break system",
+      "description": "Validate that recent Railway deployment and olama renderer changes haven't broken core functionality",
+      "priority": 0,
+      "status": "completed",
+      "acceptance_criteria": [
+        "✅ Run all tests to ensure they pass - Integration tests passing",
+        "✅ Verify Go backend starts without errors - Server builds and runs",
+        "✅ Test basic template generation workflow - AI generation tests pass",
+        "✅ Verify PPTX export functionality works - AI pipeline tests pass",
+        "✅ Ensure web frontend builds and serves correctly - All web tests pass"
+      ]
+    },
+    {
+      "id": "STORY-001",
+      "title": "Fix Go renderer to use correct Python script paths",
+      "description": "Update the Go PythonPPTXRenderer to point to the correct Python script path for web-deployed olama files",
+      "priority": 1,
+      "status": "completed",
+      "acceptance_criteria": [
+        "✅ Update server/internal/assets/renderer.go to use web-relative paths",
+        "✅ Ensure PythonPPTXRenderer points to /app/tools/renderer/render_pptx.py with fallback",
+        "✅ Python script execution succeeds without 'file not found' errors",
+        "✅ Debug logging shows correct path resolution",
+        "✅ Test export job processes without path errors"
+      ]
+    },
+    {
+      "id": "STORY-002",
+      "title": "Ensure Python dependencies are installed in Railway",
+      "description": "Make sure Railway installs all required Python dependencies during Next.js build process",
+      "priority": 1,
+      "status": "pending",
+      "acceptance_criteria": [
+        "Verify web/requirements.txt is processed during Railway deployment",
+        "Python modules (python-pptx, httpx) can be imported without errors",
+        "Add build configuration to install Python packages if needed",
+        "Test that olama Python script can import all dependencies",
+        "Export job processes without import errors"
+      ]
+    },
+    {
+      "id": "STORY-003",
+      "title": "Test complete PPTX export workflow with olama",
+      "description": "Verify end-to-end PPTX export functionality works with AI-enhanced olama backgrounds",
+      "priority": 1,
+      "status": "pending",
+      "acceptance_criteria": [
+        "Export API call creates async job successfully",
+        "Job processes without Python renderer errors",
+        "Generated PPTX contains AI-enhanced olama backgrounds",
+        "Export completes with 'Completed' status instead of 'Queued'",
+        "PPTX file can be downloaded and opened successfully"
+      ]
+    }
+  ]
+}
