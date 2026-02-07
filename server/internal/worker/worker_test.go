@@ -16,7 +16,7 @@ import (
 func TestWorker_ProcessJobs(t *testing.T) {
 	// Setup test dependencies
 	memStore := memory.New()
-	renderer := assets.GoPPTXRenderer{}
+	renderer := assets.NewGoPPTXRenderer()
 	storage := assets.LocalStorage{}
 
 	worker := New(memStore, renderer, storage)
@@ -122,7 +122,7 @@ func TestWorker_ProcessJobs(t *testing.T) {
 func TestWorker_FailJob(t *testing.T) {
 	// Setup test dependencies
 	memStore := memory.New()
-	renderer := assets.GoPPTXRenderer{}
+	renderer := assets.NewGoPPTXRenderer()
 	storage := assets.LocalStorage{}
 
 	worker := New(memStore, renderer, storage)
@@ -162,7 +162,7 @@ func TestWorker_FailJob(t *testing.T) {
 func TestWorker_UnsupportedJobType(t *testing.T) {
 	// Setup test dependencies
 	memStore := memory.New()
-	renderer := assets.GoPPTXRenderer{}
+	renderer := assets.NewGoPPTXRenderer()
 	storage := assets.LocalStorage{}
 
 	worker := New(memStore, renderer, storage)
@@ -234,7 +234,7 @@ func TestWorker_UnsupportedJobType(t *testing.T) {
 func TestWorker_ProcessPreviewJobWithThumbnails(t *testing.T) {
 	ctx := context.Background()
 	memStore := memory.New()
-	renderer := assets.GoPPTXRenderer{}
+	renderer := assets.NewGoPPTXRenderer()
 	worker := New(memStore, renderer, assets.LocalStorage{})
 
 	// Create template version with multiple layouts
@@ -438,7 +438,7 @@ func TestWorker_JobRetryAndDeadLetter(t *testing.T) {
 func TestWorker_JobDeduplication(t *testing.T) {
 	// Setup test dependencies
 	memStore := memory.New()
-	renderer := assets.GoPPTXRenderer{}
+	renderer := assets.NewGoPPTXRenderer()
 	storage := assets.LocalStorage{}
 
 	_ = New(memStore, renderer, storage)

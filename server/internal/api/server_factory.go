@@ -76,7 +76,8 @@ func NewServer() *Server {
 
 func NewServerWithWorker() (*Server, *worker.Worker) {
 	srv := NewServer()
-	// Note: Worker still uses old Storage interface, need to update worker separately
-	w := worker.New(srv.Store, srv.Renderer, nil) // TODO: Update worker to use ObjectStorage
+	// Create worker with proper storage - use LocalStorage as fallback since worker doesn't use ObjectStorage yet
+	localStorage := assets.LocalStorage{}
+	w := worker.New(srv.Store, srv.Renderer, &localStorage)
 	return srv, w
 }

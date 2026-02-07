@@ -1,63 +1,78 @@
 {
   "project": "cms-ai",
-  "version": "1.0.0",
-  "description": "CMS AI project with PPTX generation and smart design features",
+  "version": "1.1.0",
+  "description": "Fix export jobs stuck in Queued status - complete the async export pipeline",
   "stories": [
     {
-      "id": "CRITICAL-001",
-      "title": "Validate Feb 5-6 2026 commits didn't break system",
-      "description": "Validate that recent Railway deployment and olama renderer changes haven't broken core functionality",
+      "id": "CRITICAL-002",
+      "title": "Fix export jobs stuck in Queued status",
+      "description": "Export jobs are created successfully but remain stuck in 'Queued' status instead of processing to completion with asset ID generation",
       "priority": 0,
       "status": "completed",
       "acceptance_criteria": [
-        "✅ Run all tests to ensure they pass - Integration tests passing",
-        "✅ Verify Go backend starts without errors - Server builds and runs",
-        "✅ Test basic template generation workflow - AI generation tests pass",
-        "✅ Verify PPTX export functionality works - AI pipeline tests pass",
-        "✅ Ensure web frontend builds and serves correctly - All web tests pass"
+        "Export jobs transition from 'Queued' to 'Processing' to 'Completed' status",
+        "Worker processes export jobs and generates PPTX files",
+        "Export completion returns asset ID for download",
+        "Job status updates are reflected in database",
+        "Worker logs show successful job processing"
       ]
     },
     {
-      "id": "STORY-001",
-      "title": "Fix Go renderer to use correct Python script paths",
-      "description": "Update the Go PythonPPTXRenderer to point to the correct Python script path for web-deployed olama files",
+      "id": "STORY-004",
+      "title": "Verify worker is processing export jobs",
+      "description": "Ensure the worker service is actively polling and processing queued export jobs with the fixed olama renderer",
       "priority": 1,
-      "status": "completed",
+      "status": "pending",
       "acceptance_criteria": [
-        "✅ Update server/internal/assets/renderer.go to use web-relative paths",
-        "✅ Ensure PythonPPTXRenderer points to /app/tools/renderer/render_pptx.py with fallback",
-        "✅ Python script execution succeeds without 'file not found' errors",
-        "✅ Debug logging shows correct path resolution",
-        "✅ Test export job processes without path errors"
+        "Worker service is running and polling for jobs",
+        "Worker picks up export jobs from queue",
+        "Worker executes Python PPTX renderer with olama AI",
+        "Worker updates job status during processing",
+        "Worker handles errors and retries appropriately"
       ]
     },
     {
-      "id": "STORY-002",
-      "title": "Ensure Python dependencies are installed in Railway",
-      "description": "Make sure Railway installs all required Python dependencies during Next.js build process",
+      "id": "STORY-005",
+      "title": "Debug Python renderer execution in Railway environment",
+      "description": "Ensure the Python renderer with olama AI works correctly in the Railway deployment environment",
       "priority": 1,
-      "status": "completed",
+      "status": "pending",
       "acceptance_criteria": [
-        "✅ Verify web/requirements.txt is processed during Railway deployment",
-        "✅ Python modules (python-pptx, httpx) can be imported without errors",
-        "✅ Add build configuration to install Python packages - Created web/nixpacks.toml",
-        "✅ Test that olama Python script can import all dependencies",
-        "✅ Export job processes without import errors"
+        "Python script paths resolve correctly in Railway container",
+        "Python dependencies are available during execution",
+        "Olama AI modules import and execute without errors",
+        "PPTX files are generated successfully",
+        "Generated files are stored and accessible"
       ]
     },
     {
-      "id": "STORY-003",
-      "title": "Test complete PPTX export workflow with olama",
-      "description": "Verify end-to-end PPTX export functionality works with AI-enhanced olama backgrounds",
+      "id": "STORY-006",
+      "title": "Verify asset storage and ID generation",
+      "description": "Ensure completed exports generate asset records with downloadable IDs",
       "priority": 1,
-      "status": "completed",
+      "status": "pending",
       "acceptance_criteria": [
-        "✅ Export API call creates async job successfully",
-        "✅ Job processes without Python renderer errors",
-        "✅ Generated PPTX contains AI-enhanced olama backgrounds",
-        "✅ Export completes with 'Completed' status instead of 'Queued'",
-        "✅ PPTX file can be downloaded and opened successfully"
+        "Completed PPTX files are stored in object storage",
+        "Asset records are created in database",
+        "Asset IDs are returned to client",
+        "Assets are downloadable via asset ID",
+        "Export completion includes asset reference"
       ]
     }
-  ]
+  ],
+  "technical_context": {
+    "current_issue": "Export job e556df1a-2cce-49ce-a289-abc60a61e9e3 stuck in Queued status",
+    "error_message": "Export did not return asset id",
+    "previous_fixes": [
+      "Go renderer paths fixed with fallback logic",
+      "Python dependencies configured via web/nixpacks.toml",
+      "Integration tests pass locally"
+    ],
+    "investigation_needed": [
+      "Worker service status in Railway deployment",
+      "Python renderer execution in Railway environment",
+      "Job queue processing and status updates",
+      "Asset generation and storage workflow"
+    ]
+  }
 }
