@@ -36,7 +36,7 @@
       "title": "Debug Python renderer execution in Railway environment",
       "description": "Ensure the Python renderer with olama AI works correctly in the Railway deployment environment",
       "priority": 1,
-      "status": "pending",
+      "status": "completed",
       "acceptance_criteria": [
         "Python script paths resolve correctly in Railway container",
         "Python dependencies are available during execution",

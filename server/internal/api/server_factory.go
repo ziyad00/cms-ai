@@ -54,10 +54,7 @@ func NewServer() *Server {
 		renderer = assets.NewAIEnhancedRenderer(st)
 	} else {
 		log.Printf("Using Python PPTX renderer (no AI key)")
-		renderer = &assets.PythonPPTXRenderer{
-			PythonPath: "python3",
-			ScriptPath: "/app/tools/renderer/render_pptx.py",
-		}
+		renderer = assets.NewPythonPPTXRenderer("")
 	}
 
 	// Create AI service

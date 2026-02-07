@@ -168,8 +168,7 @@ func TestPythonPPTXRendererWithCompany(t *testing.T) {
 	company := &CompanyContext{
 		Name:        "MedTech Solutions",
 		Industry:    "Healthcare",
-		Description: "AI-powered medical diagnostics",
-		Mission:     "Improving patient outcomes through technology",
+		Personality: "AI-powered medical diagnostics improving patient outcomes through technology",
 		Values:      []string{"Innovation", "Care", "Excellence"},
 	}
 
@@ -218,7 +217,7 @@ func TestAIEnhancedRenderer(t *testing.T) {
 		require.NotNil(t, company)
 		assert.Equal(t, "HealthTech Corp", company.Name)
 		assert.Equal(t, "Healthcare Technology", company.Industry)
-		assert.Equal(t, "AI-powered healthcare solutions", company.Description)
+		assert.Equal(t, "AI-powered healthcare solutions", company.Personality)
 	})
 
 	t.Run("ExtractCompanyContext_FromJSON", func(t *testing.T) {

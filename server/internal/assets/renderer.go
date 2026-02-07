@@ -44,6 +44,75 @@ type PythonPPTXRenderer struct {
 	HuggingFaceAPIKey  string
 }
 
+// NewPythonPPTXRenderer creates a new Python renderer with smart path resolution
+// Similar to GoPPTXRenderer, this provides Railway vs local development fallback
+func NewPythonPPTXRenderer(huggingFaceAPIKey string) *PythonPPTXRenderer {
+	// Primary path: Railway container environment
+	railwayScriptPath := "/app/tools/renderer/render_pptx.py"
+
+	// Check if Railway path exists
+	if _, err := os.Stat(railwayScriptPath); err == nil {
+		log.Printf("Python renderer: Using Railway container path: %s", railwayScriptPath)
+		return &PythonPPTXRenderer{
+			PythonPath:        "python3",
+			ScriptPath:        railwayScriptPath,
+			HuggingFaceAPIKey: huggingFaceAPIKey,
+		}
+	}
+
+	// Fallback: Local development path resolution
+	// Navigate up directories to find tools/renderer/render_pptx.py
+	wd, err := os.Getwd()
+	if err != nil {
+		log.Printf("Python renderer: Failed to get working directory: %v", err)
+		// Use Railway path as fallback (will fail but provide clear error)
+		return &PythonPPTXRenderer{
+			PythonPath:        "python3",
+			ScriptPath:        railwayScriptPath,
+			HuggingFaceAPIKey: huggingFaceAPIKey,
+		}
+	}
+
+	// Search for tools directory going up the directory tree
+	searchDir := wd
+	for i := 0; i < 5; i++ { // Limit search to prevent infinite loops
+		localScriptPath := filepath.Join(searchDir, "tools", "renderer", "render_pptx.py")
+		if _, err := os.Stat(localScriptPath); err == nil {
+			log.Printf("Python renderer: Using local development path: %s", localScriptPath)
+			return &PythonPPTXRenderer{
+				PythonPath:        "python3",
+				ScriptPath:        localScriptPath,
+				HuggingFaceAPIKey: huggingFaceAPIKey,
+			}
+		}
+
+		// Try web directory for Next.js deployment structure
+		webScriptPath := filepath.Join(searchDir, "web", "tools", "renderer", "render_pptx.py")
+		if _, err := os.Stat(webScriptPath); err == nil {
+			log.Printf("Python renderer: Using web deployment path: %s", webScriptPath)
+			return &PythonPPTXRenderer{
+				PythonPath:        "python3",
+				ScriptPath:        webScriptPath,
+				HuggingFaceAPIKey: huggingFaceAPIKey,
+			}
+		}
+
+		// Move up one directory
+		parent := filepath.Dir(searchDir)
+		if parent == searchDir {
+			break // Reached filesystem root
+		}
+		searchDir = parent
+	}
+
+	log.Printf("Python renderer: No local script found, using Railway path as fallback: %s", railwayScriptPath)
+	return &PythonPPTXRenderer{
+		PythonPath:        "python3",
+		ScriptPath:        railwayScriptPath,
+		HuggingFaceAPIKey: huggingFaceAPIKey,
+	}
+}
+
 func (r PythonPPTXRenderer) RenderPPTX(ctx context.Context, spec any, outPath string) error {
 	return r.RenderPPTXWithCompany(ctx, spec, outPath, nil)
 }
