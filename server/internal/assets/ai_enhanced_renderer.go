@@ -19,12 +19,8 @@ type AIEnhancedRenderer struct {
 // NewAIEnhancedRenderer creates a new AI-enhanced renderer
 func NewAIEnhancedRenderer(st store.Store) *AIEnhancedRenderer {
 	return &AIEnhancedRenderer{
-		pythonRenderer: &PythonPPTXRenderer{
-			PythonPath:        "python3",
-			ScriptPath:        "", // Use default with fallback logic
-			HuggingFaceAPIKey: os.Getenv("HUGGING_FACE_API_KEY"),
-		},
-		store: st,
+		pythonRenderer: NewPythonPPTXRenderer(os.Getenv("HUGGING_FACE_API_KEY")),
+		store:          st,
 	}
 }
 

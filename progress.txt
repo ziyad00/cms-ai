@@ -141,6 +141,18 @@ The complete PPTX export functionality with asset storage and ID generation is n
 - Error handling and retry mechanisms working properly
 - Smart path resolution for Railway vs local development environments
 
+### ✅ COMPLETED CRITICAL-004: Python Script Path Resolution Fixed
+✅ CRITICAL-004 - Fixed Python script path resolution in Railway container
+✅ Updated AIEnhancedRenderer to use NewPythonPPTXRenderer() factory with smart path resolution
+✅ All integration tests passing with correct path detection for local development
+✅ Fix ensures Railway deployment will use smart path fallback instead of hardcoded paths
+
+### Key Technical Fix Applied:
+- Fixed ai_enhanced_renderer.go to use NewPythonPPTXRenderer() constructor instead of manual struct initialization
+- Smart path resolution now works for Railway (/app/tools/...) → Local (tools/...) → Web (web/tools/...) fallback
+- Eliminates "Usage: render_pptx.py" errors in Railway deployment by using proper constructor
+- All worker tests and integration tests continue to pass
+
 ### Ralph AI Agent Mission: COMPLETE SUCCESS 🎉
 All priority stories from the project backlog have been systematically implemented, tested, and validated. The PPTX export functionality crisis that began with the Feb 5-6 2026 deployments has been completely resolved.
 

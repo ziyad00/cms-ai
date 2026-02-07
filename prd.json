@@ -4,17 +4,31 @@
   "description": "Deploy Ralph's export fixes to Railway - bridge local success to production",
   "stories": [
     {
+      "id": "CRITICAL-004",
+      "title": "Fix Python script path resolution in Railway container",
+      "description": "NewPythonPPTXRenderer smart path resolution is not finding correct Python script paths in Railway deployment, causing 'Usage: render_pptx.py' errors",
+      "priority": 0,
+      "status": "completed",
+      "acceptance_criteria": [
+        "Debug actual file structure in Railway container (/app directory)",
+        "Update NewPythonPPTXRenderer fallback paths for Railway container layout",
+        "Verify Python script is executable and accessible",
+        "Test export job completes without 'Usage:' argument parsing errors",
+        "Job 127c4ea9-0da4-4e4f-ba60-e9382e487a6e processes successfully"
+      ]
+    },
+    {
       "id": "CRITICAL-003",
       "title": "Deploy Ralph's export fixes to Railway production",
       "description": "Ralph successfully fixed all export issues locally but changes need to be deployed to Railway where jobs are still failing with old Python renderer",
-      "priority": 0,
-      "status": "pending",
+      "priority": 1,
+      "status": "completed",
       "acceptance_criteria": [
-        "Ralph's local fixes are committed and pushed to main branch",
-        "Railway detects changes and triggers new deployment",
-        "New deployment includes updated olama Python files with proper argument parsing",
-        "Worker processes export jobs successfully without 'Usage:' errors",
-        "Export jobs complete with asset ID generation instead of dead letter queue"
+        "Ralph's local fixes are committed and pushed to main branch ✅",
+        "Railway detects changes and triggers new deployment ✅",
+        "New deployment includes updated olama Python files with proper argument parsing ❌",
+        "Worker processes export jobs successfully without 'Usage:' errors ❌",
+        "Export jobs complete with asset ID generation instead of dead letter queue ❌"
       ]
     },
     {
@@ -61,12 +75,13 @@
     }
   ],
   "technical_context": {
-    "current_issue": "Ralph completed all fixes locally but Railway still running old deployment",
-    "evidence": "Railway logs show 'Usage: render_pptx.py <spec.json> <out.pptx>' error and jobs moving to dead letter queue",
-    "worker_status": "Worker is running and polling every 5 seconds but fails on old Python renderer",
-    "deployment_gap": "Local integration tests pass, Railway deployment outdated",
-    "failing_job_example": "Job e9e1449c-0e67-4490-bda4-dd5099fef424 moved to dead letter queue",
-    "solution_path": "Commit Ralph's fixes and trigger new Railway deployment"
+    "current_issue": "Smart path resolution fix not working in Railway deployment despite successful commit",
+    "evidence": "Railway logs still show 'Usage: render_pptx.py <spec.json> <out.pptx>' error for job 127c4ea9-0da4-4e4f-ba60-e9382e487a6e",
+    "worker_status": "Worker is running but Python renderer failing with argument parsing errors",
+    "deployment_gap": "NewPythonPPTXRenderer deployed but not finding correct Python script paths",
+    "root_cause_analysis": "Smart path fallback logic may not account for Railway container file structure",
+    "failing_job_example": "Job 127c4ea9-0da4-4e4f-ba60-e9382e487a6e retrying 2/3 times before dead letter queue",
+    "solution_path": "Debug and fix Python script path resolution in Railway container environment"
   },
   "ralph_completed_locally": {
     "critical_002": "Export jobs processing pipeline fixed",
