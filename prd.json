@@ -22,7 +22,7 @@
       "title": "Verify worker is processing export jobs",
       "description": "Ensure the worker service is actively polling and processing queued export jobs with the fixed olama renderer",
       "priority": 1,
-      "status": "pending",
+      "status": "completed",
       "acceptance_criteria": [
         "Worker service is running and polling for jobs",
         "Worker picks up export jobs from queue",
