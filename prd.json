@@ -1,85 +1,79 @@
 {
   "project": "cms-ai",
-  "version": "1.1.0",
-  "description": "Fix export jobs stuck in Queued status - complete the async export pipeline",
+  "version": "1.2.0",
+  "description": "Deploy Ralph's export fixes to Railway - bridge local success to production",
   "stories": [
     {
-      "id": "CRITICAL-002",
-      "title": "Fix export jobs stuck in Queued status",
-      "description": "Export jobs are created successfully but remain stuck in 'Queued' status instead of processing to completion with asset ID generation",
+      "id": "CRITICAL-003",
+      "title": "Deploy Ralph's export fixes to Railway production",
+      "description": "Ralph successfully fixed all export issues locally but changes need to be deployed to Railway where jobs are still failing with old Python renderer",
       "priority": 0,
-      "status": "completed",
+      "status": "pending",
       "acceptance_criteria": [
-        "Export jobs transition from 'Queued' to 'Processing' to 'Completed' status",
-        "Worker processes export jobs and generates PPTX files",
-        "Export completion returns asset ID for download",
-        "Job status updates are reflected in database",
-        "Worker logs show successful job processing"
+        "Ralph's local fixes are committed and pushed to main branch",
+        "Railway detects changes and triggers new deployment",
+        "New deployment includes updated olama Python files with proper argument parsing",
+        "Worker processes export jobs successfully without 'Usage:' errors",
+        "Export jobs complete with asset ID generation instead of dead letter queue"
       ]
     },
     {
-      "id": "STORY-004",
-      "title": "Verify worker is processing export jobs",
-      "description": "Ensure the worker service is actively polling and processing queued export jobs with the fixed olama renderer",
+      "id": "STORY-007",
+      "title": "Commit and deploy smart renderer path resolution",
+      "description": "Deploy the smart path resolution fixes for Python renderer that work across Railway and local environments",
       "priority": 1,
-      "status": "completed",
+      "status": "pending",
       "acceptance_criteria": [
-        "Worker service is running and polling for jobs",
-        "Worker picks up export jobs from queue",
-        "Worker executes Python PPTX renderer with olama AI",
-        "Worker updates job status during processing",
-        "Worker handles errors and retries appropriately"
+        "NewPythonPPTXRenderer() constructor changes committed",
+        "Smart path fallback logic deployed to Railway",
+        "Python script execution succeeds in Railway container",
+        "Renderer logs show correct path resolution in production",
+        "No more 'file not found' errors in Railway worker logs"
       ]
     },
     {
-      "id": "STORY-005",
-      "title": "Debug Python renderer execution in Railway environment",
-      "description": "Ensure the Python renderer with olama AI works correctly in the Railway deployment environment",
+      "id": "STORY-008",
+      "title": "Deploy worker initialization fixes",
+      "description": "Deploy the worker null pointer crash fixes and LocalStorage initialization",
       "priority": 1,
-      "status": "completed",
+      "status": "pending",
       "acceptance_criteria": [
-        "Python script paths resolve correctly in Railway container",
-        "Python dependencies are available during execution",
-        "Olama AI modules import and execute without errors",
-        "PPTX files are generated successfully",
-        "Generated files are stored and accessible"
+        "Server factory LocalStorage fix committed and deployed",
+        "Worker starts without null pointer crashes",
+        "Worker processes jobs from Queued to Running to Completed",
+        "Asset storage workflow works correctly in production",
+        "No worker crashes in Railway logs"
       ]
     },
     {
-      "id": "STORY-006",
-      "title": "Verify asset storage and ID generation",
-      "description": "Ensure completed exports generate asset records with downloadable IDs",
+      "id": "STORY-009",
+      "title": "Verify end-to-end export workflow in production",
+      "description": "Test that complete export workflow works in Railway deployment after fixes are deployed",
       "priority": 1,
-      "status": "completed",
+      "status": "pending",
       "acceptance_criteria": [
-        "Completed PPTX files are stored in object storage",
-        "Asset records are created in database",
-        "Asset IDs are returned to client",
-        "Assets are downloadable via asset ID",
-        "Export completion includes asset reference"
+        "New export job transitions through all status states correctly",
+        "PPTX file generated with olama AI-enhanced backgrounds",
+        "Asset record created with downloadable ID",
+        "Export completion returns asset reference instead of staying Queued",
+        "Job endpoint returns proper status instead of 404"
       ]
     }
   ],
   "technical_context": {
-    "project_status": "ALL STORIES COMPLETED - PPTX export functionality fully restored",
-    "final_resolution": "Complete asset storage and ID generation pipeline validated",
-    "critical_fixes_applied": [
-      "Go renderer paths with smart fallback logic for Railway deployment",
-      "Python dependencies configured via web/nixpacks.toml for Railway",
-      "Worker asset workflow fixed to include storage paths in database",
-      "Comprehensive integration tests covering all acceptance criteria",
-      "Error handling and retry mechanisms validated"
-    ],
-    "git_safety_incident": {
-      "issue": "Git staged entire repository for deletion during development",
-      "root_cause": "Using relative paths (../progress.txt) from server/ subdirectory caused git path confusion",
-      "resolution": "Reset staged changes and work from repository root",
-      "prevention": "Always work from git repository root, use absolute paths, verify git status before commits"
-    },
-    "deployment_validation": {
-      "local_development": "All tests passing, export jobs processing correctly",
-      "railway_environment": "Smart path resolution ensures Python renderer works correctly",
-      "asset_storage": "Files stored with proper database records and downloadable asset IDs"
-    }
+    "current_issue": "Ralph completed all fixes locally but Railway still running old deployment",
+    "evidence": "Railway logs show 'Usage: render_pptx.py <spec.json> <out.pptx>' error and jobs moving to dead letter queue",
+    "worker_status": "Worker is running and polling every 5 seconds but fails on old Python renderer",
+    "deployment_gap": "Local integration tests pass, Railway deployment outdated",
+    "failing_job_example": "Job e9e1449c-0e67-4490-bda4-dd5099fef424 moved to dead letter queue",
+    "solution_path": "Commit Ralph's fixes and trigger new Railway deployment"
+  },
+  "ralph_completed_locally": {
+    "critical_002": "Export jobs processing pipeline fixed",
+    "story_004": "Worker processing verification completed",
+    "story_005": "Python renderer Railway environment debugging completed",
+    "story_006": "Asset storage and ID generation verified",
+    "integration_tests": "All tests passing with realistic workflows",
+    "smart_path_resolution": "NewPythonPPTXRenderer() with fallback logic implemented"
   }
 }
