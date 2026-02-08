@@ -649,7 +649,7 @@ func (p *postgresJobStore) EnqueueWithDeduplication(ctx context.Context, j store
 			// (JobFailed and JobDeadLetter cases fall through to create new job)
 			log.Printf("🔍 CRITICAL DEBUG: Existing job has failed status (%s), will create new job", existingJob.Status)
 		}
-		if err != sql.ErrNoRows {
+		if err != nil && err != sql.ErrNoRows {
 			log.Printf("🚨 CRITICAL ERROR: Deduplication query failed - Error: %v", err)
 			return store.Job{}, false, err
 		}
