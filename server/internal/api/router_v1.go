@@ -980,6 +980,12 @@ func (s *Server) handleExportDeckVersion(w http.ResponseWriter, r *http.Request)
 		writeError(w, r, http.StatusInternalServerError, "failed to enqueue job")
 		return
 	}
+	log.Printf("DEBUG: EnqueueWithDeduplication result - Job ID: %s, Status: %s, wasDuplicate: %v", createdJob.ID, createdJob.Status, wasDuplicate)
+	if createdJob.ID == "" {
+		log.Printf("ERROR: EnqueueWithDeduplication returned empty job ID - this will cause frontend 'Export did not return asset id' error")
+		writeError(w, r, http.StatusInternalServerError, "job creation failed")
+		return
+	}
 	if wasDuplicate {
 		// If duplicate job is already completed, return the result immediately
 		if createdJob.Status == store.JobDone && createdJob.OutputRef != "" {
