@@ -1012,8 +1012,10 @@ func (s *Server) handleExportDeckVersion(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) handleExportVersion(w http.ResponseWriter, r *http.Request) {
+	log.Printf("🔴🔴🔴 CRITICAL DEBUG: handleExportVersion CALLED with path: %s 🔴🔴🔴", r.URL.Path)
 	id, _ := auth.GetIdentity(r.Context())
 	versionID := r.PathValue("versionId")
+	log.Printf("🔴🔴🔴 CRITICAL DEBUG: handleExportVersion versionID: %s, userID: %s, orgID: %s 🔴🔴🔴", versionID, id.UserID, id.OrgID)
 	ver, ok, err := s.Store.Templates().GetVersion(r.Context(), id.OrgID, versionID)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed")
