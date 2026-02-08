@@ -12,6 +12,7 @@ export async function POST(req, { params }) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  console.log('🟡🟡🟡 Next.js API: GO_API_BASE_URL =', process.env.GO_API_BASE_URL || 'http://127.0.0.1:8081')
   console.log('🟡🟡🟡 Next.js API: Calling Go backend /v1/deck-versions/' + params.id + '/export')
   const result = await postJSON(`/v1/deck-versions/${params.id}/export`, {}, { headers })
   console.log('🟡🟡🟡 Next.js API: Go backend response status:', result.status, 'body:', result.body)
