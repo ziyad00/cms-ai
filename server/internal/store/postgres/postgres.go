@@ -599,15 +599,27 @@ func (p *postgresJobStore) Enqueue(ctx context.Context, j store.Job) (store.Job,
 		meta = j.Metadata
 	}
 
+	log.Printf("🔍 CRITICAL DEBUG: Before DB INSERT - OrgID: %s, Type: %s, Status: %s", j.OrgID, j.Type, j.Status)
+	log.Printf("🔍 CRITICAL DEBUG: About to execute query: %s", query)
+
 	err := ps.db.QueryRowContext(ctx, query, j.OrgID, j.Type, j.Status, j.InputRef, j.OutputRef, j.Error, j.RetryCount, j.MaxRetries, j.LastRetryAt, j.DeduplicationID, meta, j.CreatedAt, j.UpdatedAt).Scan(&j.ID)
 	if err != nil {
+		log.Printf("🚨 CRITICAL ERROR: DB INSERT failed - Error: %v", err)
 		return store.Job{}, err
 	}
+
+	log.Printf("🔍 CRITICAL DEBUG: After DB INSERT - Returned job ID: '%s'", j.ID)
+	if j.ID == "" {
+		log.Printf("🚨 CRITICAL ERROR: Job ID is EMPTY after successful DB insert - this should never happen!")
+	}
+
 	return j, nil
 }
 
 func (p *postgresJobStore) EnqueueWithDeduplication(ctx context.Context, j store.Job) (store.Job, bool, error) {
 	ps := (*PostgresStore)(p)
+
+	log.Printf("🔍 CRITICAL DEBUG: EnqueueWithDeduplication called - DeduplicationID: '%s', OrgID: '%s'", j.DeduplicationID, j.OrgID)
 
 	if j.DeduplicationID != "" {
 		// First check for any existing job with this deduplication ID, regardless of status
@@ -620,25 +632,34 @@ func (p *postgresJobStore) EnqueueWithDeduplication(ctx context.Context, j store
 			&existingJob.DeduplicationID, &existingJob.Metadata, &existingJob.CreatedAt, &existingJob.UpdatedAt,
 		)
 		if err == nil {
+			log.Printf("🔍 CRITICAL DEBUG: Found existing job - ID: %s, Status: %s", existingJob.ID, existingJob.Status)
 			// If job is still in progress, return existing job
 			if existingJob.Status == store.JobQueued || existingJob.Status == store.JobRunning || existingJob.Status == store.JobRetry {
+				log.Printf("🔍 CRITICAL DEBUG: Returning existing in-progress job: %s", existingJob.ID)
 				return existingJob, true, nil
 			}
 
 			// If job is completed successfully, return it immediately
 			if existingJob.Status == store.JobDone {
+				log.Printf("🔍 CRITICAL DEBUG: Returning existing completed job: %s", existingJob.ID)
 				return existingJob, true, nil
 			}
 
 			// If job failed permanently, allow creating a new one
 			// (JobFailed and JobDeadLetter cases fall through to create new job)
+			log.Printf("🔍 CRITICAL DEBUG: Existing job has failed status (%s), will create new job", existingJob.Status)
 		}
 		if err != sql.ErrNoRows {
+			log.Printf("🚨 CRITICAL ERROR: Deduplication query failed - Error: %v", err)
 			return store.Job{}, false, err
 		}
+		log.Printf("🔍 CRITICAL DEBUG: No existing job found, creating new one")
+	} else {
+		log.Printf("🔍 CRITICAL DEBUG: No deduplication ID, creating new job directly")
 	}
 
 	inserted, err := p.Enqueue(ctx, j)
+	log.Printf("🔍 CRITICAL DEBUG: Enqueue returned - JobID: '%s', Error: %v", inserted.ID, err)
 	return inserted, false, err
 }
 
