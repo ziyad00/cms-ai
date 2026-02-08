@@ -6,6 +6,9 @@ Generates presentations with intelligent design decisions based on content
 """
 
 import sys
+
+# CRITICAL DEBUG: Script started
+print(f"🔴 CRITICAL DEBUG: Script started, sys.argv={sys.argv}", file=sys.stderr, flush=True)
 import json
 import argparse
 import asyncio
@@ -14,14 +17,16 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
 
+print(f"🔴 CRITICAL DEBUG: About to import python-pptx", file=sys.stderr, flush=True)
 try:
     from pptx import Presentation
     from pptx.util import Inches, Pt
     from pptx.enum.shapes import MSO_SHAPE
     from pptx.dml.color import RGBColor
     from pptx.enum.text import PP_ALIGN
+    print(f"🔴 CRITICAL DEBUG: python-pptx imports successful", file=sys.stderr, flush=True)
 except ImportError as e:
-    print(f"ERROR: python-pptx library is required. Install with: pip install python-pptx. Error: {e}", file=sys.stderr)
+    print(f"🔴 CRITICAL ERROR: python-pptx library is required. Install with: pip install python-pptx. Error: {e}", file=sys.stderr, flush=True)
     sys.exit(1)
 
 # Import olama's AI and design modules (local copies)
