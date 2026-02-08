@@ -223,6 +223,26 @@ func (r PythonPPTXRenderer) RenderPPTXWithCompany(ctx context.Context, spec any,
 	}
 	log.Printf("🚨 CRITICAL DEBUG: Python binary test SUCCESS - Version: %s", string(output))
 
+	// Test if script file is executable
+	scriptInfo, err := os.Stat(script)
+	if err != nil {
+		log.Printf("🚨 CRITICAL ERROR: Failed to stat script file - Error: %v", err)
+		return fmt.Errorf("failed to stat script file: %v", err)
+	}
+	log.Printf("🚨 CRITICAL DEBUG: Script file mode: %v", scriptInfo.Mode())
+
+	// Check if we can read the first line
+	file, err := os.Open(script)
+	if err != nil {
+		log.Printf("🚨 CRITICAL ERROR: Cannot open script file - Error: %v", err)
+		return fmt.Errorf("cannot open script file: %v", err)
+	}
+	defer file.Close()
+
+	firstLine := make([]byte, 100)
+	n, _ := file.Read(firstLine)
+	log.Printf("🚨 CRITICAL DEBUG: Script first line: %s", string(firstLine[:n]))
+
 	cmd := exec.CommandContext(ctx, python)
 	cmd.Args = append(cmd.Args, script)
 	cmd.Args = append(cmd.Args, args...)
@@ -240,12 +260,23 @@ func (r PythonPPTXRenderer) RenderPPTXWithCompany(ctx context.Context, spec any,
 		"HUGGING_FACE_API_KEY="+r.HuggingFaceAPIKey,
 	)
 
-	var stderr bytes.Buffer
+	log.Printf("🚨 CRITICAL DEBUG: Final command args: %v", cmd.Args)
+	log.Printf("🚨 CRITICAL DEBUG: Working directory: %s", workDir)
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
+	log.Printf("🚨 CRITICAL DEBUG: About to run command...")
 	err = cmd.Run()
+	log.Printf("🚨 CRITICAL DEBUG: Command finished - Error: %v", err)
+
+	stdoutStr := stdout.String()
+	stderrStr := stderr.String()
+	log.Printf("🚨 CRITICAL DEBUG: Command stdout: %s", stdoutStr)
+	log.Printf("🚨 CRITICAL DEBUG: Command stderr: %s", stderrStr)
+
 	if err != nil {
-		stderrStr := stderr.String()
 		if stderrStr != "" {
 			return fmt.Errorf("python renderer failed: %s", stderrStr)
 		}
