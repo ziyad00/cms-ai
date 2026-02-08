@@ -172,7 +172,7 @@ func (r PythonPPTXRenderer) RenderPPTXWithCompany(ctx context.Context, spec any,
 	}
 
 	// Create command arguments
-	args := []string{script, tmpSpec.Name(), outPath}
+	args := []string{tmpSpec.Name(), outPath}
 
 	// Add company info if provided
 	var tmpCompany *os.File
@@ -208,7 +208,8 @@ func (r PythonPPTXRenderer) RenderPPTXWithCompany(ctx context.Context, spec any,
 		return fmt.Errorf("script file not found: %v", err)
 	}
 
-	cmd := exec.CommandContext(ctx, python, args...)
+	cmd := exec.CommandContext(ctx, python, script)
+	cmd.Args = append(cmd.Args, args...)
 	// Set working directory based on environment
 	workDir := "/app" // Railway deployment root
 	if strings.Contains(script, "tools/renderer/render_pptx.py") && !strings.HasPrefix(script, "/app/") {
