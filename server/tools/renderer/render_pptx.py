@@ -5,7 +5,11 @@ Integrates olama's visual rendering with Hugging Face AI design analysis
 Generates presentations with intelligent design decisions based on content
 """
 
+# ULTRA CRITICAL DEBUG: Script reached shebang and docstring
+print("🔴 ULTRA CRITICAL: Script execution started before imports", flush=True)
+
 import sys
+print("🔴 ULTRA CRITICAL: sys import successful", file=sys.stderr, flush=True)
 
 # CRITICAL DEBUG: Script started
 print(f"🔴 CRITICAL DEBUG: Script started, sys.argv={sys.argv}", file=sys.stderr, flush=True)
