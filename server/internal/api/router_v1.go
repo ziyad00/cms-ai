@@ -953,6 +953,19 @@ func (s *Server) handleExportDeckVersion(w http.ResponseWriter, r *http.Request)
 	id, _ := auth.GetIdentity(r.Context())
 	versionID := r.PathValue("versionId")
 	log.Printf("🚀🚀🚀 CRITICAL DEBUG: versionID extracted: %s, userID: %s, orgID: %s 🚀🚀🚀", versionID, id.UserID, id.OrgID)
+
+	// TEMPORARY WORKAROUND: Return hardcoded job to test deployment
+	testJob := store.Job{
+		ID:       "test-deployment-" + versionID,
+		OrgID:    id.OrgID,
+		Type:     store.JobExport,
+		Status:   store.JobQueued,
+		InputRef: versionID,
+	}
+	log.Printf("🚀🚀🚀 TEMPORARY: Returning hardcoded job to verify deployment: %+v 🚀🚀🚀", testJob)
+	writeJSON(w, http.StatusAccepted, map[string]any{"job": testJob})
+	return
+
 	_, ok, err := s.Store.Decks().GetDeckVersion(r.Context(), id.OrgID, versionID)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed")
