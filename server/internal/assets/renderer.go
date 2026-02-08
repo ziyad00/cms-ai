@@ -208,7 +208,8 @@ func (r PythonPPTXRenderer) RenderPPTXWithCompany(ctx context.Context, spec any,
 		return fmt.Errorf("script file not found: %v", err)
 	}
 
-	cmd := exec.CommandContext(ctx, python, script)
+	cmd := exec.CommandContext(ctx, python)
+	cmd.Args = append(cmd.Args, script)
 	cmd.Args = append(cmd.Args, args...)
 	// Set working directory based on environment
 	workDir := "/app" // Railway deployment root
