@@ -208,6 +208,21 @@ func (r PythonPPTXRenderer) RenderPPTXWithCompany(ctx context.Context, spec any,
 		return fmt.Errorf("script file not found: %v", err)
 	}
 
+	// CRITICAL DEBUG: Check Python binary availability
+	log.Printf("🚨 CRITICAL DEBUG: About to execute Python - Binary: %s", python)
+	log.Printf("🚨 CRITICAL DEBUG: Script path: %s", script)
+	log.Printf("🚨 CRITICAL DEBUG: Arguments: %v", args)
+
+	// Test if python3 binary exists
+	testCmd := exec.CommandContext(ctx, python, "--version")
+	output, testErr := testCmd.CombinedOutput()
+	if testErr != nil {
+		log.Printf("🚨 CRITICAL ERROR: Python binary test failed - Error: %v", testErr)
+		log.Printf("🚨 CRITICAL ERROR: Python binary output: %s", string(output))
+		return fmt.Errorf("python binary not available: %v - output: %s", testErr, string(output))
+	}
+	log.Printf("🚨 CRITICAL DEBUG: Python binary test SUCCESS - Version: %s", string(output))
+
 	cmd := exec.CommandContext(ctx, python)
 	cmd.Args = append(cmd.Args, script)
 	cmd.Args = append(cmd.Args, args...)
