@@ -166,6 +166,7 @@ export default function DeckDetailPage() {
           type: 'export',
           outputRef: job.outputRef || job.assetId,
           timestamp: job.completedAt || job.createdAt,
+          versionNo: job.metadata?.versionNo || null,
           filename: job.metadata?.filename || `export-${job.id.substring(0, 8)}.pptx`
         })).filter(job => job.status === 'Done' && job.outputRef) || []
 
@@ -392,39 +393,43 @@ export default function DeckDetailPage() {
     }
 
     setBusy(true)
-    setMessage('Exporting PPTX...')
+    let targetVersionId = activeVersionId
+    let versionNum = activeVersion?.versionNo
+
     try {
-      const res = await fetch(`/api/deck-versions/${activeVersionId}/export`, { method: 'POST' })
+      // 1. If there are unsaved changes, save as a new version first
+      if (hasChanges && spec) {
+        setMessage('Saving changes as new version before export...')
+        const saveRes = await fetch(`/api/decks/${id}/versions`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ spec }),
+        })
+        const saveBody = await saveRes.json().catch(() => ({}))
+        if (saveRes.ok && saveBody.version?.id) {
+          targetVersionId = saveBody.version.id
+          versionNum = saveBody.version.versionNo
+          // Refresh versions list in background
+          await load()
+        }
+      }
+
+      setMessage(`Exporting version v${versionNum}...`)
+      const res = await fetch(`/api/deck-versions/${targetVersionId}/export`, { method: 'POST' })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) {
         setMessage(body.error || `Export failed (${res.status})`)
         return
       }
 
-      // Handle response format: {job: {id, outputRef}, assetPath, duplicate}
+      // Handle response format: {job: {id, outputRef}}
       const jobData = body.job
-      if (!jobData?.outputRef && !body.assetPath) {
-        setMessage('Export did not return asset reference')
-        return
-      }
-
-      if (body.duplicate) {
-        // If duplicate, reload actual exports instead of adding fake job
-        setMessage(`🎉 Export ready! Using existing version.`)
-        await loadExportJobs() // Reload to show existing export
-      } else {
-        // Store job info for download buttons (add to array for versioning)
-        const job = {
-          id: jobData.id,
-          status: 'Done',
-          type: 'export',
-          outputRef: jobData.outputRef || body.assetPath,
-          timestamp: jobData.updatedAt || new Date().toISOString(),
-          filename: body.metadata?.filename || `export-${jobData.id.substring(0, 8)}.pptx`
-        }
-        setExportJobs(prev => [job, ...prev]) // Add new job at the beginning
-        setMessage(`🎉 Export ready! Your presentation is available for download.`)
-      }
+      
+      // Reload actual exports to show the new one
+      setMessage(`🎉 Export job started for v${versionNum}!`)
+      await loadExportJobs()
+    } catch (err) {
+      setMessage(`Export failed: ${err.message}`)
     } finally {
       setBusy(false)
     }
@@ -561,7 +566,7 @@ export default function DeckDetailPage() {
                     <div key={job.id} className="border rounded-lg p-3 bg-gray-50">
                       <div className="flex items-center justify-between mb-2">
                         <span className="text-sm font-medium text-gray-600">
-                          Version {exportJobs.length - index} {index === 0 && '(Latest)'}
+                          {job.versionNo ? `Export of v${job.versionNo}` : `Export version ${exportJobs.length - index}`} {index === 0 && '(Latest)'}
                         </span>
                         <span className="text-xs text-gray-500">
                           {new Date(job.timestamp).toLocaleString()}
