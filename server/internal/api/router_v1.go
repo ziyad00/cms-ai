@@ -1003,60 +1003,30 @@ func (s *Server) handleExportDeckVersion(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Async export using job queue
-	job := store.Job{
-		ID:              newID("job"),
-		OrgID:           id.OrgID,
-		Type:            store.JobExport,
-		Status:          store.JobQueued,
-		InputRef:        versionID,
-		DeduplicationID: fmt.Sprintf("%s-deck-%s", string(store.JobExport), versionID),
+	// Async export using job queue - NO deduplication for exports to allow multiple entries
+	metadata := map[string]string{
+		"versionNo": fmt.Sprintf("%d", dv.VersionNo),
+		"filename":  fmt.Sprintf("deck-export-v%d-%s.pptx", dv.VersionNo, time.Now().Format("20060102-150405")),
 	}
-	createdJob, wasDuplicate, err := s.Store.Jobs().EnqueueWithDeduplication(r.Context(), job)
+
+	job := store.Job{
+		ID:       newID("job"),
+		OrgID:    id.OrgID,
+		Type:     store.JobExport,
+		Status:   store.JobQueued,
+		InputRef: versionID,
+		Metadata: &metadata,
+	}
+	createdJob, err := s.Store.Jobs().Enqueue(r.Context(), job)
 	if err != nil {
 		log.Printf("ERROR: Failed to enqueue deck export job: %v", err)
 		writeError(w, r, http.StatusInternalServerError, "failed to enqueue job")
 		return
 	}
-	log.Printf("DEBUG: EnqueueWithDeduplication result - Job ID: %s, Status: %s, wasDuplicate: %v", createdJob.ID, createdJob.Status, wasDuplicate)
-	if createdJob.ID == "" {
-		log.Printf("ERROR: EnqueueWithDeduplication returned empty job ID - this will cause frontend 'Export did not return asset id' error")
-		writeError(w, r, http.StatusInternalServerError, "job creation failed")
-		return
-	}
-	if wasDuplicate {
-		// If duplicate job is already completed, return the result immediately
-		if createdJob.Status == store.JobDone && createdJob.OutputRef != "" {
-			// Get the asset to return unified format
-			asset, ok, err := s.Store.Assets().Get(r.Context(), id.OrgID, createdJob.OutputRef)
-			if err == nil && ok {
-				// Return unified format: {asset: {id, downloadUrl}, job: {id, status}, metadata: {filename, fileSize}}
-				filename := fmt.Sprintf("deck-export-%s.pptx", createdJob.OutputRef[:8])
-				writeJSON(w, http.StatusOK, map[string]any{
-					"job": createdJob,
-					"duplicate": true,
-					"asset": map[string]any{"id": asset.ID, "downloadUrl": "/v1/assets/" + asset.ID},
-					"metadata": map[string]any{"filename": filename},
-				})
-				return
-			}
-			// Fallback for missing assets (backward compatibility)
-			writeJSON(w, http.StatusOK, map[string]any{"job": createdJob, "duplicate": true, "assetPath": createdJob.OutputRef})
-			return
-		}
-		// If duplicate job failed, return error immediately
-		if createdJob.Status == store.JobFailed || createdJob.Status == store.JobDeadLetter {
-			writeJSON(w, http.StatusOK, map[string]any{"job": createdJob, "duplicate": true, "error": createdJob.Error})
-			return
-		}
-		// Otherwise, job is still in progress
-		writeJSON(w, http.StatusAccepted, map[string]any{"job": createdJob, "duplicate": true})
-		return
-	}
 
 	// Return job ID immediately - frontend can poll for completion
 	_, _ = s.Store.Metering().Record(r.Context(), store.MeteringEvent{ID: newID("met"), OrgID: id.OrgID, UserID: id.UserID, Type: "export", Quantity: 1})
-	_, _ = s.Store.Audit().Append(r.Context(), store.AuditLog{ID: newID("aud"), OrgID: id.OrgID, ActorID: id.UserID, Action: "deck.export", TargetRef: versionID, Metadata: map[string]any{"jobId": createdJob.ID}})
+	_, _ = s.Store.Audit().Append(r.Context(), store.AuditLog{ID: newID("aud"), OrgID: id.OrgID, ActorID: id.UserID, Action: "deck.export", TargetRef: versionID, Metadata: map[string]any{"jobId": createdJob.ID, "versionNo": dv.VersionNo}})
 
 	writeJSON(w, http.StatusAccepted, map[string]any{"job": createdJob})
 }
