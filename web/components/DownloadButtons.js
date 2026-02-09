@@ -15,6 +15,14 @@ export function DownloadButtons({ job }) {
     document.body.removeChild(link)
   }
 
+  // Extract asset ID from outputRef path
+  const getAssetId = (outputRef) => {
+    if (!outputRef) return null
+    // outputRef format: "data/assets/orgId/assetId.pptx"
+    const parts = outputRef.split('/')
+    return parts[parts.length - 1] // Get filename only
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center space-x-2">
@@ -27,7 +35,7 @@ export function DownloadButtons({ job }) {
       <div className="flex flex-wrap gap-3">
         {job.type === 'export' && job.outputRef && (
           <button
-            onClick={() => handleDownload(`/api/assets/${job.outputRef}`, `export-${job.id}.pptx`)}
+            onClick={() => handleDownload(`/api/assets/${getAssetId(job.outputRef)}`, `export-${job.id}.pptx`)}
             className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded transition-colors"
           >
             📥 Download PPTX
@@ -36,7 +44,7 @@ export function DownloadButtons({ job }) {
         
         {job.type === 'render' && job.outputRef && (
           <button
-            onClick={() => handleDownload(`/api/assets/${job.outputRef}`, `preview-${job.id}.png`)}
+            onClick={() => handleDownload(`/api/assets/${getAssetId(job.outputRef)}`, `preview-${job.id}.png`)}
             className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors"
           >
             🖼️ Download Preview
@@ -46,7 +54,7 @@ export function DownloadButtons({ job }) {
         {/* Also show job-based asset download for multiple assets */}
         {job.outputRef && (
           <button
-            onClick={() => window.open(`/api/jobs/${job.id}/assets/export.pptx`, '_blank')}
+            onClick={() => window.open(`/api/jobs/${job.id}/assets/${getAssetId(job.outputRef)}`, '_blank')}
             className="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded transition-colors"
           >
             🔗 Open Asset
