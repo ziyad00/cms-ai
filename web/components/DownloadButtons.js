@@ -51,10 +51,10 @@ export function DownloadButtons({ job }) {
           </button>
         )}
         
-        {/* Also show job-based asset download for multiple assets */}
+        {/* Also show asset-based download for direct access */}
         {job.outputRef && (
           <button
-            onClick={() => window.open(`/api/jobs/${job.id}/assets/${getAssetId(job.outputRef)}`, '_blank')}
+            onClick={() => window.open(`/api/assets/${getAssetId(job.outputRef)}`, '_blank')}
             className="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded transition-colors"
           >
             🔗 Open Asset
