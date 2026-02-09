@@ -1,5 +1,29 @@
 # CMS-AI Worklog
 
+## 2026-02-09 - Export Download Feature & Railway CLI Testing ✅
+
+### Summary
+Fixed missing download button functionality and completed Railway CLI export testing infrastructure. Export workflow now shows proper download buttons after successful PPTX generation.
+
+### Changes Made
+- **Frontend**: Added DownloadButtons component to deck page with proper export job state tracking
+- **Railway Testing**: Fixed export test script with correct API workflow and status parsing
+- **Performance**: Confirmed export completes in ~2-3 seconds (no performance issues found)
+
+### Files Modified
+- `/web/app/decks/[id]/page.js` - Added DownloadButtons import and component rendering
+- `/scripts/railway-export-test.sh` - Fixed status parsing and API workflow
+- `/scripts/test-runner.sh` - Railway CLI testing infrastructure
+- `/scripts/railway-cli-tools.sh` - Advanced debugging and monitoring tools
+
+### Technical Details
+- Export job tracking: Store job state with `{id, status: 'Done', type: 'export', outputRef}`
+- Download buttons: Support PPTX download, asset opening, and preview thumbnails
+- API workflow: Template → Deck (with content field) → Export Job → Asset
+- Status handling: Recognize "Done", "completed", "SUCCESS" variants
+
+---
+
 ## 2026-02-09 - Comprehensive Architecture Analysis Completed ✅
 
 ### Summary

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 
 import VisualEditor from '../../../components/visual-editor/VisualEditor'
+import { DownloadButtons } from '../../../components/DownloadButtons'
 
 export default function DeckDetailPage() {
   const { id } = useParams()
@@ -23,6 +24,7 @@ export default function DeckDetailPage() {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
+  const [exportJob, setExportJob] = useState(null)
 
   const activeVersion = useMemo(() => {
     return versions.find(v => v.id === activeVersionId) || null
@@ -350,23 +352,21 @@ export default function DeckDetailPage() {
         return
       }
 
-      let assetId = body.asset?.id || body.assetPath || body.job?.outputRef
-      if (!assetId) {
+      // Unified response format: {asset: {id, downloadUrl}, job: {id, status}, metadata: {filename}}
+      if (!body.asset?.id) {
         setMessage('Export did not return asset id')
         return
       }
 
-      // Handle different response formats for download
-      if (body.downloadUrl) {
-        // Template exports provide a direct download URL - use Next.js proxy
-        setMessage('Export ready. Download starting...')
-        const assetId = body.downloadUrl.split('/').pop() // Extract ID from /v1/assets/id
-        window.location.href = `/api/assets/${assetId}`
-      } else {
-        // Deck exports don't create downloadable assets yet - show completion message
-        const filename = assetId.includes('/') ? assetId.split('/').pop() : `${body.job?.id || 'export'}.pptx`
-        setMessage(`✅ Export completed successfully! PPTX generated: ${filename}. Download feature coming soon - contact support for file access.`)
+      // Store job info for download buttons
+      const job = {
+        id: body.job?.id || body.asset.id,
+        status: 'Done',
+        type: 'export',
+        outputRef: body.asset.id
       }
+      setExportJob(job)
+      setMessage(`Export completed successfully! PPTX generated: ${body.asset.id}. Use the download button below.`)
     } finally {
       setBusy(false)
     }
@@ -480,6 +480,13 @@ export default function DeckDetailPage() {
                 </svg>
                 {message}
               </div>
+            </div>
+          )}
+
+          {/* Download Buttons for completed exports */}
+          {exportJob && (
+            <div className="mx-6 mb-6">
+              <DownloadButtons job={exportJob} />
             </div>
           )}
 
