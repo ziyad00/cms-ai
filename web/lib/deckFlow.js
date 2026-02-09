@@ -43,9 +43,18 @@ export async function createDeck(
     throw new Error(msg)
   }
 
-  const assetId = exportBody?.asset?.id || exportBody?.assetPath || exportBody?.job?.outputRef
+  let assetId = exportBody?.asset?.id || exportBody?.assetPath || exportBody?.job?.outputRef
   if (!assetId) {
     throw new Error('Export did not return an asset id')
+  }
+
+  // Extract asset ID from full path if needed (e.g., "data/assets/org-id/job-id-timestamp.pptx" -> "job-id")
+  if (assetId.includes('/') && assetId.includes('-')) {
+    const filename = assetId.split('/').pop() // Get filename
+    const match = filename.match(/^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/) // Extract UUID
+    if (match) {
+      assetId = match[1]
+    }
   }
 
   return { template, version, assetId }

@@ -350,14 +350,32 @@ export default function DeckDetailPage() {
         return
       }
 
-      const assetId = body.asset?.id || body.assetPath || body.job?.outputRef
+      let assetId = body.asset?.id || body.assetPath || body.job?.outputRef
       if (!assetId) {
         setMessage('Export did not return asset id')
         return
       }
 
-      setMessage('Export ready. Download starting...')
-      window.location.href = `/v1/assets/${assetId}`
+      // Handle different response formats for download
+      if (body.downloadUrl) {
+        // Template exports provide a direct download URL
+        setMessage('Export ready. Download starting...')
+        window.location.href = body.downloadUrl
+      } else if (assetId.includes('/')) {
+        // Deck exports provide file path - use job-based download
+        const jobId = body.job?.id
+        const filename = assetId.split('/').pop()
+        if (jobId && filename) {
+          setMessage('Export ready. Download starting...')
+          window.location.href = `/v1/jobs/${jobId}/assets/${filename}`
+        } else {
+          setMessage('Export completed but download link unavailable. Check job status.')
+        }
+      } else {
+        // Direct asset ID - try standard asset download
+        setMessage('Export ready. Download starting...')
+        window.location.href = `/v1/assets/${assetId}`
+      }
     } finally {
       setBusy(false)
     }
