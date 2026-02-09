@@ -65,6 +65,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/versions/{versionId}/export", s.handleExportVersion)
 	mux.HandleFunc("GET /v1/assets/{id}/download-url", s.handleDownloadURL)
 	mux.HandleFunc("GET /v1/assets/{id}", s.handleAssetDownload)
+	mux.HandleFunc("POST /v1/jobs", s.handleCreateJob)
 	mux.HandleFunc("GET /v1/jobs/{jobId}", s.handleGetJob)
 	mux.HandleFunc("GET /v1/jobs/{jobId}/assets/{filename}", s.handleJobAssetDownload)
 	mux.HandleFunc("GET /v1/admin/jobs/dead-letter", s.handleListDeadLetterJobs)
@@ -1599,4 +1600,73 @@ func (s *Server) handleRetryDeadLetterJob(w http.ResponseWriter, r *http.Request
 	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"message": "job queued for retry"})
+}
+
+func (s *Server) handleCreateJob(w http.ResponseWriter, r *http.Request) {
+	id, _ := auth.GetIdentity(r.Context())
+	if !auth.RequireRole(id, auth.RoleEditor) {
+		writeError(w, r, http.StatusForbidden, "forbidden")
+		return
+	}
+
+	var req struct {
+		Type     string `json:"type"`
+		InputRef string `json:"inputRef"`
+	}
+
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
+		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	if req.Type == "" || req.InputRef == "" {
+		writeError(w, r, http.StatusBadRequest, "type and inputRef are required")
+		return
+	}
+
+	// Validate job type
+	var jobType store.JobType
+	switch req.Type {
+	case "export":
+		jobType = store.JobExport
+	case "render":
+		jobType = store.JobRender
+	case "preview":
+		jobType = store.JobPreview
+	default:
+		writeError(w, r, http.StatusBadRequest, "invalid job type")
+		return
+	}
+
+	// Create the job
+	job := store.Job{
+		ID:              newID("job"),
+		OrgID:           id.OrgID,
+		Type:            jobType,
+		Status:          store.JobQueued,
+		InputRef:        req.InputRef,
+		DeduplicationID: fmt.Sprintf("%s-%s", string(jobType), req.InputRef),
+	}
+
+	createdJob, wasDuplicate, err := s.Store.Jobs().EnqueueWithDeduplication(r.Context(), job)
+	if err != nil {
+		log.Printf("ERROR: Failed to enqueue job: %v", err)
+		writeError(w, r, http.StatusInternalServerError, "failed to enqueue job")
+		return
+	}
+
+	if wasDuplicate {
+		if createdJob.Status == store.JobDone && createdJob.OutputRef != "" {
+			writeJSON(w, http.StatusOK, map[string]any{"job": createdJob, "duplicate": true})
+			return
+		}
+		if createdJob.Status == store.JobFailed || createdJob.Status == store.JobDeadLetter {
+			writeJSON(w, http.StatusOK, map[string]any{"job": createdJob, "duplicate": true, "error": createdJob.Error})
+			return
+		}
+		writeJSON(w, http.StatusAccepted, map[string]any{"job": createdJob, "duplicate": true})
+		return
+	}
+
+	writeJSON(w, http.StatusAccepted, map[string]any{"job": createdJob})
 }
