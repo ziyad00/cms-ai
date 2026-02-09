@@ -384,20 +384,21 @@ export default function DeckDetailPage() {
         return
       }
 
-      // Unified response format: {asset: {id, downloadUrl}, job: {id, status}, metadata: {filename}}
-      if (!body.asset?.id) {
-        setMessage('Export did not return asset id')
+      // Handle response format: {job: {id, outputRef}, assetPath, duplicate}
+      const jobData = body.job
+      if (!jobData?.outputRef && !body.assetPath) {
+        setMessage('Export did not return asset reference')
         return
       }
 
       // Store job info for download buttons (add to array for versioning)
       const job = {
-        id: body.job?.id || body.asset.id,
+        id: jobData.id,
         status: 'Done',
         type: 'export',
-        outputRef: body.asset.id,
-        timestamp: new Date().toISOString(),
-        filename: body.metadata?.filename || `export-${body.asset.id.substring(0, 8)}.pptx`
+        outputRef: jobData.outputRef || body.assetPath,
+        timestamp: jobData.updatedAt || new Date().toISOString(),
+        filename: body.metadata?.filename || `export-${jobData.id.substring(0, 8)}.pptx`
       }
       setExportJobs(prev => [job, ...prev]) // Add new job at the beginning
       setMessage(`🎉 Export ready! Your presentation is available for download.`)
