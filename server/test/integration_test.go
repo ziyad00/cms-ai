@@ -521,10 +521,10 @@ func TestCompleteAsyncExportWorkflow(t *testing.T) {
 		// Step 6: ACCEPTANCE CRITERIA 5 - Test PPTX file can be downloaded and opened successfully
 		t.Log("Testing: PPTX file can be downloaded and opened successfully")
 
-		// Extract asset ID from output path (format: "assets/orgid/assetid")
-		pathParts := strings.Split(processedJob.OutputRef, "/")
-		require.Len(t, pathParts, 3, "Output path should have format 'assets/orgid/assetid'")
-		assetID := pathParts[2]
+		// OutputRef is now the Asset ID (UUID) directly
+		assetID := processedJob.OutputRef
+		assert.NotEmpty(t, assetID, "Job output reference (Asset ID) should not be empty")
+		assert.NotContains(t, assetID, "/", "Asset ID should be a UUID, not a path")
 
 		// Get the created asset
 		asset, ok, err := memStore.Assets().Get(ctx, "test-org-id", assetID)
@@ -532,6 +532,7 @@ func TestCompleteAsyncExportWorkflow(t *testing.T) {
 		require.True(t, ok, "Asset should exist")
 		assert.Equal(t, store.AssetPPTX, asset.Type, "Asset should be PPTX type")
 		assert.Equal(t, "application/vnd.openxmlformats-officedocument.presentationml.presentation", asset.Mime, "Asset should have correct MIME type")
+		assert.Contains(t, asset.Path, ".pptx", "Asset path should contain extension")
 
 		// Step 7: ACCEPTANCE CRITERIA 3 - Verify PPTX contains AI-enhanced olama backgrounds
 		t.Log("Testing: Generated PPTX contains AI-enhanced olama backgrounds")

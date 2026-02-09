@@ -134,7 +134,15 @@ func TestWorker_ProcessesExportJobsEndToEnd(t *testing.T) {
 		require.True(t, found)
 		assert.Equal(t, store.JobDone, completedJob.Status)
 		assert.NotEmpty(t, completedJob.OutputRef)
-		assert.Contains(t, completedJob.OutputRef, ".pptx")
+		// OutputRef is now an Asset ID (UUID), so it should NOT contain .pptx
+		assert.NotContains(t, completedJob.OutputRef, ".pptx")
+
+		// Verify asset exists in store
+		asset, found, err := memStore.Assets().Get(ctx, orgID, completedJob.OutputRef)
+		require.NoError(t, err)
+		require.True(t, found)
+		assert.Equal(t, store.AssetPPTX, asset.Type)
+		assert.Contains(t, asset.Path, ".pptx")
 
 		// Verify no more queued jobs
 		queuedJobs, err = memStore.Jobs().ListQueued(ctx)
@@ -168,6 +176,11 @@ func TestWorker_ProcessesExportJobsEndToEnd(t *testing.T) {
 		require.True(t, found)
 		assert.Equal(t, store.JobDone, completedJob.Status)
 		assert.NotEmpty(t, completedJob.OutputRef)
+
+		// Verify asset exists in store
+		_, found, err = memStore.Assets().Get(ctx, orgID, completedJob.OutputRef)
+		require.NoError(t, err)
+		require.True(t, found)
 	})
 
 	// Test Case 3: Preview Job Processing

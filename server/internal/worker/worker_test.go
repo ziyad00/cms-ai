@@ -106,12 +106,21 @@ func TestWorker_ProcessJobs(t *testing.T) {
 			assert.Equal(t, store.JobDone, processedJob.Status)
 			assert.NotEmpty(t, processedJob.OutputRef)
 
-			// Check the output path format
+			// Check the output format
 			if tc.assetType == store.AssetPPTX {
-				assert.Contains(t, processedJob.OutputRef, "job-"+string(tc.jobType))
-				assert.Contains(t, processedJob.OutputRef, ".pptx")
+				// Render/Export jobs return an Asset ID (UUID), not a file path
+				// It should NOT contain .pptx in the ID itself
+				assert.NotContains(t, processedJob.OutputRef, ".pptx")
+				assert.NotEmpty(t, processedJob.OutputRef)
+
+				// Verify asset exists in store
+				asset, found, err := memStore.Assets().Get(ctx, orgID, processedJob.OutputRef)
+				require.NoError(t, err)
+				require.True(t, found)
+				assert.Equal(t, store.AssetPPTX, asset.Type)
+				assert.Contains(t, asset.Path, ".pptx") // The path should have the extension
 			} else if tc.assetType == store.AssetPNG {
-				// Preview files should contain .preview.png
+				// Preview files return the path to the first thumbnail
 				assert.Contains(t, processedJob.OutputRef, "job-"+string(tc.jobType))
 				assert.Contains(t, processedJob.OutputRef, ".preview.png")
 			}

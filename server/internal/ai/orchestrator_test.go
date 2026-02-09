@@ -76,8 +76,10 @@ func TestGenerationRequest(t *testing.T) {
 				Tone:     "professional",
 			},
 			want: map[string]interface{}{
-				"hasPrompt":  true,
-				"hasContent": false,
+				"hasPrompt":   true,
+				"hasContent":  false,
+				"hasBrandKit": false,
+				"isRTL":       false,
 			},
 		},
 		{
@@ -94,8 +96,10 @@ func TestGenerationRequest(t *testing.T) {
 				},
 			},
 			want: map[string]interface{}{
-				"hasPrompt":  true,
-				"hasContent": true,
+				"hasPrompt":   true,
+				"hasContent":  true,
+				"hasBrandKit": false,
+				"isRTL":       false,
 			},
 		},
 		{
@@ -115,7 +119,9 @@ func TestGenerationRequest(t *testing.T) {
 			},
 			want: map[string]interface{}{
 				"hasPrompt":   true,
+				"hasContent":  false,
 				"hasBrandKit": true,
+				"isRTL":       false,
 			},
 		},
 		{
@@ -126,8 +132,10 @@ func TestGenerationRequest(t *testing.T) {
 				RTL:      true,
 			},
 			want: map[string]interface{}{
-				"hasPrompt": true,
-				"isRTL":     true,
+				"hasPrompt":   true,
+				"hasContent":  false,
+				"hasBrandKit": false,
+				"isRTL":       true,
 			},
 		},
 	}

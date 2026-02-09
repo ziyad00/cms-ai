@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"testing"
 	"time"
 
@@ -159,29 +158,17 @@ func TestAssetStorageAndIDGeneration(t *testing.T) {
 
 		// ACCEPTANCE CRITERIA VALIDATION:
 
-		// ✅ CRITERIA 5: Export completion includes asset reference
+		// ✅ CRITERIA 5: Export completion includes asset reference (Asset ID)
 		assert.NotEmpty(t, processedJob.OutputRef, "Export completion should include asset reference")
-		t.Logf("Export output reference: %s", processedJob.OutputRef)
+		t.Logf("Export output reference (Asset ID): %s", processedJob.OutputRef)
 
-		// Extract asset ID from output reference
-		// Expected format: "assets/org-id/asset-id.pptx"
-		pathParts := strings.Split(processedJob.OutputRef, "/")
-		require.GreaterOrEqual(t, len(pathParts), 2, "Output reference should contain asset path")
-
-		var assetID string
-		if len(pathParts) >= 3 {
-			// Format: assets/org/assetid.pptx - the worker includes .pptx in the asset ID
-			assetID = pathParts[2]
-		} else {
-			// Fallback: use the filename
-			assetID = pathParts[len(pathParts)-1]
-		}
-
-		// NOTE: Asset ID includes .pptx extension as created by worker
+		// OutputRef is now the Asset ID (UUID) directly
+		assetID := processedJob.OutputRef
+		assert.NotContains(t, assetID, "/", "Asset ID should be a UUID, not a path")
+		assert.NotContains(t, assetID, ".pptx", "Asset ID should not contain extension")
 
 		// ✅ CRITERIA 3: Asset IDs are returned to client
 		assert.NotEmpty(t, assetID, "Asset ID should be returned to client")
-		assert.Contains(t, assetID, exportJob.ID, "Asset ID should be based on job ID")
 		t.Logf("Generated asset ID: %s", assetID)
 
 		// ✅ CRITERIA 2: Asset records are created in database
@@ -198,6 +185,7 @@ func TestAssetStorageAndIDGeneration(t *testing.T) {
 		// ✅ CRITERIA 1: Completed PPTX files are stored in object storage
 		// Note: In this test we're using LocalStorage, but the interface is the same
 		assert.NotEmpty(t, asset.Path, "Asset should have storage path")
+		assert.Contains(t, asset.Path, ".pptx", "Asset path should have .pptx extension")
 		t.Logf("Asset stored at path: %s", asset.Path)
 
 		// ✅ CRITERIA 1 VERIFIED: Asset is stored (we can see the path exists)
@@ -281,11 +269,8 @@ func TestAssetStorageAndIDGeneration(t *testing.T) {
 			require.True(t, found)
 			require.Equal(t, store.JobDone, processedJob.Status)
 
-			// Extract asset ID from output reference
-			outputPath := processedJob.OutputRef
-			pathParts := strings.Split(outputPath, "/")
-			assetID := pathParts[len(pathParts)-1]
-			// NOTE: Keep .pptx extension as that's how worker stores it
+			// OutputRef IS the asset ID now
+			assetID := processedJob.OutputRef
 
 			assetIDs = append(assetIDs, assetID)
 			t.Logf("Job %d generated asset ID: %s", i, assetID)

@@ -1,37 +1,89 @@
 package test
 
 import (
+	"context"
+	"strings"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/ziyad/cms-ai/server/internal/assets"
+	"github.com/ziyad/cms-ai/server/internal/store"
 	"github.com/ziyad/cms-ai/server/internal/store/memory"
 	"github.com/ziyad/cms-ai/server/internal/worker"
 )
 
-// TestWorkerOutputRefBug documents CRITICAL bug where worker sets job.OutputRef to file path instead of assetID
-// This causes asset downloads to fail because the export handler tries to lookup assets by path as ID
-func TestWorkerOutputRefBug(t *testing.T) {
+// TestRegression_WorkerOutputRef_IsAssetID verifies fix for bug where worker set job.OutputRef to file path
+// The fix ensures worker sets job.OutputRef to the Asset ID (UUID), and the file path is stored in the Asset record
+func TestRegression_WorkerOutputRef_IsAssetID(t *testing.T) {
+	ctx := context.Background()
 	memStore := memory.New()
 	renderer := assets.NewGoPPTXRenderer()
 	storage := &assets.LocalStorage{}
 
-	_ = worker.New(memStore, renderer, storage)
+	worker := worker.New(memStore, renderer, storage)
 
-	t.Log("=== BUG ANALYSIS ===")
-	t.Log("1. Worker calls w.store.Assets().Store() which returns a file path")
-	t.Log("2. Worker then sets job.OutputRef = assetID (should be just the asset UUID)")
-	t.Log("3. But somewhere the OutputRef becomes a file path like 'data/assets/org/file.pptx'")
-	t.Log("4. Export handler tries to get Asset by this path as ID and fails")
-	t.Log("")
-	t.Log("=== EVIDENCE from production ===")
-	t.Log("Job OutputRef: 'data/assets/39f11141-d21a-4510-b4ed-9fdb630dd405/02668f1f-aede-4236-8a81-d8080dae6820-1770643125.pptx'")
-	t.Log("This is clearly a file path, not an asset ID")
-	t.Log("Asset download fails because no Asset record exists with this ID")
-	t.Log("")
-	t.Log("=== ROOT CAUSE ===")
-	t.Log("In worker.go lines 182, 214: path, err := w.store.Assets().Store()")
-	t.Log("Store() returns the file path, but worker sets job.OutputRef = assetID")
-	t.Log("Somehow job.OutputRef ends up as the path, not the assetID")
+	// Create a template version
+	templateVersion := store.TemplateVersion{
+		ID:        "reg-version-1",
+		Template:  "reg-template-1",
+		OrgID:     "reg-org",
+		VersionNo: 1,
+		SpecJSON: map[string]interface{}{
+			"layouts": []map[string]interface{}{
+				{
+					"name": "default",
+					"placeholders": []map[string]interface{}{
+						{
+							"id":   "title",
+							"type": "text",
+						},
+					},
+				},
+			},
+		},
+		CreatedAt: time.Now(),
+	}
+	_, err := memStore.Templates().CreateVersion(ctx, templateVersion)
+	require.NoError(t, err)
 
-	t.Error("BUG CONFIRMED: Worker.OutputRef contains file path instead of asset ID")
+	// Create a render job
+	job := store.Job{
+		ID:        "reg-job-1",
+		OrgID:     "reg-org",
+		Type:      store.JobRender,
+		Status:    store.JobQueued,
+		InputRef:  "reg-version-1",
+		CreatedAt: time.Now(),
+	}
+	_, err = memStore.Jobs().Enqueue(ctx, job)
+	require.NoError(t, err)
+
+	// Process job
+	worker.ProcessJobs()
+	time.Sleep(50 * time.Millisecond)
+
+	// Verify job output
+	processedJob, found, err := memStore.Jobs().Get(ctx, "reg-org", "reg-job-1")
+	require.NoError(t, err)
+	require.True(t, found)
+	require.Equal(t, store.JobDone, processedJob.Status)
+
+	outputRef := processedJob.OutputRef
+	t.Logf("Job OutputRef: %s", outputRef)
+
+	// Assertions for FIX
+	assert.NotEmpty(t, outputRef, "OutputRef should not be empty")
+	assert.NotContains(t, outputRef, "/", "OutputRef should NOT be a path (should not contain slashes)")
+	assert.NotContains(t, outputRef, ".pptx", "OutputRef should NOT contain file extension (should be UUID)")
+	assert.False(t, strings.HasPrefix(outputRef, "assets/"), "OutputRef should NOT start with assets/ path")
+
+	// Verify it links to a valid asset
+	asset, found, err := memStore.Assets().Get(ctx, "reg-org", outputRef)
+	require.NoError(t, err)
+	require.True(t, found, "OutputRef should be a valid Asset ID")
+	assert.Contains(t, asset.Path, ".pptx", "Linked Asset record should have the file path")
+
+	t.Log("✅ REGRESSION TEST PASSED: Worker correctly sets OutputRef to Asset ID")
 }

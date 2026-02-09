@@ -15,12 +15,17 @@ export function DownloadButtons({ job }) {
     document.body.removeChild(link)
   }
 
-  // Extract asset ID from outputRef path
+  // Extract asset ID from outputRef
+  // outputRef is typically a UUID asset ID, but might be a legacy file path
   const getAssetId = (outputRef) => {
     if (!outputRef) return null
-    // outputRef format: "data/assets/orgId/assetId.pptx"
-    const parts = outputRef.split('/')
-    return parts[parts.length - 1] // Get filename only
+    // Handle legacy path format: "data/assets/orgId/filename.pptx"
+    if (outputRef.includes('/')) {
+      const parts = outputRef.split('/')
+      return parts[parts.length - 1]
+    }
+    // Handle standard Asset ID (UUID)
+    return outputRef
   }
 
   return (
