@@ -15,7 +15,7 @@ RUN npm run build
 # Final image with Node.js runtime
 FROM node:18-alpine
 RUN apk --no-cache add ca-certificates python3 py3-pip
-RUN pip3 install --break-system-packages python-pptx httpx
+RUN pip3 install --break-system-packages python-pptx httpx asyncio
 
 # Copy Go server
 COPY --from=go-build /app/server /usr/local/bin/server
@@ -31,6 +31,8 @@ RUN npm ci --production
 COPY tools/ /app/tools/
 COPY scripts/start.sh /app/scripts/start.sh
 RUN chmod +x /app/scripts/start.sh
+# Make Python renderer script executable
+RUN chmod +x /app/tools/renderer/render_pptx.py
 # Verify files are copied correctly
 RUN ls -la /app/tools/renderer/ && echo "Files copied successfully"
 
