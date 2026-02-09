@@ -7,12 +7,22 @@ from pptx.util import Inches, Pt
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 2:
-        print("Usage: render_pptx.py <spec.json> <out.pptx>", file=sys.stderr)
+    # Accept either 2 or 4 arguments (with optional --company-info)
+    if len(argv) not in [2, 4]:
+        print("Usage: render_pptx.py <spec.json> <out.pptx> [--company-info <company.json>]", file=sys.stderr)
         return 2
 
     spec_path = Path(argv[0])
     out_path = Path(argv[1])
+
+    # Optionally handle --company-info argument
+    company_info = None
+    if len(argv) == 4 and argv[2] == "--company-info":
+        try:
+            company_info_path = Path(argv[3])
+            company_info = json.loads(company_info_path.read_text(encoding="utf-8"))
+        except Exception:
+            pass  # Ignore company info parsing errors
 
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
     prs = Presentation()
