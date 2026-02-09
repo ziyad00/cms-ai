@@ -350,7 +350,7 @@ export default function DeckDetailPage() {
         return
       }
 
-      const assetId = body.asset?.id
+      const assetId = body.asset?.id || body.assetPath || body.job?.outputRef
       if (!assetId) {
         setMessage('Export did not return asset id')
         return

@@ -43,7 +43,7 @@ export async function createDeck(
     throw new Error(msg)
   }
 
-  const assetId = exportBody?.asset?.id || exportBody?.job?.outputRef
+  const assetId = exportBody?.asset?.id || exportBody?.assetPath || exportBody?.job?.outputRef
   if (!assetId) {
     throw new Error('Export did not return an asset id')
   }
