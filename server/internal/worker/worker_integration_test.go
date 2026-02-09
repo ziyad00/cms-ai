@@ -18,7 +18,7 @@ func TestWorker_ProcessesExportJobsEndToEnd(t *testing.T) {
 	renderer := assets.NewGoPPTXRenderer()
 	storage := assets.LocalStorage{}
 
-	worker := New(memStore, renderer, &storage)
+	worker := New(memStore, renderer, &storage, ai.NewAIService(memStore))
 
 	// Create a template version first
 	templateSpec := map[string]interface{}{
@@ -219,7 +219,7 @@ func TestWorker_ErrorHandlingAndRetries(t *testing.T) {
 	failingRenderer := &failingRenderer{}
 	storage := assets.LocalStorage{}
 
-	worker := New(memStore, failingRenderer, &storage)
+	worker := New(memStore, failingRenderer, &storage, ai.NewAIService(memStore))
 
 	// Create template version
 	templateSpec := map[string]interface{}{
@@ -322,7 +322,7 @@ func TestWorker_WorkerServiceRunning(t *testing.T) {
 	renderer := assets.NewGoPPTXRenderer()
 	storage := assets.LocalStorage{}
 
-	worker := New(memStore, renderer, &storage)
+	worker := New(memStore, renderer, &storage, ai.NewAIService(memStore))
 
 	t.Run("WorkerPollingWithoutJobs", func(t *testing.T) {
 		// Test that processJobs runs without error when no jobs are available

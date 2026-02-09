@@ -80,6 +80,22 @@ export default function TemplateCreationWizard({ onComplete, onCancel }) {
     })
   }
 
+  async function pollJob(jobId) {
+    const maxAttempts = 60
+    let attempts = 0
+    while (attempts < maxAttempts) {
+      attempts++
+      const res = await fetch(`/api/jobs/${jobId}`)
+      if (!res.ok) throw new Error(`Job check failed (${res.status})`)
+      const data = await res.json()
+      const job = data.job || data
+      if (job.status === 'Done' || job.status === 'completed') return job
+      if (job.status === 'Failed' || job.status === 'deadletter') throw new Error(job.error || 'Job failed')
+      await new Promise(resolve => setTimeout(resolve, 2000)) // wait 2s
+    }
+    throw new Error('Job timed out')
+  }
+
   async function createDeckFromOutline() {
     if (!deckName.trim()) {
       setError('Deck name is required')
@@ -96,7 +112,7 @@ export default function TemplateCreationWizard({ onComplete, onCancel }) {
 
     try {
       // 1) Generate a template (layout/theme) first
-      const tplRes = await fetch('/v1/templates/generate', {
+      const tplRes = await fetch('/api/templates/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -112,15 +128,21 @@ export default function TemplateCreationWizard({ onComplete, onCancel }) {
         return
       }
 
-      const versionId = tplBody?.version?.id
+      let versionId = tplBody?.version?.id
+      if (!versionId && tplBody.job?.id) {
+        // Wait for async generation
+        const job = await pollJob(tplBody.job.id)
+        versionId = job.outputRef
+      }
+
       if (!versionId) {
-        setError('Template generation returned no version id')
+        setError('Template generation did not return a version id')
         setStep(2)
         return
       }
 
       // 2) Create deck from outline using that template version
-      const deckRes = await fetch('/v1/decks', {
+      const deckRes = await fetch('/api/decks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -138,7 +160,19 @@ export default function TemplateCreationWizard({ onComplete, onCancel }) {
         return
       }
 
-      onComplete(deckBody)
+      let finalDeck = deckBody.deck || deckBody
+      if (deckBody.job?.id) {
+        // Wait for async binding
+        await pollJob(deckBody.job.id)
+        // Fetch full deck after binding is done
+        const refetchRes = await fetch(`/api/decks/${finalDeck.id}`)
+        if (refetchRes.ok) {
+          const refetched = await refetchRes.json()
+          finalDeck = refetched.deck || refetched
+        }
+      }
+
+      onComplete(finalDeck)
     } catch (err) {
       setError(`Error: ${err.message}`)
       setStep(2)

@@ -46,7 +46,7 @@ func TestAssetStorageAndIDGeneration(t *testing.T) {
 		memStore := memory.New()
 		renderer := assets.NewGoPPTXRenderer()
 		localStorage := assets.LocalStorage{}
-		worker := worker.New(memStore, renderer, &localStorage)
+		worker := worker.New(memStore, renderer, &localStorage, ai.NewAIService(memStore))
 
 		orgID := "test-asset-org"
 
@@ -208,7 +208,7 @@ func TestAssetStorageAndIDGeneration(t *testing.T) {
 		memStore := memory.New()
 		renderer := assets.NewGoPPTXRenderer()
 		localStorage := assets.LocalStorage{}
-		worker := worker.New(memStore, renderer, &localStorage)
+		worker := worker.New(memStore, renderer, &localStorage, ai.NewAIService(memStore))
 
 		orgID := "uniqueness-test-org"
 
@@ -297,7 +297,7 @@ func TestAssetStorageAndIDGeneration(t *testing.T) {
 
 		// Create a failing asset store wrapper
 		failingStore := &failingAssetStore{Store: memStore}
-		worker := worker.New(failingStore, renderer, &localStorage)
+		worker := worker.New(failingStore, renderer, &localStorage, ai.NewAIService(memStore))
 
 		orgID := "error-test-org"
 

@@ -9,25 +9,28 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ziyad/cms-ai/server/internal/ai"
 	"github.com/ziyad/cms-ai/server/internal/assets"
 	"github.com/ziyad/cms-ai/server/internal/queue"
 	"github.com/ziyad/cms-ai/server/internal/store"
 )
 
 type Worker struct {
-	store    store.Store
-	renderer assets.Renderer
-	storage  assets.Storage
-	stop     chan struct{}
-	wg       sync.WaitGroup
+	store     store.Store
+	renderer  assets.Renderer
+	storage   assets.Storage
+	aiService ai.AIServiceInterface
+	stop      chan struct{}
+	wg        sync.WaitGroup
 }
 
-func New(store store.Store, renderer assets.Renderer, storage assets.Storage) *Worker {
+func New(store store.Store, renderer assets.Renderer, storage assets.Storage, aiService ai.AIServiceInterface) *Worker {
 	return &Worker{
-		store:    store,
-		renderer: renderer,
-		storage:  storage,
-		stop:     make(chan struct{}),
+		store:     store,
+		renderer:  renderer,
+		storage:   storage,
+		aiService: aiService,
+		stop:      make(chan struct{}),
 	}
 }
 
@@ -123,6 +126,10 @@ func (w *Worker) processJob(ctx context.Context, job store.Job) error {
 	var processErr error
 
 	switch job.Type {
+	case store.JobGenerate:
+		outputRef, processErr = w.processGenerateJob(ctx, job)
+	case store.JobBind:
+		outputRef, processErr = w.processBindJob(ctx, job)
 	case store.JobRender, store.JobExport:
 		// Check if it's a deck export (deck version ID) or template export
 		if deckVersion, ok, err := w.store.Decks().GetDeckVersion(ctx, job.OrgID, job.InputRef); err == nil && ok {
@@ -165,6 +172,115 @@ func (w *Worker) processJob(ctx context.Context, job store.Job) error {
 
 	log.Printf("Successfully completed job %s, output: %s", job.ID, outputRef)
 	return nil
+}
+
+func (w *Worker) processGenerateJob(ctx context.Context, job store.Job) (string, error) {
+	if job.Metadata == nil {
+		return "", fmt.Errorf("missing job metadata")
+	}
+	m := *job.Metadata
+	prompt := m["prompt"]
+	language := m["language"]
+	tone := m["tone"]
+	rtl := m["rtl"] == "true"
+	brandKitID := m["brandKitId"]
+	userID := m["userId"]
+
+	aiReq := ai.GenerationRequest{
+		Prompt:   prompt,
+		Language: language,
+		Tone:     tone,
+		RTL:      rtl,
+	}
+
+	templateSpec, _, err := w.aiService.GenerateTemplateForRequest(ctx, job.OrgID, userID, aiReq, brandKitID)
+	if err != nil {
+		return "", fmt.Errorf("AI template generation failed: %w", err)
+	}
+
+	specJSON, err := json.Marshal(templateSpec)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal template spec: %w", err)
+	}
+
+	version := store.TemplateVersion{
+		ID:        newID("tv"),
+		Template:  job.InputRef,
+		OrgID:     job.OrgID,
+		VersionNo: 1,
+		SpecJSON:  specJSON,
+		CreatedBy: userID,
+	}
+	createdVer, err := w.store.Templates().CreateVersion(ctx, version)
+	if err != nil {
+		return "", fmt.Errorf("failed to create template version: %w", err)
+	}
+
+	// Update template with current version
+	template, ok, err := w.store.Templates().GetTemplate(ctx, job.OrgID, job.InputRef)
+	if err == nil && ok {
+		template.CurrentVersion = &createdVer.ID
+		template.LatestVersionNo = 1
+		_, _ = w.store.Templates().UpdateTemplate(ctx, template)
+	}
+
+	return createdVer.ID, nil
+}
+
+func (w *Worker) processBindJob(ctx context.Context, job store.Job) (string, error) {
+	if job.Metadata == nil {
+		return "", fmt.Errorf("missing job metadata")
+	}
+	m := *job.Metadata
+	templateVersionID := m["sourceTemplateVersionId"]
+	content := m["content"]
+	userID := m["userId"]
+	deckID := job.InputRef
+
+	// Load template version
+	tv, ok, err := w.store.Templates().GetVersion(ctx, job.OrgID, templateVersionID)
+	if err != nil || !ok {
+		return "", fmt.Errorf("failed to load template version")
+	}
+
+	var templateSpec spec.TemplateSpec
+	specBytes, _ := json.Marshal(tv.SpecJSON)
+	if err := json.Unmarshal(specBytes, &templateSpec); err != nil {
+		return "", fmt.Errorf("invalid template spec")
+	}
+
+	boundSpec, _, err := w.aiService.BindDeckSpec(ctx, job.OrgID, userID, &templateSpec, content)
+	if err != nil {
+		return "", fmt.Errorf("AI binding failed: %w", err)
+	}
+
+	boundBytes, err := json.Marshal(boundSpec)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal bound spec: %w", err)
+	}
+
+	version := store.DeckVersion{
+		ID:        newID("dv"),
+		Deck:      deckID,
+		OrgID:     job.OrgID,
+		VersionNo: 1,
+		SpecJSON:  boundBytes,
+		CreatedBy: userID,
+	}
+	createdVer, err := w.store.Decks().CreateDeckVersion(ctx, version)
+	if err != nil {
+		return "", fmt.Errorf("failed to create deck version: %w", err)
+	}
+
+	// Update deck with current version
+	deck, ok, err := w.store.Decks().GetDeck(ctx, job.OrgID, deckID)
+	if err == nil && ok {
+		deck.CurrentVersion = &createdVer.ID
+		deck.LatestVersionNo = 1
+		_, _ = w.store.Decks().UpdateDeck(ctx, deck)
+	}
+
+	return createdVer.ID, nil
 }
 
 func (w *Worker) processRenderJob(ctx context.Context, job store.Job, templateVersion store.TemplateVersion) (string, error) {

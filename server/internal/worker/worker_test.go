@@ -19,7 +19,7 @@ func TestWorker_ProcessJobs(t *testing.T) {
 	renderer := assets.NewGoPPTXRenderer()
 	storage := assets.LocalStorage{}
 
-	worker := New(memStore, renderer, storage)
+	worker := New(memStore, renderer, storage, ai.NewAIService(memStore))
 
 	ctx := context.Background()
 	orgID := "test-org"
@@ -134,7 +134,7 @@ func TestWorker_FailJob(t *testing.T) {
 	renderer := assets.NewGoPPTXRenderer()
 	storage := assets.LocalStorage{}
 
-	worker := New(memStore, renderer, storage)
+	worker := New(memStore, renderer, storage, ai.NewAIService(memStore))
 
 	ctx := context.Background()
 	orgID := "test-org"
@@ -174,7 +174,7 @@ func TestWorker_UnsupportedJobType(t *testing.T) {
 	renderer := assets.NewGoPPTXRenderer()
 	storage := assets.LocalStorage{}
 
-	worker := New(memStore, renderer, storage)
+	worker := New(memStore, renderer, storage, ai.NewAIService(memStore))
 
 	ctx := context.Background()
 	orgID := "test-org"
@@ -244,7 +244,7 @@ func TestWorker_ProcessPreviewJobWithThumbnails(t *testing.T) {
 	ctx := context.Background()
 	memStore := memory.New()
 	renderer := assets.NewGoPPTXRenderer()
-	worker := New(memStore, renderer, assets.LocalStorage{})
+	worker := New(memStore, renderer, assets.LocalStorage{}, ai.NewAIService(memStore))
 
 	// Create template version with multiple layouts
 	templateSpec := map[string]interface{}{
@@ -337,7 +337,7 @@ func TestWorker_JobRetryAndDeadLetter(t *testing.T) {
 	renderer := &failingRenderer{}
 	storage := assets.LocalStorage{}
 
-	worker := New(memStore, renderer, storage)
+	worker := New(memStore, renderer, storage, ai.NewAIService(memStore))
 
 	ctx := context.Background()
 	orgID := "test-org"

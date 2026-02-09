@@ -71,6 +71,6 @@ func NewServerWithWorker() (*Server, *worker.Worker) {
 	srv := NewServer()
 	// Create worker with proper storage - use LocalStorage as fallback since worker doesn't use ObjectStorage yet
 	localStorage := assets.LocalStorage{}
-	w := worker.New(srv.Store, srv.Renderer, &localStorage)
+	w := worker.New(srv.Store, srv.Renderer, &localStorage, srv.AIService)
 	return srv, w
 }

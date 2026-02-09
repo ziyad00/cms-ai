@@ -255,7 +255,7 @@ func (s *Server) handleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) {
 	id, _ := auth.GetIdentity(r.Context())
-	log.Printf("DEBUG: handleGenerateTemplate - UserID: %s, OrgID: %s", id.UserID, id.OrgID)
+	log.Printf("DEBUG: handleGenerateTemplate (ASYNC) - UserID: %s, OrgID: %s", id.UserID, id.OrgID)
 
 	var req GenerateTemplateRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
@@ -263,7 +263,6 @@ func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) 
 		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	log.Printf("DEBUG: Request - Name: '%s', Prompt: '%s'", req.Name, req.Prompt)
 	if strings.TrimSpace(req.Prompt) == "" {
 		writeError(w, r, http.StatusBadRequest, "prompt is required")
 		return
@@ -274,6 +273,7 @@ func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) 
 	}
 
 	template := store.Template{
+		ID:          newID("tpl"),
 		OrgID:       id.OrgID,
 		OwnerUserID: id.UserID,
 		Name:        req.Name,
@@ -290,64 +290,37 @@ func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Generate template spec using AI with user content
-	aiReq := ai.GenerationRequest{
-		Prompt:      req.Prompt,
-		Language:    req.Language,
-		Tone:        req.Tone,
-		RTL:         req.RTL,
-		ContentData: req.ContentData, // Pass user content to AI
+	// Enqueue async generation job
+	metadata := map[string]string{
+		"prompt":     req.Prompt,
+		"language":   req.Language,
+		"tone":       req.Tone,
+		"rtl":        fmt.Sprintf("%v", req.RTL),
+		"brandKitId": req.BrandKitID,
+		"userId":     id.UserID,
 	}
 
-	templateSpec, aiResp, err := s.AIService.GenerateTemplateForRequest(r.Context(), id.OrgID, id.UserID, aiReq, req.BrandKitID)
+	job := store.Job{
+		ID:              newID("job"),
+		OrgID:           id.OrgID,
+		Type:            store.JobGenerate,
+		Status:          store.JobQueued,
+		InputRef:        created.ID,
+		DeduplicationID: fmt.Sprintf("generate-%s", created.ID),
+		Metadata:        &metadata,
+	}
+
+	createdJob, _, err := s.Store.Jobs().EnqueueWithDeduplication(r.Context(), job)
 	if err != nil {
-		log.Printf("ERROR: AI template generation failed: %v", err)
-		writeError(w, r, http.StatusInternalServerError, "failed to generate template with AI")
+		log.Printf("ERROR: Failed to enqueue generate job: %v", err)
+		writeError(w, r, http.StatusInternalServerError, "failed to enqueue job")
 		return
 	}
 
-	// Convert template spec to JSON for storage
-	specJSON, err := json.Marshal(templateSpec)
-	if err != nil {
-		log.Printf("ERROR: Failed to marshal template spec: %v", err)
-		writeError(w, r, http.StatusInternalServerError, "failed to create template")
-		return
-	}
+	_, _ = s.Store.Audit().Append(r.Context(), store.AuditLog{ID: newID("aud"), OrgID: id.OrgID, ActorID: id.UserID, Action: "template.generate.queued", TargetRef: created.ID, Metadata: map[string]any{"jobId": createdJob.ID}})
 
-	version := store.TemplateVersion{
-		Template:  created.ID,
-		OrgID:     id.OrgID,
-		VersionNo: 1,
-		SpecJSON:  specJSON,
-		CreatedBy: id.UserID,
-	}
-	createdVer, err := s.Store.Templates().CreateVersion(r.Context(), version)
-	if err != nil {
-		log.Printf("ERROR: Failed to create version: %v", err)
-		writeError(w, r, http.StatusInternalServerError, "failed to create version")
-		return
-	}
-	created.CurrentVersion = &createdVer.ID
-	created.LatestVersionNo = 1
-	created, _ = s.Store.Templates().UpdateTemplate(r.Context(), created)
-
-	_, _ = s.Store.Metering().Record(r.Context(), store.MeteringEvent{ID: newID("met"), OrgID: id.OrgID, UserID: id.UserID, Type: "generate", Quantity: 1})
-
-	metadata := map[string]any{"prompt": req.Prompt}
-	if aiResp != nil {
-		metadata["aiModel"] = aiResp.Model
-		metadata["aiTokenUsage"] = aiResp.TokenUsage
-		metadata["aiCost"] = aiResp.Cost
-	}
-	_, _ = s.Store.Audit().Append(r.Context(), store.AuditLog{ID: newID("aud"), OrgID: id.OrgID, ActorID: id.UserID, Action: "template.generate", TargetRef: created.ID, Metadata: metadata})
-
-	response := map[string]any{"template": created, "version": createdVer}
-	if aiResp != nil {
-		response["aiResponse"] = map[string]any{
-			"model":      aiResp.Model,
-			"tokenUsage": aiResp.TokenUsage,
-			"cost":       aiResp.Cost,
-			"timestamp":  aiResp.Timestamp,
+	writeJSON(w, http.StatusAccepted, map[string]any{"template": created, "job": createdJob})
+}
 		}
 	}
 
@@ -767,28 +740,7 @@ func (s *Server) handleCreateDeck(w http.ResponseWriter, r *http.Request) {
 	var boundSpec *spec.TemplateSpec
 	var aiResp *ai.GenerationResponse
 
-	if req.Outline != nil {
-		outline, err := parseDeckOutline(req.Outline)
-		if err != nil {
-			writeError(w, r, http.StatusBadRequest, "invalid outline")
-			return
-		}
-		boundSpec = buildDeckSpecFromOutline(&templateSpec, outline)
-	} else {
-		boundSpec, aiResp, err = s.AIService.BindDeckSpec(r.Context(), id.OrgID, id.UserID, &templateSpec, req.Content)
-		if err != nil {
-			writeError(w, r, http.StatusBadGateway, "failed to bind deck with AI")
-			return
-		}
-	}
-
-	boundBytes, err := json.Marshal(boundSpec)
-	if err != nil {
-		writeError(w, r, http.StatusInternalServerError, "failed to marshal bound spec")
-		return
-	}
-
-	// Create deck + version 1
+	// Create deck record first
 	deck := store.Deck{
 		OrgID:                 id.OrgID,
 		OwnerUserID:           id.UserID,
@@ -799,27 +751,72 @@ func (s *Server) handleCreateDeck(w http.ResponseWriter, r *http.Request) {
 
 	createdDeck, err := s.Store.Decks().CreateDeck(r.Context(), deck)
 	if err != nil {
-		requestID, _ := r.Context().Value(ctxKeyRequestID{}).(string)
-		log.Printf("ERROR: Failed to create deck: request_id=%s err=%v", requestID, err)
 		writeError(w, r, http.StatusInternalServerError, "failed to create deck")
 		return
 	}
 
-	ver := store.DeckVersion{Deck: createdDeck.ID, OrgID: id.OrgID, VersionNo: 1, SpecJSON: boundBytes, CreatedBy: id.UserID}
-	createdVer, err := s.Store.Decks().CreateDeckVersion(r.Context(), ver)
-	if err != nil {
-		writeError(w, r, http.StatusInternalServerError, "failed to create deck version")
+	if req.Outline != nil {
+		// Synchronous path for provided outlines (instant)
+		outline, err := parseDeckOutline(req.Outline)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "invalid outline")
+			return
+		}
+		boundSpec = buildDeckSpecFromOutline(&templateSpec, outline)
+
+		boundBytes, err := json.Marshal(boundSpec)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "failed to marshal bound spec")
+			return
+		}
+
+		ver := store.DeckVersion{
+			ID:        newID("dv"),
+			Deck:      createdDeck.ID,
+			OrgID:     id.OrgID,
+			VersionNo: 1,
+			SpecJSON:  boundBytes,
+			CreatedBy: id.UserID,
+		}
+		createdVer, err := s.Store.Decks().CreateDeckVersion(r.Context(), ver)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "failed to create deck version")
+			return
+		}
+		createdDeck.CurrentVersion = &createdVer.ID
+		createdDeck.LatestVersionNo = 1
+		createdDeck, _ = s.Store.Decks().UpdateDeck(r.Context(), createdDeck)
+
+		writeJSON(w, http.StatusOK, map[string]any{"deck": createdDeck, "version": createdVer})
 		return
 	}
-	createdDeck.CurrentVersion = &createdVer.ID
-	createdDeck.LatestVersionNo = 1
-	createdDeck, _ = s.Store.Decks().UpdateDeck(r.Context(), createdDeck)
 
-	resp := map[string]any{"deck": createdDeck, "version": createdVer}
-	if aiResp != nil {
-		resp["aiResponse"] = map[string]any{"model": aiResp.Model, "tokenUsage": aiResp.TokenUsage, "cost": aiResp.Cost, "timestamp": aiResp.Timestamp}
+	// Asynchronous path for AI binding
+	metadata := map[string]string{
+		"sourceTemplateVersionId": req.SourceTemplateVersion,
+		"content":                 req.Content,
+		"userId":                  id.UserID,
 	}
-	writeJSON(w, http.StatusOK, resp)
+
+	job := store.Job{
+		ID:              newID("job"),
+		OrgID:           id.OrgID,
+		Type:            store.JobBind,
+		Status:          store.JobQueued,
+		InputRef:        createdDeck.ID,
+		DeduplicationID: fmt.Sprintf("bind-%s", createdDeck.ID),
+		Metadata:        &metadata,
+	}
+
+	createdJob, _, err := s.Store.Jobs().EnqueueWithDeduplication(r.Context(), job)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to enqueue bind job")
+		return
+	}
+
+	_, _ = s.Store.Audit().Append(r.Context(), store.AuditLog{ID: newID("aud"), OrgID: id.OrgID, ActorID: id.UserID, Action: "deck.bind.queued", TargetRef: createdDeck.ID, Metadata: map[string]any{"jobId": createdJob.ID}})
+
+	writeJSON(w, http.StatusAccepted, map[string]any{"deck": createdDeck, "job": createdJob})
 }
 
 func (s *Server) handleListDecks(w http.ResponseWriter, r *http.Request) {

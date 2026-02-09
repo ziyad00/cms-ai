@@ -22,7 +22,7 @@ func TestRegression_WorkerOutputRef_IsAssetID(t *testing.T) {
 	renderer := assets.NewGoPPTXRenderer()
 	storage := &assets.LocalStorage{}
 
-	worker := worker.New(memStore, renderer, storage)
+	worker := worker.New(memStore, renderer, storage, ai.NewAIService(memStore))
 
 	// Create a template version
 	templateVersion := store.TemplateVersion{

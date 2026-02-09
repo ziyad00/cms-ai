@@ -474,7 +474,7 @@ func TestCompleteAsyncExportWorkflow(t *testing.T) {
 		// Create mock stores for job processing
 		memStore := memory.New()
 		renderer := assets.NewAIEnhancedRenderer(memStore)
-		worker := worker.New(memStore, renderer, nil)
+		worker := worker.New(memStore, renderer, nil, ai.NewAIService(memStore))
 
 		// Create template version to export
 		templateVersion := store.TemplateVersion{

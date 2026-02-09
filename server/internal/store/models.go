@@ -96,6 +96,8 @@ const (
 	JobRender  JobType = "render"
 	JobPreview JobType = "preview"
 	JobExport  JobType = "export"
+	JobGenerate JobType = "generate"
+	JobBind     JobType = "bind"
 )
 
 type Job struct {
