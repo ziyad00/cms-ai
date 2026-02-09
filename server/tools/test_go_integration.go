@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"../internal/assets"
+	"github.com/ziyad/cms-ai/server/internal/assets"
 )
 
 func main() {
@@ -63,8 +63,9 @@ func main() {
 	testCompany := &assets.CompanyContext{
 		Name:        "HealthTech Innovations",
 		Industry:    "Healthcare Technology",
-		Description: "AI-powered healthcare solutions for hospitals and clinics",
-		Mission:     "Improving patient outcomes through intelligent technology",
+		Colors:      map[string]string{"primary": "#0066CC", "secondary": "#00CC66"},
+		Values:      []string{"Innovation", "Patient Care", "Data Security"},
+		Personality: "Professional and trustworthy",
 	}
 
 	// Test Python renderer with AI enhancement

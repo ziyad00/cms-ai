@@ -2,6 +2,7 @@ package ai
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -161,7 +162,14 @@ func TestOrchestrator_NewOrchestrator(t *testing.T) {
 }
 
 func TestOrchestrator_BuildRepairPrompt(t *testing.T) {
-	orch := NewOrchestrator().(*orchestrator)
+	// Create orchestrator directly to test the real implementation
+	apiKey := os.Getenv("HUGGINGFACE_API_KEY")
+	if apiKey == "" {
+		apiKey = "test-key" // Use test key for unit testing
+	}
+
+	client := NewHuggingFaceClient(apiKey, "test-model")
+	orch := &orchestrator{client: client}
 
 	invalidSpec := &spec.TemplateSpec{
 		Tokens:      map[string]any{},

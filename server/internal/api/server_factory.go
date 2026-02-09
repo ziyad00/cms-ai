@@ -17,13 +17,9 @@ import (
 
 func NewServer() *Server {
 	config := LoadConfig()
-	// Use JWT authenticator if JWT_SECRET is set, otherwise fall back to header auth for dev
-	var authenticator auth.Authenticator
-	if os.Getenv("JWT_SECRET") != "" {
-		authenticator = auth.JWTAuthenticator{}
-	} else {
-		authenticator = auth.HeaderAuthenticator{}
-	}
+	// Use JWT authenticator only - header auth removed for security
+	// JWT_SECRET is now required and validated in jwt.go
+	authenticator := auth.JWTAuthenticator{}
 	validator := spec.DefaultValidator{}
 
 	// Create object storage

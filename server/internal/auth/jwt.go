@@ -15,8 +15,10 @@ var jwtSecret = []byte(getJWTSecret())
 func getJWTSecret() string {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
-		// Default secret for development - should be set in production
-		return "dev-secret-change-in-production"
+		log.Fatal("JWT_SECRET environment variable is required. Please set it before starting the server.")
+	}
+	if len(secret) < 32 {
+		log.Fatal("JWT_SECRET must be at least 32 characters long for security")
 	}
 	return secret
 }

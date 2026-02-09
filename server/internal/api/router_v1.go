@@ -12,6 +12,7 @@ import (
 
 	"github.com/ziyad/cms-ai/server/internal/ai"
 	"github.com/ziyad/cms-ai/server/internal/auth"
+	"github.com/ziyad/cms-ai/server/internal/middleware"
 	"github.com/ziyad/cms-ai/server/internal/spec"
 	"github.com/ziyad/cms-ai/server/internal/store"
 )
@@ -76,6 +77,7 @@ func (s *Server) Handler() http.Handler {
 
 	h := http.Handler(mux)
 	h = requireJSON(h)
+	h = middleware.ValidationMiddleware(h)
 	h = withRequestID(h)
 
 	// Re-enable auth middleware with skip paths for public endpoints
@@ -85,12 +87,12 @@ func (s *Server) Handler() http.Handler {
 		"/v1/auth/user", // Legacy endpoint
 		"/healthz",
 	}
-	// Use the server's configured authenticator (JWT in prod, header-based in dev/tests)
+	// Use the server's configured authenticator (JWT only - header auth removed for security)
 	authMiddleware := withAuth(s.Authenticator)
 	h = skipAuthForPaths(h, skipPaths, authMiddleware)
 
-	h = withRecovery(h)
-	h = withLogging(h)
+	h = middleware.RecoveryMiddleware(h)
+	h = middleware.LoggingMiddleware(h)
 
 	// Wrap with catch-all handler that returns 404 for unmatched routes
 	// This prevents auth middleware from returning unauthorized for non-API routes
@@ -990,6 +992,20 @@ func (s *Server) handleExportDeckVersion(w http.ResponseWriter, r *http.Request)
 	if wasDuplicate {
 		// If duplicate job is already completed, return the result immediately
 		if createdJob.Status == store.JobDone && createdJob.OutputRef != "" {
+			// Get the asset to return unified format
+			asset, ok, err := s.Store.Assets().Get(r.Context(), id.OrgID, createdJob.OutputRef)
+			if err == nil && ok {
+				// Return unified format: {asset: {id, downloadUrl}, job: {id, status}, metadata: {filename, fileSize}}
+				filename := fmt.Sprintf("deck-export-%s.pptx", createdJob.OutputRef[:8])
+				writeJSON(w, http.StatusOK, map[string]any{
+					"job": createdJob,
+					"duplicate": true,
+					"asset": map[string]any{"id": asset.ID, "downloadUrl": "/v1/assets/" + asset.ID},
+					"metadata": map[string]any{"filename": filename},
+				})
+				return
+			}
+			// Fallback for missing assets (backward compatibility)
 			writeJSON(w, http.StatusOK, map[string]any{"job": createdJob, "duplicate": true, "assetPath": createdJob.OutputRef})
 			return
 		}
@@ -1046,6 +1062,20 @@ func (s *Server) handleExportVersion(w http.ResponseWriter, r *http.Request) {
 	if wasDuplicate {
 		// If duplicate job is already completed, return the result immediately
 		if createdJob.Status == store.JobDone && createdJob.OutputRef != "" {
+			// Get the asset to return unified format
+			asset, ok, err := s.Store.Assets().Get(r.Context(), id.OrgID, createdJob.OutputRef)
+			if err == nil && ok {
+				// Return unified format: {asset: {id, downloadUrl}, job: {id, status}, metadata: {filename, fileSize}}
+				filename := fmt.Sprintf("template-export-%s.pptx", createdJob.OutputRef[:8])
+				writeJSON(w, http.StatusOK, map[string]any{
+					"job": createdJob,
+					"duplicate": true,
+					"asset": map[string]any{"id": asset.ID, "downloadUrl": "/v1/assets/" + asset.ID},
+					"metadata": map[string]any{"filename": filename},
+				})
+				return
+			}
+			// Fallback for missing assets (backward compatibility)
 			writeJSON(w, http.StatusOK, map[string]any{"job": createdJob, "duplicate": true, "assetPath": createdJob.OutputRef})
 			return
 		}
@@ -1101,7 +1131,13 @@ func (s *Server) handleExportVersion(w http.ResponseWriter, r *http.Request) {
 	_, _ = s.Store.Metering().Record(r.Context(), store.MeteringEvent{ID: newID("met"), OrgID: id.OrgID, UserID: id.UserID, Type: "export", Quantity: 1})
 	_, _ = s.Store.Audit().Append(r.Context(), store.AuditLog{ID: newID("aud"), OrgID: id.OrgID, ActorID: id.UserID, Action: "version.export", TargetRef: versionID, Metadata: map[string]any{"jobId": createdJob.ID, "assetId": createdAsset.ID}})
 
-	writeJSON(w, http.StatusOK, map[string]any{"job": createdJob, "asset": createdAsset, "downloadUrl": "/v1/assets/" + createdAsset.ID})
+	// Return unified format: {asset: {id, downloadUrl}, job: {id, status}, metadata: {filename, fileSize}}
+	filename := fmt.Sprintf("template-export-%s.pptx", createdAsset.ID[:8])
+	writeJSON(w, http.StatusOK, map[string]any{
+		"job": createdJob,
+		"asset": map[string]any{"id": createdAsset.ID, "downloadUrl": "/v1/assets/" + createdAsset.ID},
+		"metadata": map[string]any{"filename": filename},
+	})
 }
 
 func (s *Server) handleDownloadURL(w http.ResponseWriter, r *http.Request) {

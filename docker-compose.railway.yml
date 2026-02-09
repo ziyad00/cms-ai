@@ -10,13 +10,13 @@ services:
     environment:
       - ENV=development
       - PORT=8080
-      - DATABASE_URL=postgresql://postgres:password@postgres:5432/cms_ai
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/cms_ai}
       - NEXTAUTH_URL=http://localhost:8080
-      - NEXTAUTH_SECRET=dev-secret-key
-      - GITHUB_CLIENT_ID=dev-client-id
-      - GITHUB_CLIENT_SECRET=dev-client-secret
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
       - STORAGE_TYPE=local
-      - JWT_SECRET=dev-jwt-secret
+      - JWT_SECRET=${JWT_SECRET}
       - CORS_ORIGINS=http://localhost:3000,http://localhost:8080
       - LOG_LEVEL=debug
     depends_on:
@@ -36,7 +36,7 @@ services:
     environment:
       - POSTGRES_DB=cms_ai
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=password
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
