@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 
 import VisualEditor from '../../../components/visual-editor/VisualEditor'
 import { DownloadButtons } from '../../../components/DownloadButtons'
+import { getJSON } from '../../../lib/goApi'
 
 export default function DeckDetailPage() {
   const { id } = useParams()
@@ -24,7 +25,7 @@ export default function DeckDetailPage() {
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
-  const [exportJob, setExportJob] = useState(null)
+  const [exportJobs, setExportJobs] = useState([])
 
   const activeVersion = useMemo(() => {
     return versions.find(v => v.id === activeVersionId) || null
@@ -34,6 +35,7 @@ export default function DeckDetailPage() {
 
   useEffect(() => {
     load()
+    loadExportJobs() // Load existing export jobs from backend
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
@@ -125,6 +127,36 @@ export default function DeckDetailPage() {
       }
     } catch (err) {
       setMessage(err.message)
+    }
+  }
+
+  async function loadExportJobs() {
+    if (!id) return
+
+    try {
+      // Fetch existing export jobs for this deck using clean goApi utility
+      const result = await getJSON(`/v1/decks/${id}/exports`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+        },
+      })
+
+      if (result.status === 200 && result.body) {
+        // Transform backend job data to frontend format
+        const jobs = result.body.exports?.map(job => ({
+          id: job.id,
+          status: job.status === 'Done' || job.status === 'completed' ? 'Done' : job.status,
+          type: 'export',
+          outputRef: job.outputRef || job.assetId,
+          timestamp: job.completedAt || job.createdAt,
+          filename: job.metadata?.filename || `export-${job.id.substring(0, 8)}.pptx`
+        })).filter(job => job.status === 'Done' && job.outputRef) || []
+
+        setExportJobs(jobs)
+      }
+    } catch (err) {
+      console.log('Could not load existing exports:', err.message)
+      // Don't show error to user - this is optional functionality
     }
   }
 
@@ -358,15 +390,17 @@ export default function DeckDetailPage() {
         return
       }
 
-      // Store job info for download buttons
+      // Store job info for download buttons (add to array for versioning)
       const job = {
         id: body.job?.id || body.asset.id,
         status: 'Done',
         type: 'export',
-        outputRef: body.asset.id
+        outputRef: body.asset.id,
+        timestamp: new Date().toISOString(),
+        filename: body.metadata?.filename || `export-${body.asset.id.substring(0, 8)}.pptx`
       }
-      setExportJob(job)
-      setMessage(`Export completed successfully! PPTX generated: ${body.asset.id}. Use the download button below.`)
+      setExportJobs(prev => [job, ...prev]) // Add new job at the beginning
+      setMessage(`🎉 Export ready! Your presentation is available for download.`)
     } finally {
       setBusy(false)
     }
@@ -484,9 +518,36 @@ export default function DeckDetailPage() {
           )}
 
           {/* Download Buttons for completed exports */}
-          {exportJob && (
+          {exportJobs.length > 0 && (
             <div className="mx-6 mb-6">
-              <DownloadButtons job={exportJob} />
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium text-gray-700">
+                    Export Downloads ({exportJobs.length} version{exportJobs.length !== 1 ? 's' : ''})
+                  </h3>
+                  <button
+                    onClick={() => setExportJobs([])}
+                    className="text-xs text-gray-500 hover:text-red-600 transition-colors"
+                  >
+                    Clear All
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  {exportJobs.map((job, index) => (
+                    <div key={job.id} className="border rounded-lg p-3 bg-gray-50">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-gray-600">
+                          Version {exportJobs.length - index} {index === 0 && '(Latest)'}
+                        </span>
+                        <span className="text-xs text-gray-500">
+                          {new Date(job.timestamp).toLocaleString()}
+                        </span>
+                      </div>
+                      <DownloadButtons job={job} />
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 

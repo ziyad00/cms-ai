@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 )
 
 type MemoryStore struct {
-	mu sync.Mutex
+	mu sync.RWMutex
 
 	templates map[string]store.Template
 	versions  map[string]store.TemplateVersion
@@ -467,6 +468,26 @@ func (m *jobStore) RetryDeadLetterJob(_ context.Context, jobID string) error {
 	job.UpdatedAt = time.Now().UTC()
 	ms.jobs[jobID] = job
 	return nil
+}
+
+func (m *jobStore) ListByInputRef(_ context.Context, orgID, inputRef string, jobType store.JobType) ([]store.Job, error) {
+	ms := (*MemoryStore)(m)
+	ms.mu.RLock()
+	defer ms.mu.RUnlock()
+
+	var result []store.Job
+	for _, job := range ms.jobs {
+		if job.OrgID == orgID && job.InputRef == inputRef && job.Type == jobType && job.Status == store.JobDone {
+			result = append(result, job)
+		}
+	}
+
+	// Sort by UpdatedAt descending (most recent first)
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].UpdatedAt.After(result[j].UpdatedAt)
+	})
+
+	return result, nil
 }
 
 func (m *meteringStore) Record(_ context.Context, e store.MeteringEvent) (store.MeteringEvent, error) {

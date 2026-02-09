@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -57,6 +58,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PATCH /v1/decks/{id}", s.handleUpdateDeck)
 	mux.HandleFunc("POST /v1/decks/{id}/versions", s.handleCreateDeckVersion)
 	mux.HandleFunc("GET /v1/decks/{id}/versions", s.handleListDeckVersions)
+	mux.HandleFunc("GET /v1/decks/{id}/exports", s.handleListDeckExports)
 	mux.HandleFunc("POST /v1/deck-versions/{versionId}/export", s.handleExportDeckVersion)
 	mux.HandleFunc("PATCH /v1/versions/{versionId}", s.handlePatchVersion)
 	mux.HandleFunc("POST /v1/versions/{versionId}/render", s.handleRenderVersion)
@@ -900,6 +902,41 @@ func (s *Server) handleListDeckVersions(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"versions": vs})
+}
+
+func (s *Server) handleListDeckExports(w http.ResponseWriter, r *http.Request) {
+	id, _ := auth.GetIdentity(r.Context())
+	deckID := r.PathValue("id")
+
+	// Get all deck versions for this deck
+	versions, err := s.Store.Decks().ListDeckVersions(r.Context(), id.OrgID, deckID)
+	if err != nil {
+		writeError(w, r, http.StatusInternalServerError, "failed to list deck versions")
+		return
+	}
+
+	// Collect all export jobs for all versions
+	var allExports []store.Job
+	for _, version := range versions {
+		jobs, err := s.Store.Jobs().ListByInputRef(r.Context(), id.OrgID, version.ID, store.JobExport)
+		if err != nil {
+			// Log error but don't fail the whole request
+			log.Printf("Failed to get export jobs for version %s: %v", version.ID, err)
+			continue
+		}
+		allExports = append(allExports, jobs...)
+	}
+
+	// Sort all exports by update time (most recent first)
+	sort.Slice(allExports, func(i, j int) bool {
+		return allExports[i].UpdatedAt.After(allExports[j].UpdatedAt)
+	})
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"exports":       allExports,
+		"deckId":        deckID,
+		"totalVersions": len(versions),
+	})
 }
 
 func (s *Server) handleCreateDeckVersion(w http.ResponseWriter, r *http.Request) {

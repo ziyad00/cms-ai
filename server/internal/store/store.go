@@ -56,6 +56,7 @@ type JobStore interface {
 	ListQueued(ctx context.Context) ([]Job, error)
 	ListRetry(ctx context.Context) ([]Job, error)
 	ListDeadLetter(ctx context.Context) ([]Job, error)
+	ListByInputRef(ctx context.Context, orgID, inputRef string, jobType JobType) ([]Job, error)
 	MoveToDeadLetter(ctx context.Context, jobID string) error
 	RetryDeadLetterJob(ctx context.Context, jobID string) error
 }

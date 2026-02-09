@@ -788,6 +788,43 @@ func (p *postgresJobStore) RetryDeadLetterJob(ctx context.Context, jobID string)
 	return err
 }
 
+func (p *postgresJobStore) ListByInputRef(ctx context.Context, orgID, inputRef string, jobType store.JobType) ([]store.Job, error) {
+	ps := (*PostgresStore)(p)
+	query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, created_at, updated_at
+		FROM jobs WHERE org_id = $1 AND input_ref = $2 AND type = $3 AND status = $4 ORDER BY updated_at DESC`
+
+	rows, err := ps.db.QueryContext(ctx, query, orgID, inputRef, jobType, store.JobDone)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var jobs []store.Job
+	for rows.Next() {
+		var j store.Job
+		var lastRetryAt sql.NullTime
+		var metadata sql.NullString
+
+		err := rows.Scan(&j.ID, &j.OrgID, &j.Type, &j.Status, &j.InputRef, &j.OutputRef, &j.Error,
+			&j.RetryCount, &j.MaxRetries, &lastRetryAt, &j.DeduplicationID, &metadata, &j.CreatedAt, &j.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+
+		if lastRetryAt.Valid {
+			j.LastRetryAt = &lastRetryAt.Time
+		}
+		if metadata.Valid && metadata.String != "" {
+			// Parse JSON metadata if present
+			// For now, skip metadata parsing to keep it simple
+		}
+
+		jobs = append(jobs, j)
+	}
+
+	return jobs, rows.Err()
+}
+
 type postgresMeteringStore PostgresStore
 
 func (p *postgresMeteringStore) Record(ctx context.Context, e store.MeteringEvent) (store.MeteringEvent, error) {
