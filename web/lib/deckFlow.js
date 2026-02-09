@@ -48,13 +48,11 @@ export async function createDeck(
     throw new Error('Export did not return an asset id')
   }
 
-  // Extract asset ID from full path if needed (e.g., "data/assets/org-id/job-id-timestamp.pptx" -> "job-id")
-  if (assetId.includes('/') && assetId.includes('-')) {
-    const filename = assetId.split('/').pop() // Get filename
-    const match = filename.match(/^([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/) // Extract UUID
-    if (match) {
-      assetId = match[1]
-    }
+  // For now, deck exports don't create proper downloadable assets
+  // Return the path/job info for display purposes
+  if (assetId.includes('/')) {
+    // This is a file path, not a downloadable asset ID
+    assetId = `file:${assetId}` // Mark as file path for downstream handling
   }
 
   return { template, version, assetId }
