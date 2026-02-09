@@ -2,6 +2,8 @@ package worker
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"log"
 	"sync"
@@ -172,11 +174,12 @@ func (w *Worker) processRenderJob(ctx context.Context, job store.Job, templateVe
 		return "", fmt.Errorf("failed to render PPTX: %w", err)
 	}
 
-	// Generate asset ID
-	assetID := fmt.Sprintf("%s-%d.pptx", job.ID, time.Now().Unix())
+	// Generate proper UUID asset ID (without .pptx extension for the ID)
+	assetID := newID("asset")
 
-	// Store file first to get the storage path
-	path, err := w.store.Assets().Store(ctx, job.OrgID, assetID, data)
+	// Store file with .pptx extension for the storage path
+	storageKey := assetID + ".pptx"
+	path, err := w.store.Assets().Store(ctx, job.OrgID, storageKey, data)
 	if err != nil {
 		return "", fmt.Errorf("failed to store asset data: %w", err)
 	}
@@ -193,7 +196,7 @@ func (w *Worker) processRenderJob(ctx context.Context, job store.Job, templateVe
 		return "", fmt.Errorf("failed to create asset record: %w", err)
 	}
 
-	return path, nil
+	return assetID, nil
 }
 
 func (w *Worker) processDeckRenderJob(ctx context.Context, job store.Job, deckVersion store.DeckVersion) (string, error) {
@@ -203,11 +206,12 @@ func (w *Worker) processDeckRenderJob(ctx context.Context, job store.Job, deckVe
 		return "", fmt.Errorf("failed to render deck PPTX: %w", err)
 	}
 
-	// Generate asset ID
-	assetID := fmt.Sprintf("%s-%d.pptx", job.ID, time.Now().Unix())
+	// Generate proper UUID asset ID (without .pptx extension for the ID)
+	assetID := newID("asset")
 
-	// Store file first to get the storage path
-	path, err := w.store.Assets().Store(ctx, job.OrgID, assetID, data)
+	// Store file with .pptx extension for the storage path
+	storageKey := assetID + ".pptx"
+	path, err := w.store.Assets().Store(ctx, job.OrgID, storageKey, data)
 	if err != nil {
 		return "", fmt.Errorf("failed to store deck asset data: %w", err)
 	}
@@ -224,7 +228,7 @@ func (w *Worker) processDeckRenderJob(ctx context.Context, job store.Job, deckVe
 		return "", fmt.Errorf("failed to create deck asset record: %w", err)
 	}
 
-	return path, nil
+	return assetID, nil
 }
 
 func (w *Worker) processPreviewJob(ctx context.Context, job store.Job, templateVersion store.TemplateVersion) (string, error) {
@@ -314,4 +318,14 @@ func (w *Worker) handleJobFailure(ctx context.Context, job store.Job, processErr
 
 func (w *Worker) failJob(ctx context.Context, job store.Job, errorMsg string) error {
 	return w.handleJobFailure(ctx, job, fmt.Errorf("%s", errorMsg))
+}
+
+// newID generates a UUID with the given prefix
+func newID(prefix string) string {
+	var b [16]byte
+	_, err := rand.Read(b[:])
+	if err != nil {
+		return prefix + "-unknown"
+	}
+	return prefix + "-" + hex.EncodeToString(b[:])
 }
