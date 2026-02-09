@@ -134,11 +134,28 @@ export default function DeckDetailPage() {
     if (!id) return
 
     try {
-      // Fetch existing export jobs for this deck using clean goApi utility
+      // Try multiple auth methods for robustness
+      let authHeaders = {}
+
+      // Method 1: Check localStorage for direct Go API token
+      const directToken = localStorage.getItem('token') || localStorage.getItem('auth_token') || localStorage.getItem('jwt_token')
+      if (directToken) {
+        authHeaders['Authorization'] = `Bearer ${directToken}`
+      }
+
+      // Method 2: If no direct token, try via Next.js API route (uses cookies)
+      if (!directToken) {
+        const result = await fetch(`/api/decks/${id}/exports`)
+        if (result.ok) {
+          const data = await result.json()
+          setExportJobs(data.exports || [])
+          return
+        }
+      }
+
+      // Method 3: Direct Go API call with headers
       const result = await getJSON(`/v1/decks/${id}/exports`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-        },
+        headers: authHeaders,
       })
 
       if (result.status === 200 && result.body) {
