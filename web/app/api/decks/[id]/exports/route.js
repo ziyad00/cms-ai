@@ -5,7 +5,8 @@ export async function GET(request, { params }) {
     const { id } = params
 
     // Forward the request to the Go backend, preserving cookies
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/v1/decks/${id}/exports`, {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'https://cms-ai-production.up.railway.app'
+    const response = await fetch(`${backendUrl}/v1/decks/${id}/exports`, {
       headers: {
         'Accept': 'application/json',
         'Cookie': request.headers.get('cookie') || '',

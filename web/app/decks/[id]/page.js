@@ -408,17 +408,23 @@ export default function DeckDetailPage() {
         return
       }
 
-      // Store job info for download buttons (add to array for versioning)
-      const job = {
-        id: jobData.id,
-        status: 'Done',
-        type: 'export',
-        outputRef: jobData.outputRef || body.assetPath,
-        timestamp: jobData.updatedAt || new Date().toISOString(),
-        filename: body.metadata?.filename || `export-${jobData.id.substring(0, 8)}.pptx`
+      if (body.duplicate) {
+        // If duplicate, reload actual exports instead of adding fake job
+        setMessage(`🎉 Export ready! Using existing version.`)
+        await loadExportJobs() // Reload to show existing export
+      } else {
+        // Store job info for download buttons (add to array for versioning)
+        const job = {
+          id: jobData.id,
+          status: 'Done',
+          type: 'export',
+          outputRef: jobData.outputRef || body.assetPath,
+          timestamp: jobData.updatedAt || new Date().toISOString(),
+          filename: body.metadata?.filename || `export-${jobData.id.substring(0, 8)}.pptx`
+        }
+        setExportJobs(prev => [job, ...prev]) // Add new job at the beginning
+        setMessage(`🎉 Export ready! Your presentation is available for download.`)
       }
-      setExportJobs(prev => [job, ...prev]) // Add new job at the beginning
-      setMessage(`🎉 Export ready! Your presentation is available for download.`)
     } finally {
       setBusy(false)
     }
