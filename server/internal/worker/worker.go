@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	"github.com/ziyad/cms-ai/server/internal/ai"
 	"github.com/ziyad/cms-ai/server/internal/assets"
 	"github.com/ziyad/cms-ai/server/internal/queue"
+	"github.com/ziyad/cms-ai/server/internal/spec"
 	"github.com/ziyad/cms-ai/server/internal/store"
 )
 

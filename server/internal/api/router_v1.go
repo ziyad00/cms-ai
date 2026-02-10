@@ -321,11 +321,6 @@ func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) 
 
 	writeJSON(w, http.StatusAccepted, map[string]any{"template": created, "job": createdJob})
 }
-		}
-	}
-
-	writeJSON(w, http.StatusOK, response)
-}
 
 func (s *Server) handleListTemplates(w http.ResponseWriter, r *http.Request) {
 	id, ok := auth.GetIdentity(r.Context())
@@ -738,7 +733,6 @@ func (s *Server) handleCreateDeck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var boundSpec *spec.TemplateSpec
-	var aiResp *ai.GenerationResponse
 
 	// Create deck record first
 	deck := store.Deck{
@@ -989,7 +983,7 @@ func (s *Server) handleExportDeckVersion(w http.ResponseWriter, r *http.Request)
 	id, _ := auth.GetIdentity(r.Context())
 	versionID := r.PathValue("versionId")
 
-	_, ok, err := s.Store.Decks().GetDeckVersion(r.Context(), id.OrgID, versionID)
+	dv, ok, err := s.Store.Decks().GetDeckVersion(r.Context(), id.OrgID, versionID)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed")
 		return
