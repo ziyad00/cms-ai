@@ -33,18 +33,13 @@ func New(dsn string) (*PostgresStore, error) {
 		return nil, err
 	}
 
-	// Idempotent schema bridge: Rename legacy unique constraint to match GORM's default naming.
-	// This prevents GORM from trying to DROP a constraint it thinks should exist with a different name.
-	bridgeSQL := `
-		DO $$ 
-		BEGIN 
-			IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'users_email_key' AND table_name = 'users') THEN
-				ALTER TABLE users RENAME CONSTRAINT users_email_key TO uni_users_email;
-			END IF;
-		END $$;
-	`
-	if err := db.Exec(bridgeSQL).Error; err != nil {
-		log.Printf("⚠️ GORM BRIDGE WARNING: Could not rename legacy constraint (it may already be renamed): %v", err)
+	// Idempotent Migrator: Safely transition legacy SQL constraints to GORM management.
+	// We use the Migrator API to check for and remove legacy names so AutoMigrate can 
+	// establish its own naming convention without conflicts.
+	m := db.Migrator()
+	if m.HasConstraint(&store.User{}, "users_email_key") {
+		log.Printf("🔄 GORM: Migrating legacy constraint 'users_email_key' to GORM convention...")
+		_ = m.DropConstraint(&store.User{}, "users_email_key")
 	}
 
 	// Auto-migrate all models to ensure schema is always in sync
