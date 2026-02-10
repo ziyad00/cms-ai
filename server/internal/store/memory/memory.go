@@ -3,7 +3,6 @@ package memory
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sort"
 	"sync"
 	"time"
@@ -295,21 +294,6 @@ func (m *assetStore) Get(_ context.Context, orgID, id string) (store.Asset, bool
 		return store.Asset{}, false, nil
 	}
 	return a, true, nil
-}
-
-func (m *assetStore) Store(_ context.Context, orgID, assetID string, data []byte) (string, error) {
-	ms := (*MemoryStore)(m)
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
-
-	// Store data in memory map (in real implementation, use file system or object storage)
-	if ms.assetData == nil {
-		ms.assetData = make(map[string][]byte)
-	}
-	ms.assetData[assetID] = data
-
-	// Return a fake path for now
-	return fmt.Sprintf("assets/%s/%s", orgID, assetID), nil
 }
 
 func (m *jobStore) Enqueue(_ context.Context, j store.Job) (store.Job, error) {

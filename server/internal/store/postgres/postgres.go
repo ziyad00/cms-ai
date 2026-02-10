@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -557,24 +558,6 @@ func (p *postgresAssetStore) Get(ctx context.Context, orgID, id string) (store.A
 		return store.Asset{}, false, err
 	}
 	return a, true, nil
-}
-
-func (p *postgresAssetStore) Store(_ context.Context, orgID, assetID string, data []byte) (string, error) {
-	// For now, store to local filesystem in a data directory
-	// In production, this would use object storage like S3
-	dataDir := "data/assets"
-	orgDir := filepath.Join(dataDir, orgID)
-
-	if err := os.MkdirAll(orgDir, 0o755); err != nil {
-		return "", err
-	}
-
-	filePath := filepath.Join(orgDir, assetID)
-	if err := os.WriteFile(filePath, data, 0o644); err != nil {
-		return "", err
-	}
-
-	return filePath, nil
 }
 
 type postgresJobStore PostgresStore

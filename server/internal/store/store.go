@@ -28,7 +28,6 @@ type DeckStore interface {
 type AssetStore interface {
 	Create(ctx context.Context, a Asset) (Asset, error)
 	Get(ctx context.Context, orgID, id string) (Asset, bool, error)
-	Store(ctx context.Context, orgID, assetID string, data []byte) (string, error)
 }
 
 type TemplateStore interface {

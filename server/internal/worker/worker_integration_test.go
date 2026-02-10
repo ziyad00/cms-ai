@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/ziyad/cms-ai/server/internal/ai"
 	"github.com/ziyad/cms-ai/server/internal/assets"
 	"github.com/ziyad/cms-ai/server/internal/store"
 	"github.com/ziyad/cms-ai/server/internal/store/memory"
@@ -16,9 +17,9 @@ func TestWorker_ProcessesExportJobsEndToEnd(t *testing.T) {
 	ctx := context.Background()
 	memStore := memory.New()
 	renderer := assets.NewGoPPTXRenderer()
-	storage := assets.LocalStorage{}
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
 
-	worker := New(memStore, renderer, &storage, ai.NewAIService(memStore))
+	worker := New(memStore, renderer, storage, ai.NewAIService(memStore))
 
 	// Create a template version first
 	templateSpec := map[string]interface{}{
@@ -217,9 +218,9 @@ func TestWorker_ErrorHandlingAndRetries(t *testing.T) {
 	ctx := context.Background()
 	memStore := memory.New()
 	failingRenderer := &failingRenderer{}
-	storage := assets.LocalStorage{}
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
 
-	worker := New(memStore, failingRenderer, &storage, ai.NewAIService(memStore))
+	worker := New(memStore, failingRenderer, storage, ai.NewAIService(memStore))
 
 	// Create template version
 	templateSpec := map[string]interface{}{
@@ -320,9 +321,9 @@ func TestWorker_WorkerServiceRunning(t *testing.T) {
 	ctx := context.Background()
 	memStore := memory.New()
 	renderer := assets.NewGoPPTXRenderer()
-	storage := assets.LocalStorage{}
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
 
-	worker := New(memStore, renderer, &storage, ai.NewAIService(memStore))
+	worker := New(memStore, renderer, storage, ai.NewAIService(memStore))
 
 	t.Run("WorkerPollingWithoutJobs", func(t *testing.T) {
 		// Test that processJobs runs without error when no jobs are available

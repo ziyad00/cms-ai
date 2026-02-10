@@ -82,6 +82,7 @@ func TestJobStore(t *testing.T) {
 		OrgID: "org-1",
 		Type:  store.JobRender,
 		Status: store.JobQueued,
+		Metadata: &map[string]string{"test-key": "test-value"},
 	}
 	_, err = s.Jobs().Enqueue(ctx, job2)
 	require.NoError(t, err)
@@ -90,6 +91,8 @@ func TestJobStore(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, queued, 1)
 	assert.Equal(t, "job-2", queued[0].ID)
+	assert.NotNil(t, queued[0].Metadata)
+	assert.Equal(t, "test-value", (*queued[0].Metadata)["test-key"])
 }
 
 func TestJobDeduplication(t *testing.T) {

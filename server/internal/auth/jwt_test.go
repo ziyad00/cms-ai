@@ -200,34 +200,3 @@ func TestIdentityContext(t *testing.T) {
 	_, ok = GetIdentity(ctx)
 	assert.False(t, ok, "Should not find identity in empty context")
 }
-
-func TestRequireRole(t *testing.T) {
-	tests := []struct {
-		name         string
-		userRole     Role
-		requiredRole Role
-		expected     bool
-	}{
-		{"owner can access owner", RoleOwner, RoleOwner, true},
-		{"owner can access admin", RoleOwner, RoleAdmin, true},
-		{"owner can access editor", RoleOwner, RoleEditor, true},
-		{"owner can access viewer", RoleOwner, RoleViewer, true},
-		{"admin cannot access owner", RoleAdmin, RoleOwner, false},
-		{"admin can access admin", RoleAdmin, RoleAdmin, true},
-		{"admin can access editor", RoleAdmin, RoleEditor, true},
-		{"admin can access viewer", RoleAdmin, RoleViewer, true},
-		{"editor cannot access admin", RoleEditor, RoleAdmin, false},
-		{"editor can access editor", RoleEditor, RoleEditor, true},
-		{"editor can access viewer", RoleEditor, RoleViewer, true},
-		{"viewer cannot access editor", RoleViewer, RoleEditor, false},
-		{"viewer can access viewer", RoleViewer, RoleViewer, true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			identity := Identity{Role: tt.userRole}
-			result := RequireRole(identity, tt.requiredRole)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}

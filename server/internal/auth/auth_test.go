@@ -1,8 +1,10 @@
 package auth
 
 import (
+	"net/http"
 	"testing"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRequireRole(t *testing.T) {
@@ -44,4 +46,26 @@ func TestRoleRank(t *testing.T) {
 	assert.Equal(t, 2, roleRank(RoleEditor))
 	assert.Equal(t, 1, roleRank(RoleViewer))
 	assert.Equal(t, 0, roleRank(Role("Other")))
+}
+
+func TestJWTAuthFlow(t *testing.T) {
+	userID := "test-user"
+	orgID := "test-org"
+	role := RoleEditor
+
+	// 1. Generate token
+	token, err := GenerateToken(userID, orgID, role)
+	require.NoError(t, err)
+	assert.NotEmpty(t, token)
+
+	// 2. Authenticate
+	auth := JWTAuthenticator{}
+	req, _ := http.NewRequest("GET", "/", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	id, err := auth.Authenticate(req)
+	require.NoError(t, err, "Authenticator should accept valid token")
+	assert.Equal(t, userID, id.UserID)
+	assert.Equal(t, orgID, id.OrgID)
+	assert.Equal(t, role, id.Role)
 }

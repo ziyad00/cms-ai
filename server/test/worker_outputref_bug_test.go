@@ -20,7 +20,7 @@ func TestRegression_WorkerOutputRef_IsAssetID(t *testing.T) {
 	ctx := context.Background()
 	memStore := memory.New()
 	renderer := assets.NewGoPPTXRenderer()
-	storage := &assets.LocalStorage{}
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
 
 	worker := worker.New(memStore, renderer, storage, ai.NewAIService(memStore))
 

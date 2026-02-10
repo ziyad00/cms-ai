@@ -20,13 +20,13 @@ import (
 type Worker struct {
 	store     store.Store
 	renderer  assets.Renderer
-	storage   assets.Storage
+	storage   assets.ObjectStorage
 	aiService ai.AIServiceInterface
 	stop      chan struct{}
 	wg        sync.WaitGroup
 }
 
-func New(store store.Store, renderer assets.Renderer, storage assets.Storage, aiService ai.AIServiceInterface) *Worker {
+func New(store store.Store, renderer assets.Renderer, storage assets.ObjectStorage, aiService ai.AIServiceInterface) *Worker {
 	return &Worker{
 		store:     store,
 		renderer:  renderer,
@@ -310,25 +310,25 @@ func (w *Worker) processRenderJob(ctx context.Context, job store.Job, templateVe
 
 	w.updateProgress(ctx, &job, "Applying Olama AI themes", 60)
 
-	// Generate proper UUID asset ID (without .pptx extension for the ID)
+	// Generate proper UUID asset ID
 	assetID := newID("asset")
-
-	// Store file with .pptx extension for the storage path
 	storageKey := assetID + ".pptx"
-	path, err := w.store.Assets().Store(ctx, job.OrgID, storageKey, data)
+
+	// Upload to object storage
+	metadata, err := w.storage.Upload(ctx, storageKey, data, "application/vnd.openxmlformats-officedocument.presentationml.presentation")
 	if err != nil {
-		return "", fmt.Errorf("failed to store asset data: %w", err)
+		return "", fmt.Errorf("failed to upload asset to storage: %w", err)
 	}
 
-	w.updateProgress(ctx, &job, "Saving to cloud storage", 90)
+	w.updateProgress(ctx, &job, "Saving to database", 90)
 
-	// Create asset record with storage path
+	// Create asset record with storage key
 	asset := store.Asset{
 		ID:    assetID,
 		OrgID: job.OrgID,
 		Type:  store.AssetPPTX,
-		Path:  path,
-		Mime:  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+		Path:  metadata.Key,
+		Mime:  metadata.ContentType,
 	}
 	if _, err := w.store.Assets().Create(ctx, asset); err != nil {
 		return "", fmt.Errorf("failed to create asset record: %w", err)
@@ -348,25 +348,25 @@ func (w *Worker) processDeckRenderJob(ctx context.Context, job store.Job, deckVe
 
 	w.updateProgress(ctx, &job, "Enhancing with AI themes", 60)
 
-	// Generate proper UUID asset ID (without .pptx extension for the ID)
+	// Generate proper UUID asset ID
 	assetID := newID("asset")
-
-	// Store file with .pptx extension for the storage path
 	storageKey := assetID + ".pptx"
-	path, err := w.store.Assets().Store(ctx, job.OrgID, storageKey, data)
+
+	// Upload to object storage
+	metadata, err := w.storage.Upload(ctx, storageKey, data, "application/vnd.openxmlformats-officedocument.presentationml.presentation")
 	if err != nil {
-		return "", fmt.Errorf("failed to store deck asset data: %w", err)
+		return "", fmt.Errorf("failed to upload deck asset to storage: %w", err)
 	}
 
 	w.updateProgress(ctx, &job, "Finalizing export", 90)
 
-	// Create asset record with storage path
+	// Create asset record with storage key
 	asset := store.Asset{
 		ID:    assetID,
 		OrgID: job.OrgID,
 		Type:  store.AssetPPTX,
-		Path:  path,
-		Mime:  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+		Path:  metadata.Key,
+		Mime:  metadata.ContentType,
 	}
 	if _, err := w.store.Assets().Create(ctx, asset); err != nil {
 		return "", fmt.Errorf("failed to create deck asset record: %w", err)
@@ -386,37 +386,38 @@ func (w *Worker) processPreviewJob(ctx context.Context, job store.Job, templateV
 		return "", fmt.Errorf("no thumbnails generated")
 	}
 
-	var assetPaths []string
+	var firstAssetURL string
 
 	// Store each thumbnail as a separate asset
 	for i, thumbnailData := range thumbnails {
 		// Generate asset ID for this thumbnail
 		assetID := fmt.Sprintf("%s-%d-slide-%d.preview.png", job.ID, time.Now().Unix(), i+1)
 
-		// Store the thumbnail data first to get storage path
-		path, err := w.store.Assets().Store(ctx, job.OrgID, assetID, thumbnailData)
+		// Upload to storage
+		metadata, err := w.storage.Upload(ctx, assetID, thumbnailData, "image/png")
 		if err != nil {
-			return "", fmt.Errorf("failed to store preview data for slide %d: %w", i+1, err)
+			return "", fmt.Errorf("failed to upload preview data for slide %d: %w", i+1, err)
 		}
 
-		// Create preview asset record with storage path
+		// Create preview asset record
 		asset := store.Asset{
 			ID:    assetID,
 			OrgID: job.OrgID,
 			Type:  store.AssetPNG,
-			Path:  path,
+			Path:  metadata.Key,
 			Mime:  "image/png",
 		}
 		if _, err := w.store.Assets().Create(ctx, asset); err != nil {
 			return "", fmt.Errorf("failed to create preview asset record for slide %d: %w", i+1, err)
 		}
 
-		assetPaths = append(assetPaths, path)
+		if i == 0 {
+			firstAssetURL = metadata.URL
+		}
 	}
 
-	// Return the first thumbnail as the primary preview, with metadata about all thumbnails
-	// In a more complete implementation, we might want to return JSON metadata instead
-	return assetPaths[0], nil
+	// Return the first thumbnail URL or ID as the primary preview
+	return firstAssetURL, nil
 }
 
 func (w *Worker) handleJobFailure(ctx context.Context, job store.Job, processErr error) error {

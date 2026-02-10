@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/ziyad/cms-ai/server/internal/ai"
 	"github.com/ziyad/cms-ai/server/internal/assets"
 	"github.com/ziyad/cms-ai/server/internal/store"
 	"github.com/ziyad/cms-ai/server/internal/store/memory"
@@ -17,7 +18,7 @@ func TestWorker_ProcessJobs(t *testing.T) {
 	// Setup test dependencies
 	memStore := memory.New()
 	renderer := assets.NewGoPPTXRenderer()
-	storage := assets.LocalStorage{}
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
 
 	worker := New(memStore, renderer, storage, ai.NewAIService(memStore))
 
@@ -132,7 +133,7 @@ func TestWorker_FailJob(t *testing.T) {
 	// Setup test dependencies
 	memStore := memory.New()
 	renderer := assets.NewGoPPTXRenderer()
-	storage := assets.LocalStorage{}
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
 
 	worker := New(memStore, renderer, storage, ai.NewAIService(memStore))
 
@@ -172,7 +173,7 @@ func TestWorker_UnsupportedJobType(t *testing.T) {
 	// Setup test dependencies
 	memStore := memory.New()
 	renderer := assets.NewGoPPTXRenderer()
-	storage := assets.LocalStorage{}
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
 
 	worker := New(memStore, renderer, storage, ai.NewAIService(memStore))
 
@@ -244,7 +245,8 @@ func TestWorker_ProcessPreviewJobWithThumbnails(t *testing.T) {
 	ctx := context.Background()
 	memStore := memory.New()
 	renderer := assets.NewGoPPTXRenderer()
-	worker := New(memStore, renderer, assets.LocalStorage{}, ai.NewAIService(memStore))
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
+	worker := New(memStore, renderer, storage, ai.NewAIService(memStore))
 
 	// Create template version with multiple layouts
 	templateSpec := map[string]interface{}{
@@ -335,7 +337,7 @@ func TestWorker_JobRetryAndDeadLetter(t *testing.T) {
 	// Setup test dependencies
 	memStore := memory.New()
 	renderer := &failingRenderer{}
-	storage := assets.LocalStorage{}
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
 
 	worker := New(memStore, renderer, storage, ai.NewAIService(memStore))
 
@@ -448,9 +450,9 @@ func TestWorker_JobDeduplication(t *testing.T) {
 	// Setup test dependencies
 	memStore := memory.New()
 	renderer := assets.NewGoPPTXRenderer()
-	storage := assets.LocalStorage{}
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
 
-	_ = New(memStore, renderer, storage)
+	_ = New(memStore, renderer, storage, ai.NewAIService(memStore))
 
 	ctx := context.Background()
 	orgID := "test-org"
