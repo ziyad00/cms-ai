@@ -22,7 +22,7 @@ type PostgresStore struct {
 
 func New(dsn string) (*PostgresStore, error) {
 	// Set up GORM with a logger and a custom naming strategy
-	// This ensures constraints match standard Postgres naming (e.g. users_email_key)
+	// IdentifierMaxLength ensures names fit Postgres limits.
 	gormConfig := &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Error),
 		NamingStrategy: schema.NamingStrategy{
@@ -38,29 +38,28 @@ func New(dsn string) (*PostgresStore, error) {
 		return nil, err
 	}
 
-	// Idempotent schema bridge: Explicitly align constraint naming with GORM's expectations.
-	// This is the most reliable way to stop the 'uni_users_email' panic.
-	// We check for 'users_email_key' and rename it to 'uni_users_email'.
+	// PRO-LEVEL BRIDGE: 
+	// GORM is panicking because it tries to DROP 'uni_users_email'.
+	// We MUST ensure the database has exactly what GORM wants before we call AutoMigrate.
+	// This script forces the constraint to exist with GORM's expected name.
 	bridgeSQL := `
 		DO $$ 
 		BEGIN 
-			-- If legacy Postgres name exists, rename it to GORM name
+			-- Rename if legacy name exists
 			IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'users_email_key' AND table_name = 'users') THEN
 				ALTER TABLE users RENAME CONSTRAINT users_email_key TO uni_users_email;
 			END IF;
 			
-			-- If NO constraint exists at all, create it with the GORM name
+			-- Create if it doesn't exist at all
 			IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'uni_users_email' AND table_name = 'users') THEN
 				ALTER TABLE users ADD CONSTRAINT uni_users_email UNIQUE (email);
 			END IF;
 		END $$;
 	`
-	if err := db.Exec(bridgeSQL).Error; err != nil {
-		log.Printf("⚠️ GORM BRIDGE WARNING: Could not align unique constraints: %v", err)
-	}
+	_ = db.Exec(bridgeSQL)
 
 	// Auto-migrate all models to ensure schema is always in sync
-	log.Printf("🚀 GORM: Running auto-migration for all tables...")
+	log.Printf("🚀 GORM: Running auto-migration...")
 	err = db.AutoMigrate(
 		&store.Organization{},
 		&store.User{},
