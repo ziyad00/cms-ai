@@ -38,25 +38,22 @@ func New(dsn string) (*PostgresStore, error) {
 		return nil, err
 	}
 
-	// PRO-LEVEL BRIDGE: 
-	// GORM is panicking because it tries to DROP 'uni_users_email'.
-	// We MUST ensure the database has exactly what GORM wants before we call AutoMigrate.
-	// This script forces the constraint to exist with GORM's expected name.
-	bridgeSQL := `
-		DO $$ 
-		BEGIN 
-			-- Rename if legacy name exists
-			IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'users_email_key' AND table_name = 'users') THEN
-				ALTER TABLE users RENAME CONSTRAINT users_email_key TO uni_users_email;
-			END IF;
-			
-			-- Create if it doesn't exist at all
-			IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'uni_users_email' AND table_name = 'users') THEN
-				ALTER TABLE users ADD CONSTRAINT uni_users_email UNIQUE (email);
-			END IF;
-		END $$;
-	`
-	_ = db.Exec(bridgeSQL)
+	// Idempotent Migrator: Resolve persistent Railway-specific naming conflict.
+	// We explicitly drop conflicting constraints so AutoMigrate can start fresh.
+	// This prevents the 'DROP CONSTRAINT' panic because we check existence first.
+	m := db.Migrator()
+	if m.HasTable(&store.User{}) {
+		// Drop legacy SQL name if it exists
+		if m.HasConstraint(&store.User{}, "users_email_key") {
+			log.Printf("🔄 GORM: Cleaning legacy constraint 'users_email_key'...")
+			_ = m.DropConstraint(&store.User{}, "users_email_key")
+		}
+		// Drop GORM's default name if it exists (to ensure a clean state)
+		if m.HasConstraint(&store.User{}, "uni_users_email") {
+			log.Printf("🔄 GORM: Cleaning constraint 'uni_users_email'...")
+			_ = m.DropConstraint(&store.User{}, "uni_users_email")
+		}
+	}
 
 	// Auto-migrate all models to ensure schema is always in sync
 	log.Printf("🚀 GORM: Running auto-migration...")
