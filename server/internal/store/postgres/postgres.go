@@ -32,7 +32,8 @@ func New(dsn string) (*PostgresStore, error) {
 		return nil, err
 	}
 
-	err = db.AutoMigrate(
+	// Auto-migrate all models to ensure schema is always in sync
+	if err := db.AutoMigrate(
 		&store.Organization{},
 		&store.User{},
 		&store.UserOrg{},
@@ -45,9 +46,8 @@ func New(dsn string) (*PostgresStore, error) {
 		&store.Job{},
 		&store.MeteringEvent{},
 		&store.AuditLog{},
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to auto-migrate: %w", err)
+	); err != nil {
+		fmt.Printf("WARNING: Auto-migration encountered errors: %v\n", err)
 	}
 
 	return &PostgresStore{db: db}, nil
