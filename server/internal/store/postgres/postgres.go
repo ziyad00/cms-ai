@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -32,13 +33,9 @@ func New(dsn string) (*PostgresStore, error) {
 		return nil, err
 	}
 
-	// Idempotent schema fix: Rename legacy Postgres constraints to match GORM expectations
-	// This prevents panics during AutoMigrate on existing databases.
-	_ = db.Exec("ALTER TABLE users RENAME CONSTRAINT users_email_key TO uni_users_email").Error
-
-	// Auto-migrate models to ensure schema is in sync
-	log.Printf("🚀 GORM: Starting idempotent auto-migration...")
-	if err := db.AutoMigrate(
+	// Auto-migrate all models to ensure schema is always in sync
+	log.Printf("🚀 GORM: Running auto-migration...")
+	err = db.AutoMigrate(
 		&store.Organization{},
 		&store.User{},
 		&store.UserOrg{},
@@ -51,8 +48,9 @@ func New(dsn string) (*PostgresStore, error) {
 		&store.Job{},
 		&store.MeteringEvent{},
 		&store.AuditLog{},
-	); err != nil {
-		log.Printf("⚠️ GORM WARNING: Auto-migration encountered issues: %v", err)
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to auto-migrate: %w", err)
 	}
 
 	return &PostgresStore{db: db}, nil
