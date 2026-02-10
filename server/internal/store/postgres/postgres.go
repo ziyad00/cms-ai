@@ -2,14 +2,13 @@ package postgres
 
 import (
 	"context"
-	"crypto/rand"
 	"database/sql"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -37,6 +36,27 @@ func New(dsn string) (*PostgresStore, error) {
 	db, err := gorm.Open(postgres.Open(dsn), gormConfig)
 	if err != nil {
 		return nil, err
+	}
+
+	// Idempotent schema bridge: Explicitly align constraint naming with GORM's expectations.
+	// This is the most reliable way to stop the 'uni_users_email' panic.
+	// We check for 'users_email_key' and rename it to 'uni_users_email'.
+	bridgeSQL := `
+		DO $$ 
+		BEGIN 
+			-- If legacy Postgres name exists, rename it to GORM name
+			IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'users_email_key' AND table_name = 'users') THEN
+				ALTER TABLE users RENAME CONSTRAINT users_email_key TO uni_users_email;
+			END IF;
+			
+			-- If NO constraint exists at all, create it with the GORM name
+			IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'uni_users_email' AND table_name = 'users') THEN
+				ALTER TABLE users ADD CONSTRAINT uni_users_email UNIQUE (email);
+			END IF;
+		END $$;
+	`
+	if err := db.Exec(bridgeSQL).Error; err != nil {
+		log.Printf("⚠️ GORM BRIDGE WARNING: Could not align unique constraints: %v", err)
 	}
 
 	// Auto-migrate all models to ensure schema is always in sync
@@ -486,7 +506,5 @@ func (p *postgresOrganizationStore) GetOrganization(ctx context.Context, orgID s
 }
 
 func newID(prefix string) string {
-	var b [16]byte
-	_, _ = rand.Read(b[:])
-	return prefix + "-" + hex.EncodeToString(b[:])
+	return uuid.New().String()
 }

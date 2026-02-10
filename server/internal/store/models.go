@@ -12,24 +12,24 @@ const (
 )
 
 type Template struct {
-	ID              string         `json:"id" gorm:"primaryKey"`
-	OrgID           string         `json:"orgId" gorm:"index;not null"`
-	OwnerUserID     string         `json:"ownerUserId" gorm:"index"`
+	ID              string         `json:"id" gorm:"type:uuid;primaryKey"`
+	OrgID           string         `json:"orgId" gorm:"type:uuid;index;not null"`
+	OwnerUserID     string         `json:"ownerUserId" gorm:"type:uuid;index"`
 	Name            string         `json:"name" gorm:"not null"`
 	Status          TemplateStatus `json:"status" gorm:"not null"`
-	CurrentVersion  *string        `json:"currentVersionId" gorm:"index"`
+	CurrentVersion  *string        `json:"currentVersionId" gorm:"type:uuid;index"`
 	CreatedAt       time.Time      `json:"createdAt"`
 	UpdatedAt       time.Time      `json:"updatedAt"`
 	LatestVersionNo int            `json:"latestVersionNo"`
 }
 
 type Deck struct {
-	ID                    string    `json:"id" gorm:"primaryKey"`
-	OrgID                 string    `json:"orgId" gorm:"index;not null"`
-	OwnerUserID           string    `json:"ownerUserId" gorm:"index"`
+	ID                    string    `json:"id" gorm:"type:uuid;primaryKey"`
+	OrgID                 string    `json:"orgId" gorm:"type:uuid;index;not null"`
+	OwnerUserID           string    `json:"ownerUserId" gorm:"type:uuid;index"`
 	Name                  string    `json:"name" gorm:"not null"`
-	SourceTemplateVersion string    `json:"sourceTemplateVersionId" gorm:"index"`
-	CurrentVersion        *string   `json:"currentVersionId" gorm:"index"`
+	SourceTemplateVersion string    `json:"sourceTemplateVersionId" gorm:"type:uuid;index"`
+	CurrentVersion        *string   `json:"currentVersionId" gorm:"type:uuid;index"`
 	CreatedAt             time.Time `json:"createdAt"`
 	UpdatedAt             time.Time `json:"updatedAt"`
 	LatestVersionNo       int       `json:"latestVersionNo"`
@@ -37,28 +37,28 @@ type Deck struct {
 }
 
 type DeckVersion struct {
-	ID        string    `json:"id" gorm:"primaryKey"`
-	Deck      string    `json:"deckId" gorm:"index"`
-	OrgID     string    `json:"orgId" gorm:"index"`
+	ID        string    `json:"id" gorm:"type:uuid;primaryKey"`
+	Deck      string    `json:"deckId" gorm:"type:uuid;index"`
+	OrgID     string    `json:"orgId" gorm:"type:uuid;index"`
 	VersionNo int       `json:"versionNo"`
 	SpecJSON  any       `json:"spec" gorm:"type:jsonb"`
-	CreatedBy string    `json:"createdBy"`
+	CreatedBy string    `json:"createdBy" gorm:"type:uuid"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
 type TemplateVersion struct {
-	ID        string    `json:"id" gorm:"primaryKey"`
-	Template  string    `json:"templateId" gorm:"index"`
-	OrgID     string    `json:"orgId" gorm:"index"`
+	ID        string    `json:"id" gorm:"type:uuid;primaryKey"`
+	Template  string    `json:"templateId" gorm:"type:uuid;index"`
+	OrgID     string    `json:"orgId" gorm:"type:uuid;index"`
 	VersionNo int       `json:"versionNo"`
 	SpecJSON  any       `json:"spec" gorm:"type:jsonb"`
-	CreatedBy string    `json:"createdBy"`
+	CreatedBy string    `json:"createdBy" gorm:"type:uuid"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
 type BrandKit struct {
-	ID        string    `json:"id" gorm:"primaryKey"`
-	OrgID     string    `json:"orgId" gorm:"index"`
+	ID        string    `json:"id" gorm:"type:uuid;primaryKey"`
+	OrgID     string    `json:"orgId" gorm:"type:uuid;index"`
 	Name      string    `json:"name"`
 	Tokens    any       `json:"tokens" gorm:"type:jsonb"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -73,8 +73,8 @@ const (
 )
 
 type Asset struct {
-	ID        string    `json:"id" gorm:"primaryKey"`
-	OrgID     string    `json:"orgId" gorm:"index"`
+	ID        string    `json:"id" gorm:"type:uuid;primaryKey"`
+	OrgID     string    `json:"orgId" gorm:"type:uuid;index"`
 	Type      AssetType `json:"type"`
 	Path      string    `json:"path"`
 	Mime      string    `json:"mime"`
@@ -101,8 +101,8 @@ const (
 )
 
 type Job struct {
-	ID              string            `json:"id" gorm:"primaryKey"`
-	OrgID           string            `json:"orgId" gorm:"index"`
+	ID              string            `json:"id" gorm:"type:uuid;primaryKey"`
+	OrgID           string            `json:"orgId" gorm:"type:uuid;index"`
 	Type            JobType           `json:"type" gorm:"index"`
 	Status          JobStatus         `json:"status" gorm:"index"`
 	InputRef        string            `json:"inputRef" gorm:"index"`
@@ -120,18 +120,18 @@ type Job struct {
 }
 
 type MeteringEvent struct {
-	ID        string    `json:"id" gorm:"primaryKey"`
-	OrgID     string    `json:"orgId" gorm:"index"`
-	UserID    string    `json:"userId" gorm:"index"`
+	ID        string    `json:"id" gorm:"type:uuid;primaryKey"`
+	OrgID     string    `json:"orgId" gorm:"type:uuid;index"`
+	UserID    string    `json:"userId" gorm:"type:uuid;index"`
 	Type      string    `json:"eventType" gorm:"index"`
 	Quantity  int       `json:"quantity"`
 	CreatedAt time.Time `json:"createdAt"`
 }
 
 type AuditLog struct {
-	ID        string    `json:"id" gorm:"primaryKey"`
-	OrgID     string    `json:"orgId" gorm:"index"`
-	ActorID   string    `json:"actorUserId" gorm:"index"`
+	ID        string    `json:"id" gorm:"type:uuid;primaryKey"`
+	OrgID     string    `json:"orgId" gorm:"type:uuid;index"`
+	ActorID   string    `json:"actorUserId" gorm:"type:uuid;index"`
 	Action    string    `json:"action" gorm:"index"`
 	TargetRef string    `json:"targetRef" gorm:"index"`
 	Metadata  any       `json:"metadata" gorm:"type:jsonb"`
@@ -139,7 +139,7 @@ type AuditLog struct {
 }
 
 type User struct {
-	ID        string    `json:"id" gorm:"primaryKey"`
+	ID        string    `json:"id" gorm:"type:uuid;primaryKey"`
 	Email     string    `json:"email" gorm:"unique;not null"`
 	Name      string    `json:"name"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -147,14 +147,14 @@ type User struct {
 }
 
 type Organization struct {
-	ID        string    `json:"id" gorm:"primaryKey"`
+	ID        string    `json:"id" gorm:"type:uuid;primaryKey"`
 	Name      string    `json:"name" gorm:"not null"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
 type UserOrg struct {
-	UserID string    `json:"userId" gorm:"primaryKey"`
-	OrgID  string    `json:"orgId" gorm:"primaryKey"`
+	UserID string    `json:"userId" gorm:"type:uuid;primaryKey"`
+	OrgID  string    `json:"orgId" gorm:"type:uuid;primaryKey"`
 	Role   auth.Role `json:"role"`
 }
