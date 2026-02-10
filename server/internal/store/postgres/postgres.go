@@ -38,26 +38,18 @@ func New(dsn string) (*PostgresStore, error) {
 		return nil, err
 	}
 
-	// Idempotent schema bridge: GORM is panicking because it tries to DROP 'uni_users_email'.
-	// We MUST ensure the database has exactly what GORM wants before we call AutoMigrate.
-	// This script guarantees the constraint exists so AutoMigrate can manage it safely.
-	bridgeSQL := `
+	// Idempotent schema bridge: Manually ensure uniqueness.
+	// Since we removed the 'unique' tag from the Go model, GORM will stop trying 
+	// to manage (and failing on) this specific constraint.
+	ensureUniquenessSQL := `
 		DO $$ 
 		BEGIN 
-			-- 1. If legacy name exists, rename it to what GORM wants
-			IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'users_email_key' AND table_name = 'users') THEN
-				ALTER TABLE users RENAME CONSTRAINT users_email_key TO uni_users_email;
-			END IF;
-			
-			-- 2. If STILL nothing exists with the GORM name, create it
-			IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'uni_users_email' AND table_name = 'users') THEN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE (constraint_name = 'users_email_key' OR constraint_name = 'uni_users_email') AND table_name = 'users') THEN
 				ALTER TABLE users ADD CONSTRAINT uni_users_email UNIQUE (email);
 			END IF;
 		END $$;
 	`
-	if err := db.Exec(bridgeSQL).Error; err != nil {
-		log.Printf("⚠️ GORM BRIDGE WARNING: %v", err)
-	}
+	_ = db.Exec(ensureUniquenessSQL)
 
 	// Auto-migrate all models to ensure schema is always in sync
 	log.Printf("🚀 GORM: Running auto-migration...")
