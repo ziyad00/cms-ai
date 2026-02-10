@@ -33,8 +33,22 @@ func New(dsn string) (*PostgresStore, error) {
 		return nil, err
 	}
 
+	// Idempotent schema bridge: Rename legacy constraint names to match GORM's default naming.
+	// This prevents GORM from trying to DROP/CREATE constraints it thinks are missing.
+	bridgeSQL := `
+		DO $$ 
+		BEGIN 
+			IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'users_email_key' AND table_name = 'users') THEN
+				ALTER TABLE users RENAME CONSTRAINT users_email_key TO uni_users_email;
+			END IF;
+		END $$;
+	`
+	if err := db.Exec(bridgeSQL).Error; err != nil {
+		log.Printf("⚠️ GORM BRIDGE WARNING: Could not align legacy constraints: %v", err)
+	}
+
 	// Auto-migrate all models to ensure schema is always in sync
-	log.Printf("🚀 GORM: Running auto-migration...")
+	log.Printf("🚀 GORM: Running idempotent auto-migration for all tables...")
 	err = db.AutoMigrate(
 		&store.Organization{},
 		&store.User{},
