@@ -33,15 +33,6 @@ func New(dsn string) (*PostgresStore, error) {
 		return nil, err
 	}
 
-	// Idempotent Migrator: Safely transition legacy SQL constraints to GORM management.
-	// We use the Migrator API to check for and remove legacy names so AutoMigrate can 
-	// establish its own naming convention without conflicts.
-	m := db.Migrator()
-	if m.HasConstraint(&store.User{}, "users_email_key") {
-		log.Printf("🔄 GORM: Migrating legacy constraint 'users_email_key' to GORM convention...")
-		_ = m.DropConstraint(&store.User{}, "users_email_key")
-	}
-
 	// Auto-migrate all models to ensure schema is always in sync
 	log.Printf("🚀 GORM: Running auto-migration...")
 	err = db.AutoMigrate(
