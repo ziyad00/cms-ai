@@ -13,10 +13,10 @@ const (
 
 type Template struct {
 	ID              string         `json:"id" gorm:"primaryKey"`
-	OrgID           string         `json:"orgId" gorm:"index"`
+	OrgID           string         `json:"orgId" gorm:"index;not null"`
 	OwnerUserID     string         `json:"ownerUserId" gorm:"index"`
-	Name            string         `json:"name"`
-	Status          TemplateStatus `json:"status"`
+	Name            string         `json:"name" gorm:"not null"`
+	Status          TemplateStatus `json:"status" gorm:"not null"`
 	CurrentVersion  *string        `json:"currentVersionId" gorm:"index"`
 	CreatedAt       time.Time      `json:"createdAt"`
 	UpdatedAt       time.Time      `json:"updatedAt"`
@@ -25,9 +25,9 @@ type Template struct {
 
 type Deck struct {
 	ID                    string    `json:"id" gorm:"primaryKey"`
-	OrgID                 string    `json:"orgId" gorm:"index"`
+	OrgID                 string    `json:"orgId" gorm:"index;not null"`
 	OwnerUserID           string    `json:"ownerUserId" gorm:"index"`
-	Name                  string    `json:"name"`
+	Name                  string    `json:"name" gorm:"not null"`
 	SourceTemplateVersion string    `json:"sourceTemplateVersionId" gorm:"index"`
 	CurrentVersion        *string   `json:"currentVersionId" gorm:"index"`
 	CreatedAt             time.Time `json:"createdAt"`
@@ -140,7 +140,7 @@ type AuditLog struct {
 
 type User struct {
 	ID        string    `json:"id" gorm:"primaryKey"`
-	Email     string    `json:"email"`
+	Email     string    `json:"email" gorm:"unique;not null"`
 	Name      string    `json:"name"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
@@ -148,7 +148,7 @@ type User struct {
 
 type Organization struct {
 	ID        string    `json:"id" gorm:"primaryKey"`
-	Name      string    `json:"name"`
+	Name      string    `json:"name" gorm:"not null"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
 }
