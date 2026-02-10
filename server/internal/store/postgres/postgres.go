@@ -596,7 +596,10 @@ func (p *postgresJobStore) Enqueue(ctx context.Context, j store.Job) (store.Job,
 
 	var meta any
 	if j.Metadata != nil {
-		meta = j.Metadata
+		metaBytes, err := json.Marshal(j.Metadata)
+		if err == nil {
+			meta = string(metaBytes)
+		}
 	}
 
 	log.Printf("🔍 CRITICAL DEBUG: Before DB INSERT - OrgID: %s, Type: %s, Status: %s", j.OrgID, j.Type, j.Status)
@@ -666,29 +669,54 @@ func (p *postgresJobStore) EnqueueWithDeduplication(ctx context.Context, j store
 func (p *postgresJobStore) Get(ctx context.Context, orgID, jobID string) (store.Job, bool, error) {
 	ps := (*PostgresStore)(p)
 	query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, progress_step, progress_pct, created_at, updated_at FROM jobs WHERE org_id = $1 AND id = $2`
-	var j store.Job
-	err := ps.db.QueryRowContext(ctx, query, orgID, jobID).Scan(&j.ID, &j.OrgID, &j.Type, &j.Status, &j.InputRef, &j.OutputRef, &j.Error, &j.RetryCount, &j.MaxRetries, &j.LastRetryAt, &j.DeduplicationID, &j.Metadata, &j.ProgressStep, &j.ProgressPct, &j.CreatedAt, &j.UpdatedAt)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return store.Job{}, false, nil
-		}
-		return store.Job{}, false, err
-	}
-	return j, true, nil
+	row := ps.db.QueryRowContext(ctx, query, orgID, jobID)
+	return p.scanJobRow(row)
 }
 
 func (p *postgresJobStore) GetByDeduplicationID(ctx context.Context, orgID, dedupID string) (store.Job, bool, error) {
 	ps := (*PostgresStore)(p)
 	query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, progress_step, progress_pct, created_at, updated_at FROM jobs WHERE org_id = $1 AND deduplication_id = $2`
+	row := ps.db.QueryRowContext(ctx, query, orgID, dedupID)
+	return p.scanJobRow(row)
+}
+
+func (p *postgresJobStore) scanJobRow(row *sql.Row) (store.Job, bool, error) {
 	var j store.Job
-	err := ps.db.QueryRowContext(ctx, query, orgID, dedupID).Scan(&j.ID, &j.OrgID, &j.Type, &j.Status, &j.InputRef, &j.OutputRef, &j.Error, &j.RetryCount, &j.MaxRetries, &j.LastRetryAt, &j.DeduplicationID, &j.Metadata, &j.ProgressStep, &j.ProgressPct, &j.CreatedAt, &j.UpdatedAt)
+	var meta sql.NullString
+	err := row.Scan(&j.ID, &j.OrgID, &j.Type, &j.Status, &j.InputRef, &j.OutputRef, &j.Error, &j.RetryCount, &j.MaxRetries, &j.LastRetryAt, &j.DeduplicationID, &meta, &j.ProgressStep, &j.ProgressPct, &j.CreatedAt, &j.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return store.Job{}, false, nil
 		}
 		return store.Job{}, false, err
 	}
+	if meta.Valid && meta.String != "" {
+		var metadata map[string]string
+		if err := json.Unmarshal([]byte(meta.String), &metadata); err == nil {
+			j.Metadata = &metadata
+		}
+	}
 	return j, true, nil
+}
+
+func (p *postgresJobStore) scanJobRows(rows *sql.Rows) ([]store.Job, error) {
+	var jobs []store.Job
+	for rows.Next() {
+		var j store.Job
+		var meta sql.NullString
+		err := rows.Scan(&j.ID, &j.OrgID, &j.Type, &j.Status, &j.InputRef, &j.OutputRef, &j.Error, &j.RetryCount, &j.MaxRetries, &j.LastRetryAt, &j.DeduplicationID, &meta, &j.ProgressStep, &j.ProgressPct, &j.CreatedAt, &j.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		if meta.Valid && meta.String != "" {
+			var metadata map[string]string
+			if err := json.Unmarshal([]byte(meta.String), &metadata); err == nil {
+				j.Metadata = &metadata
+			}
+		}
+		jobs = append(jobs, j)
+	}
+	return jobs, rows.Err()
 }
 
 func (p *postgresJobStore) Update(ctx context.Context, j store.Job) (store.Job, error) {
@@ -697,7 +725,10 @@ func (p *postgresJobStore) Update(ctx context.Context, j store.Job) (store.Job, 
 	j.UpdatedAt = time.Now().UTC()
 	var meta any
 	if j.Metadata != nil {
-		meta = j.Metadata
+		metaBytes, err := json.Marshal(j.Metadata)
+		if err == nil {
+			meta = string(metaBytes)
+		}
 	}
 	res, err := ps.db.ExecContext(ctx, query, j.Status, j.OutputRef, j.Error, j.RetryCount, j.MaxRetries, j.LastRetryAt, j.DeduplicationID, meta, j.ProgressStep, j.ProgressPct, j.UpdatedAt, j.ID, j.OrgID)
 	if err != nil {
@@ -718,17 +749,7 @@ func (p *postgresJobStore) ListQueued(ctx context.Context) ([]store.Job, error) 
 		return nil, err
 	}
 	defer rows.Close()
-
-	var jobs []store.Job
-	for rows.Next() {
-		var job store.Job
-		err := rows.Scan(&job.ID, &job.OrgID, &job.Type, &job.Status, &job.InputRef, &job.OutputRef, &job.Error, &job.RetryCount, &job.MaxRetries, &job.LastRetryAt, &job.DeduplicationID, &job.Metadata, &job.ProgressStep, &job.ProgressPct, &job.CreatedAt, &job.UpdatedAt)
-		if err != nil {
-			return nil, err
-		}
-		jobs = append(jobs, job)
-	}
-	return jobs, rows.Err()
+	return p.scanJobRows(rows)
 }
 
 func (p *postgresJobStore) ListRetry(ctx context.Context) ([]store.Job, error) {
@@ -739,17 +760,7 @@ func (p *postgresJobStore) ListRetry(ctx context.Context) ([]store.Job, error) {
 		return nil, err
 	}
 	defer rows.Close()
-
-	var jobs []store.Job
-	for rows.Next() {
-		var job store.Job
-		err := rows.Scan(&job.ID, &job.OrgID, &job.Type, &job.Status, &job.InputRef, &job.OutputRef, &job.Error, &job.RetryCount, &job.MaxRetries, &job.LastRetryAt, &job.DeduplicationID, &job.Metadata, &job.ProgressStep, &job.ProgressPct, &job.CreatedAt, &job.UpdatedAt)
-		if err != nil {
-			return nil, err
-		}
-		jobs = append(jobs, job)
-	}
-	return jobs, rows.Err()
+	return p.scanJobRows(rows)
 }
 
 func (p *postgresJobStore) ListDeadLetter(ctx context.Context) ([]store.Job, error) {
@@ -760,17 +771,7 @@ func (p *postgresJobStore) ListDeadLetter(ctx context.Context) ([]store.Job, err
 		return nil, err
 	}
 	defer rows.Close()
-
-	var jobs []store.Job
-	for rows.Next() {
-		var job store.Job
-		err := rows.Scan(&job.ID, &job.OrgID, &job.Type, &job.Status, &job.InputRef, &job.OutputRef, &job.Error, &job.RetryCount, &job.MaxRetries, &job.LastRetryAt, &job.DeduplicationID, &job.Metadata, &job.ProgressStep, &job.ProgressPct, &job.CreatedAt, &job.UpdatedAt)
-		if err != nil {
-			return nil, err
-		}
-		jobs = append(jobs, job)
-	}
-	return jobs, rows.Err()
+	return p.scanJobRows(rows)
 }
 
 func (p *postgresJobStore) MoveToDeadLetter(ctx context.Context, jobID string) error {
@@ -790,38 +791,14 @@ func (p *postgresJobStore) RetryDeadLetterJob(ctx context.Context, jobID string)
 func (p *postgresJobStore) ListByInputRef(ctx context.Context, orgID, inputRef string, jobType store.JobType) ([]store.Job, error) {
 	ps := (*PostgresStore)(p)
 	query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, progress_step, progress_pct, created_at, updated_at
-		FROM jobs WHERE org_id = $1 AND input_ref = $2 AND type = $3 AND status = $4 ORDER BY updated_at DESC`
+		FROM jobs WHERE org_id = $1 AND input_ref = $2 AND type = $3 ORDER BY updated_at DESC`
 
-	rows, err := ps.db.QueryContext(ctx, query, orgID, inputRef, jobType, store.JobDone)
+	rows, err := ps.db.QueryContext(ctx, query, orgID, inputRef, jobType)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-
-	var jobs []store.Job
-	for rows.Next() {
-		var j store.Job
-		var lastRetryAt sql.NullTime
-		var metadata sql.NullString
-
-		err := rows.Scan(&j.ID, &j.OrgID, &j.Type, &j.Status, &j.InputRef, &j.OutputRef, &j.Error,
-			&j.RetryCount, &j.MaxRetries, &lastRetryAt, &j.DeduplicationID, &metadata, &j.ProgressStep, &j.ProgressPct, &j.CreatedAt, &j.UpdatedAt)
-		if err != nil {
-			return nil, err
-		}
-
-		if lastRetryAt.Valid {
-			j.LastRetryAt = &lastRetryAt.Time
-		}
-		if metadata.Valid && metadata.String != "" {
-			// Parse JSON metadata if present
-			// For now, skip metadata parsing to keep it simple
-		}
-
-		jobs = append(jobs, j)
-	}
-
-	return jobs, rows.Err()
+	return p.scanJobRows(rows)
 }
 
 type postgresMeteringStore PostgresStore
