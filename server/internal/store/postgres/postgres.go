@@ -38,25 +38,43 @@ func New(dsn string) (*PostgresStore, error) {
 		return nil, err
 	}
 
-	// Idempotent schema bridge: Manually ensure uniqueness.
-	// Since we removed the 'unique' tag from the Go model, GORM will stop trying 
-	// to manage (and failing on) this specific constraint.
-	ensureUniquenessSQL := `
+	// Idempotent manual schema management for tables that cause GORM to panic.
+	// We handle 'users' and 'user_orgs' manually to ensure constraints are correct 
+	// without triggering GORM's problematic 'DROP CONSTRAINT' logic.
+	manualSchemaSQL := `
+		-- Ensure users table is correct
+		CREATE TABLE IF NOT EXISTS users (
+			id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+			email TEXT NOT NULL,
+			name TEXT,
+			created_at TIMESTAMPTZ DEFAULT NOW(),
+			updated_at TIMESTAMPTZ DEFAULT NOW()
+		);
+		-- Idempotent unique constraint
 		DO $$ 
 		BEGIN 
-			IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE (constraint_name = 'users_email_key' OR constraint_name = 'uni_users_email') AND table_name = 'users') THEN
+			IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE (constraint_name = 'uni_users_email' OR constraint_name = 'users_email_key') AND table_name = 'users') THEN
 				ALTER TABLE users ADD CONSTRAINT uni_users_email UNIQUE (email);
 			END IF;
 		END $$;
-	`
-	_ = db.Exec(ensureUniquenessSQL)
 
-	// Auto-migrate all models to ensure schema is always in sync
-	log.Printf("🚀 GORM: Running auto-migration...")
+		-- Ensure user_orgs table is correct
+		CREATE TABLE IF NOT EXISTS user_orgs (
+			user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+			org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+			role TEXT NOT NULL,
+			created_at TIMESTAMPTZ DEFAULT NOW(),
+			PRIMARY KEY (user_id, org_id)
+		);
+	`
+	if err := db.Exec(manualSchemaSQL).Error; err != nil {
+		log.Printf("⚠️ MANUAL SCHEMA WARNING: %v", err)
+	}
+
+	// Auto-migrate remaining models
+	log.Printf("🚀 GORM: Running auto-migration for application tables...")
 	err = db.AutoMigrate(
 		&store.Organization{},
-		&store.User{},
-		&store.UserOrg{},
 		&store.Template{},
 		&store.TemplateVersion{},
 		&store.Deck{},
