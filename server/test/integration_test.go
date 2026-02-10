@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -12,11 +14,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/ziyad/cms-ai/server/internal/ai"
+	"github.com/ziyad/cms-ai/server/internal/api"
 	"github.com/ziyad/cms-ai/server/internal/assets"
+	"github.com/ziyad/cms-ai/server/internal/auth"
+	"github.com/ziyad/cms-ai/server/internal/spec"
 	"github.com/ziyad/cms-ai/server/internal/store"
 	"github.com/ziyad/cms-ai/server/internal/store/memory"
 	"github.com/ziyad/cms-ai/server/internal/worker"
-	"github.com/ziyad/cms-ai/server/internal/spec"
 )
 
 // TestCompleteAIPipeline tests the complete flow from AI generation to PPTX output
@@ -547,4 +551,53 @@ func TestCompleteAsyncExportWorkflow(t *testing.T) {
 		// In a real implementation, we might also validate the file structure
 		t.Log("Validation complete: All acceptance criteria met")
 	})
+}
+
+func TestExportVisibilityIntegration(t *testing.T) {
+	ctx := context.Background()
+	memStore := memory.New()
+
+	// Setup deck and version
+	orgID := "test-org"
+	deckID := "test-deck"
+	versionID := "test-version"
+
+	_, _ = memStore.Decks().CreateDeck(ctx, store.Deck{ID: deckID, OrgID: orgID})
+	_, _ = memStore.Decks().CreateDeckVersion(ctx, store.DeckVersion{ID: versionID, Deck: deckID, OrgID: orgID})
+
+	// Create a QUEUED job
+	job := store.Job{
+		ID:       "pending-job",
+		OrgID:    orgID,
+		Type:     store.JobExport,
+		Status:   store.JobQueued,
+		InputRef: versionID,
+	}
+	_, _ = memStore.Jobs().Enqueue(ctx, job)
+
+	// 1. Verify Store returns it
+	jobs, err := memStore.Jobs().ListByInputRef(ctx, orgID, versionID, store.JobExport)
+	require.NoError(t, err)
+	assert.Len(t, jobs, 1, "Store should return pending jobs")
+	assert.Equal(t, store.JobQueued, jobs[0].Status)
+
+	// 2. Verify API returns it (using real server)
+	os.Setenv("JWT_SECRET", "test-secret-key-at-least-32-chars-long-12345")
+	s := api.NewServer()
+	s.Store = memStore // Override with our mock store
+	h := s.Handler()
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/decks/"+deckID+"/exports", nil)
+	token, _ := auth.GenerateToken("user-1", orgID, auth.RoleEditor)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	var resp struct {
+		Exports []store.Job `json:"exports"`
+	}
+	_ = json.Unmarshal(w.Body.Bytes(), &resp)
+	assert.Len(t, resp.Exports, 1, "API should return pending jobs in export list")
 }

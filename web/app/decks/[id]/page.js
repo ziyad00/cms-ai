@@ -177,9 +177,11 @@ export default function DeckDetailPage() {
           type: 'export',
           outputRef: job.outputRef || job.assetId,
           timestamp: job.completedAt || job.createdAt,
+          progressPct: job.progressPct,
+          progressStep: job.progressStep,
           versionNo: job.metadata?.versionNo || null,
           filename: job.metadata?.filename || `export-${job.id.substring(0, 8)}.pptx`
-        })).filter(job => job.status === 'Done' && job.outputRef) || []
+        })) || []
 
         setExportJobs(jobs)
       }

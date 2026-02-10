@@ -30,8 +30,10 @@ export async function GET(request, { params }) {
       type: 'export',
       outputRef: job.outputRef || job.assetId,
       timestamp: job.completedAt || job.updatedAt || job.createdAt,
+      progressPct: job.progressPct,
+      progressStep: job.progressStep,
       filename: job.metadata?.filename || `export-${job.id.substring(0, 8)}.pptx`
-    })).filter(job => job.status === 'Done' && job.outputRef) || []
+    })) || []
 
     return NextResponse.json({ exports: transformedExports })
   } catch (error) {

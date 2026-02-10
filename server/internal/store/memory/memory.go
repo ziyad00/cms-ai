@@ -461,7 +461,7 @@ func (m *jobStore) ListByInputRef(_ context.Context, orgID, inputRef string, job
 
 	var result []store.Job
 	for _, job := range ms.jobs {
-		if job.OrgID == orgID && job.InputRef == inputRef && job.Type == jobType && job.Status == store.JobDone {
+		if job.OrgID == orgID && job.InputRef == inputRef && job.Type == jobType {
 			result = append(result, job)
 		}
 	}
