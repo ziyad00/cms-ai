@@ -13,6 +13,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
+	"gorm.io/gorm/schema"
 	"github.com/ziyad/cms-ai/server/internal/store"
 )
 
@@ -21,8 +22,13 @@ type PostgresStore struct {
 }
 
 func New(dsn string) (*PostgresStore, error) {
+	// Set up GORM with a logger and a custom naming strategy
+	// This ensures constraints match standard Postgres naming (e.g. users_email_key)
 	gormConfig := &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Error),
+		NamingStrategy: schema.NamingStrategy{
+			IdentifierMaxLength: 64,
+		},
 	}
 	if os.Getenv("DEV_MODE") == "true" {
 		gormConfig.Logger = logger.Default.LogMode(logger.Info)
@@ -31,18 +37,6 @@ func New(dsn string) (*PostgresStore, error) {
 	db, err := gorm.Open(postgres.Open(dsn), gormConfig)
 	if err != nil {
 		return nil, err
-	}
-
-	// Idempotent Migrator: Resolve persistent Railway-specific naming conflict.
-	// If GORM's expected constraint doesn't exist, we clear the legacy one 
-	// so AutoMigrate can establish a clean, ORM-managed state.
-	m := db.Migrator()
-	if !m.HasConstraint(&store.User{}, "uni_users_email") {
-		log.Printf("🔄 GORM: Constraint 'uni_users_email' not found. Checking for legacy 'users_email_key'...")
-		if m.HasConstraint(&store.User{}, "users_email_key") {
-			log.Printf("🔄 GORM: Dropping legacy constraint 'users_email_key' to allow clean migration...")
-			_ = m.DropConstraint(&store.User{}, "users_email_key")
-		}
 	}
 
 	// Auto-migrate all models to ensure schema is always in sync
