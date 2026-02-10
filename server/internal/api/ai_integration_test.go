@@ -127,21 +127,22 @@ func TestGenerateTemplateWithMockAI(t *testing.T) {
 
 	// Check response
 	resp := w.Result()
-	assert.Equal(t, http.StatusOK, resp.StatusCode)
+	assert.Equal(t, http.StatusAccepted, resp.StatusCode)
 
 	var response map[string]any
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	require.NoError(t, err)
 
-	// Should get a template with mock AI response
+	// Should get a template and a job ID for async generation
 	assert.Contains(t, response, "template")
-	assert.Contains(t, response, "version")
+	assert.Contains(t, response, "job")
 
 	template := response["template"].(map[string]any)
 	assert.Equal(t, "Mock AI Template", template["name"])
 
-	// Should have AI response data when AI service works
-	assert.Contains(t, response, "aiResponse")
+	job := response["job"].(map[string]any)
+	assert.NotEmpty(t, job["id"])
+	assert.Equal(t, "Queued", job["status"])
 }
 
 func TestGenerateTemplateValidation(t *testing.T) {
@@ -159,7 +160,7 @@ func TestGenerateTemplateValidation(t *testing.T) {
 				Name: "Test Template",
 			},
 			expectedStatus: http.StatusBadRequest,
-			expectedError:  "prompt is required",
+			expectedError:  "validation failed",
 		},
 		{
 			name: "empty prompt",
@@ -168,7 +169,7 @@ func TestGenerateTemplateValidation(t *testing.T) {
 				Name:   "Test Template",
 			},
 			expectedStatus: http.StatusBadRequest,
-			expectedError:  "prompt is required",
+			expectedError:  "validation failed",
 		},
 	}
 

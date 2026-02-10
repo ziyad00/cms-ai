@@ -6,12 +6,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
 	"github.com/ziyad/cms-ai/server/internal/ai"
 	"github.com/ziyad/cms-ai/server/internal/assets"
+	"github.com/ziyad/cms-ai/server/internal/logger"
 	"github.com/ziyad/cms-ai/server/internal/queue"
 	"github.com/ziyad/cms-ai/server/internal/spec"
 	"github.com/ziyad/cms-ai/server/internal/store"
@@ -67,13 +67,13 @@ func (w *Worker) processJobs() {
 	// Get all queued jobs and jobs ready for retry
 	queuedJobs, err := w.store.Jobs().ListQueued(ctx)
 	if err != nil {
-		log.Printf("Error listing queued jobs: %v", err)
+		logger.LogError(ctx, "worker", "list_queued_jobs", err)
 		return
 	}
 
 	retryJobs, err := w.store.Jobs().ListRetry(ctx)
 	if err != nil {
-		log.Printf("Error listing retry jobs: %v", err)
+		logger.LogError(ctx, "worker", "list_retry_jobs", err)
 		return
 	}
 
@@ -83,15 +83,15 @@ func (w *Worker) processJobs() {
 	allJobs := append(queuedJobs, readyRetryJobs...)
 
 	if len(allJobs) == 0 {
-		log.Println("Worker polling... no jobs to process")
+		logger.Jobs().Debug("worker_polling_no_jobs")
 		return
 	}
 
-	log.Printf("Worker processing %d jobs (%d queued, %d retry)", len(allJobs), len(queuedJobs), len(readyRetryJobs))
+	logger.Jobs().Info("worker_processing_jobs", "total", len(allJobs), "queued", len(queuedJobs), "retry", len(readyRetryJobs))
 
 	for _, job := range allJobs {
 		if err := w.processJob(ctx, job); err != nil {
-			log.Printf("Error processing job %s: %v", job.ID, err)
+			logger.LogError(ctx, "worker", "process_job", err, "job_id", job.ID)
 		}
 	}
 }
@@ -172,7 +172,7 @@ func (w *Worker) processJob(ctx context.Context, job store.Job) error {
 		return fmt.Errorf("failed to update job status to done: %w", err)
 	}
 
-	log.Printf("Successfully completed job %s, output: %s", job.ID, outputRef)
+	logger.Jobs().Info("job_completed_successfully", "job_id", job.ID, "output_ref", outputRef)
 	return nil
 }
 
@@ -432,7 +432,7 @@ func (w *Worker) handleJobFailure(ctx context.Context, job store.Job, processErr
 		job.MaxRetries = maxRetries
 	}
 
-	log.Printf("Job %s failed with %s error: %s", job.ID, errorType, errorMsg)
+	logger.Jobs().Warn("job_execution_failed", "job_id", job.ID, "error_type", errorType, "error", errorMsg, "retry_count", job.RetryCount, "max_retries", maxRetries)
 
 	if errorType == queue.ErrorTypePermanent || job.RetryCount >= maxRetries {
 		// Move to dead letter queue
@@ -441,7 +441,7 @@ func (w *Worker) handleJobFailure(ctx context.Context, job store.Job, processErr
 		if _, err := w.store.Jobs().Update(ctx, job); err != nil {
 			return fmt.Errorf("failed to update job status to dead letter: %w", err)
 		}
-		log.Printf("Moved job %s to dead letter queue after %d retries", job.ID, job.RetryCount)
+		logger.Jobs().Error("job_moved_to_dead_letter", "job_id", job.ID, "retries", job.RetryCount)
 		return fmt.Errorf("job moved to dead letter: %s", errorMsg)
 	}
 
@@ -457,7 +457,7 @@ func (w *Worker) handleJobFailure(ctx context.Context, job store.Job, processErr
 	}
 
 	nextRetryDelay := queue.CalculateNextRetryDelay(policy, job.RetryCount)
-	log.Printf("Scheduled job %s for retry %d/%d in %v", job.ID, job.RetryCount, maxRetries, nextRetryDelay)
+	logger.Jobs().Info("job_scheduled_for_retry", "job_id", job.ID, "retry_no", job.RetryCount, "max_retries", maxRetries, "delay_seconds", nextRetryDelay.Seconds())
 	return fmt.Errorf("job scheduled for retry: %s", errorMsg)
 }
 

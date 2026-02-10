@@ -1,13 +1,13 @@
 package api
 
 type AnalyzeTemplateRequest struct {
-	Prompt string `json:"prompt"`
+	Prompt string `json:"prompt" validate:"required,min=3"`
 }
 
 type RequiredField struct {
-	Key         string   `json:"key"`
-	Label       string   `json:"label"`
-	Type        string   `json:"type"` // text, number, currency, percentage, date, list
+	Key         string   `json:"key" validate:"required"`
+	Label       string   `json:"label" validate:"required"`
+	Type        string   `json:"type" validate:"required,oneof=text number currency percentage date list"`
 	Required    bool     `json:"required"`
 	Example     string   `json:"example"`
 	Options     []string `json:"options,omitempty"` // for select fields
@@ -23,7 +23,7 @@ type AnalyzeTemplateResponse struct {
 }
 
 type GenerateTemplateRequest struct {
-	Prompt      string                 `json:"prompt"`
+	Prompt      string                 `json:"prompt" validate:"required,min=10"`
 	Name        string                 `json:"name,omitempty"`
 	BrandKitID  string                 `json:"brandKitId,omitempty"`
 	RTL         bool                   `json:"rtl"`
@@ -33,22 +33,22 @@ type GenerateTemplateRequest struct {
 }
 
 type CreateTemplateRequest struct {
-	Name string `json:"name"`
+	Name string `json:"name" validate:"required,min=3"`
 }
 
 type SlideOutline struct {
-	SlideNumber int      `json:"slide_number"`
-	Title       string   `json:"title"`
+	SlideNumber int      `json:"slide_number" validate:"required"`
+	Title       string   `json:"title" validate:"required"`
 	Content     []string `json:"content"`
 }
 
 type DeckOutline struct {
-	Slides []SlideOutline `json:"slides"`
+	Slides []SlideOutline `json:"slides" validate:"required,dive"`
 }
 
 type CreateDeckOutlineRequest struct {
-	Prompt  string `json:"prompt"`
-	Content string `json:"content"`
+	Prompt  string `json:"prompt" validate:"required,min=5"`
+	Content string `json:"content" validate:"required,min=10"`
 }
 
 type CreateDeckOutlineResponse struct {
@@ -56,22 +56,22 @@ type CreateDeckOutlineResponse struct {
 }
 
 type CreateDeckRequest struct {
-	Name                  string `json:"name"`
-	SourceTemplateVersion string `json:"sourceTemplateVersionId"`
-	Content               string `json:"content"`
+	Name                  string `json:"name" validate:"required,min=3"`
+	SourceTemplateVersion string `json:"sourceTemplateVersionId" validate:"required"`
+	Content               string `json:"content" validate:"required,min=10"`
 	Outline               any    `json:"outline,omitempty"`
 }
 
 type CreateDeckVersionRequest struct {
-	Spec any `json:"spec"`
+	Spec any `json:"spec" validate:"required"`
 }
 
 type CreateVersionRequest struct {
-	Spec any `json:"spec"`
+	Spec any `json:"spec" validate:"required"`
 }
 
 type PatchVersionRequest struct {
-	Spec any `json:"spec"`
+	Spec any `json:"spec" validate:"required"`
 }
 
 type UsageResponse struct {

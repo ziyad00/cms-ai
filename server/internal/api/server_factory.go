@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 
+	lib_validator "github.com/go-playground/validator/v10"
 	"github.com/ziyad/cms-ai/server/internal/ai"
 	"github.com/ziyad/cms-ai/server/internal/assets"
 	"github.com/ziyad/cms-ai/server/internal/auth"
@@ -64,6 +65,7 @@ func NewServer() *Server {
 		Renderer:      renderer,
 		ObjectStorage: objectStorage,
 		AIService:     aiService,
+		validate:      lib_validator.New(),
 	}
 }
 

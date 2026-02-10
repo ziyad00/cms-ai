@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/go-playground/validator/v10"
 	"github.com/ziyad/cms-ai/server/internal/ai"
 	"github.com/ziyad/cms-ai/server/internal/assets"
 	"github.com/ziyad/cms-ai/server/internal/auth"
@@ -13,7 +14,8 @@ type Server struct {
 	Authenticator auth.Authenticator
 	Store         store.Store
 	Validator     spec.Validator
-	Renderer      assets.Renderer
 	ObjectStorage assets.ObjectStorage
 	AIService     ai.AIServiceInterface
+	Renderer      assets.Renderer
+	validate      *validator.Validate
 }

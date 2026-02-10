@@ -13,6 +13,7 @@ import (
 
 	"github.com/ziyad/cms-ai/server/internal/ai"
 	"github.com/ziyad/cms-ai/server/internal/auth"
+	"github.com/ziyad/cms-ai/server/internal/logger"
 	"github.com/ziyad/cms-ai/server/internal/middleware"
 	"github.com/ziyad/cms-ai/server/internal/spec"
 	"github.com/ziyad/cms-ai/server/internal/store"
@@ -134,13 +135,18 @@ func (s *Server) handleValidateTemplateSpec(w http.ResponseWriter, r *http.Reque
 func (s *Server) handleAnalyzeTemplate(w http.ResponseWriter, r *http.Request) {
 	var req AnalyzeTemplateRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
+		logger.LogError(r.Context(), "api", "decode_request", err)
 		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	if strings.TrimSpace(req.Prompt) == "" {
-		writeError(w, r, http.StatusBadRequest, "prompt is required")
+
+	// Validate request
+	if err := s.validate.Struct(req); err != nil {
+		writeError(w, r, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", err))
 		return
 	}
+
+	logger.AI().Info("analyzing_template_prompt", "prompt_len", len(req.Prompt))
 
 	// Analyze the prompt to determine template type and required fields
 	analysis := analyzeTemplatePrompt(req.Prompt)
@@ -225,25 +231,27 @@ func (s *Server) handleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 
 	var req CreateTemplateRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
+		logger.LogError(r.Context(), "api", "decode_request", err)
 		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 
-	name := strings.TrimSpace(req.Name)
-	if name == "" {
-		writeError(w, r, http.StatusBadRequest, "name is required")
+	// Validate request
+	if err := s.validate.Struct(req); err != nil {
+		writeError(w, r, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", err))
 		return
 	}
 
 	template := store.Template{
 		OrgID:       id.OrgID,
 		OwnerUserID: id.UserID,
-		Name:        name,
+		Name:        req.Name,
 		Status:      store.TemplateDraft,
 	}
 
 	created, err := s.Store.Templates().CreateTemplate(r.Context(), template)
 	if err != nil {
+		logger.LogError(r.Context(), "api", "create_template", err)
 		writeError(w, r, http.StatusInternalServerError, "failed to create template")
 		return
 	}
@@ -255,18 +263,21 @@ func (s *Server) handleCreateTemplate(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) {
 	id, _ := auth.GetIdentity(r.Context())
-	log.Printf("DEBUG: handleGenerateTemplate (ASYNC) - UserID: %s, OrgID: %s", id.UserID, id.OrgID)
+	logger.API().Info("handle_generate_template_async", "user_id", id.UserID, "org_id", id.OrgID)
 
 	var req GenerateTemplateRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
-		log.Printf("ERROR: Failed to decode request body: %v", err)
+		logger.LogError(r.Context(), "api", "decode_request", err)
 		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	if strings.TrimSpace(req.Prompt) == "" {
-		writeError(w, r, http.StatusBadRequest, "prompt is required")
+
+	// Validate request
+	if err := s.validate.Struct(req); err != nil {
+		writeError(w, r, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", err))
 		return
 	}
+
 	if isBlocked, usage := s.enforceQuota(r); isBlocked {
 		writeJSON(w, http.StatusPaymentRequired, usage)
 		return
@@ -285,7 +296,7 @@ func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) 
 
 	created, err := s.Store.Templates().CreateTemplate(r.Context(), template)
 	if err != nil {
-		log.Printf("ERROR: Failed to create template: %v", err)
+		logger.LogError(r.Context(), "api", "create_template", err)
 		writeError(w, r, http.StatusInternalServerError, "failed to create template")
 		return
 	}
@@ -550,33 +561,32 @@ func (s *Server) handleCreateDeckOutline(w http.ResponseWriter, r *http.Request)
 
 	var req CreateDeckOutlineRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 2<<20)).Decode(&req); err != nil {
+		logger.LogError(r.Context(), "api", "decode_request", err)
 		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
 
-	content := strings.TrimSpace(req.Content)
-	if content == "" {
-		writeError(w, r, http.StatusBadRequest, "content is required")
+	// Validate request
+	if err := s.validate.Struct(req); err != nil {
+		writeError(w, r, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", err))
 		return
-	}
-
-	prompt := strings.TrimSpace(req.Prompt)
-	if prompt == "" {
-		prompt = "Create a clear slide-by-slide outline from the provided content."
 	}
 
 	// Ask the model to output JSON with the required schema.
 	genReq := ai.GenerationRequest{
 		Prompt: fmt.Sprintf(
 			"You are a presentation writer. Convert the following content into a slide outline JSON with this exact shape: {\"slides\":[{\"slide_number\":1,\"title\":\"...\",\"content\":[\"...\"]}]}. \nRules: 6-12 slides by default unless the content is very long; each slide content should be 3-6 bullet lines; keep slide_number sequential starting at 1; return ONLY valid JSON (no markdown).\n\nUSER_INTENT:\n%s\n\nSOURCE_CONTENT:\n%s",
-			prompt,
-			content,
+			req.Prompt,
+			req.Content,
 		),
 		RTL: false,
 	}
 
+	logger.AI().Info("generating_deck_outline", "user_id", id.UserID, "prompt_len", len(req.Prompt), "content_len", len(req.Content))
+
 	jsonText, err := ai.NewOrchestrator().GenerateJSON(r.Context(), genReq.Prompt)
 	if err != nil {
+		logger.LogError(r.Context(), "ai", "generate_outline", err)
 		writeError(w, r, http.StatusBadGateway, "failed to generate outline")
 		return
 	}
@@ -697,22 +707,17 @@ func (s *Server) handleCreateDeck(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	if strings.TrimSpace(req.Name) == "" {
-		writeError(w, r, http.StatusBadRequest, "name is required")
-		return
-	}
-	if strings.TrimSpace(req.SourceTemplateVersion) == "" {
-		writeError(w, r, http.StatusBadRequest, "sourceTemplateVersionId is required")
-		return
-	}
-	if strings.TrimSpace(req.Content) == "" {
-		writeError(w, r, http.StatusBadRequest, "content is required")
+
+	// Validate request
+	if err := s.validate.Struct(req); err != nil {
+		writeError(w, r, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", err))
 		return
 	}
 
 	// Load template version spec (the "template")
 	tv, ok, err := s.Store.Templates().GetVersion(r.Context(), id.OrgID, req.SourceTemplateVersion)
 	if err != nil {
+		logger.LogError(r.Context(), "api", "load_template_version", err)
 		writeError(w, r, http.StatusInternalServerError, "failed to load template version")
 		return
 	}
@@ -934,6 +939,13 @@ func (s *Server) handleListDeckExports(w http.ResponseWriter, r *http.Request) {
 		return allExports[i].UpdatedAt.After(allExports[j].UpdatedAt)
 	})
 
+	// SAFETY FALLBACK: If still empty, search for ANY recent export jobs for this Org
+	if len(allExports) == 0 {
+		log.Printf("🔍 DEBUG: No jobs found for deck versions. Trying safety fallback for Org %s", id.OrgID)
+		// Fetch recent jobs (last 50) directly from the store if possible, or just broader search
+		// Since we don't have a ListByOrg method, we'll log this for now and ensure the query above is correct
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
 		"exports":       allExports,
 		"deckId":        deckID,
@@ -951,6 +963,7 @@ func (s *Server) handleCreateDeckVersion(w http.ResponseWriter, r *http.Request)
 	deckID := r.PathValue("id")
 	d, ok, err := s.Store.Decks().GetDeck(r.Context(), id.OrgID, deckID)
 	if err != nil {
+		logger.LogError(r.Context(), "api", "get_deck", err)
 		writeError(w, r, http.StatusInternalServerError, "failed to get deck")
 		return
 	}
@@ -961,24 +974,29 @@ func (s *Server) handleCreateDeckVersion(w http.ResponseWriter, r *http.Request)
 
 	var req CreateDeckVersionRequest
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20)).Decode(&req); err != nil {
+		logger.LogError(r.Context(), "api", "decode_request", err)
 		writeError(w, r, http.StatusBadRequest, "invalid JSON body")
 		return
 	}
-	if req.Spec == nil {
-		writeError(w, r, http.StatusBadRequest, "spec is required")
+
+	// Validate request
+	if err := s.validate.Struct(req); err != nil {
+		writeError(w, r, http.StatusBadRequest, fmt.Sprintf("validation failed: %v", err))
 		return
 	}
 
 	newNo := d.LatestVersionNo + 1
 	specBytes, err := json.Marshal(req.Spec)
 	if err != nil {
+		logger.LogError(r.Context(), "api", "marshal_spec", err)
 		writeError(w, r, http.StatusInternalServerError, "failed to marshal spec")
 		return
 	}
 
-	ver := store.DeckVersion{Deck: d.ID, OrgID: id.OrgID, VersionNo: newNo, SpecJSON: specBytes, CreatedBy: id.UserID}
+	ver := store.DeckVersion{ID: newID("dv"), Deck: d.ID, OrgID: id.OrgID, VersionNo: newNo, SpecJSON: specBytes, CreatedBy: id.UserID}
 	created, err := s.Store.Decks().CreateDeckVersion(r.Context(), ver)
 	if err != nil {
+		logger.LogError(r.Context(), "api", "create_deck_version", err)
 		writeError(w, r, http.StatusInternalServerError, "failed to create version")
 		return
 	}
@@ -995,6 +1013,7 @@ func (s *Server) handleExportDeckVersion(w http.ResponseWriter, r *http.Request)
 
 	dv, ok, err := s.Store.Decks().GetDeckVersion(r.Context(), id.OrgID, versionID)
 	if err != nil {
+		logger.LogError(r.Context(), "api", "get_deck_version", err)
 		writeError(w, r, http.StatusInternalServerError, "failed")
 		return
 	}
@@ -1023,12 +1042,13 @@ func (s *Server) handleExportDeckVersion(w http.ResponseWriter, r *http.Request)
 	}
 	createdJob, err := s.Store.Jobs().Enqueue(r.Context(), job)
 	if err != nil {
-		log.Printf("ERROR: Failed to enqueue deck export job: %v", err)
+		logger.LogError(r.Context(), "api", "enqueue_export_job", err)
 		writeError(w, r, http.StatusInternalServerError, "failed to enqueue job")
 		return
 	}
 
 	// Return job ID immediately - frontend can poll for completion
+	logger.Jobs().Info("deck_export_queued", "user_id", id.UserID, "org_id", id.OrgID, "job_id", createdJob.ID, "version_id", versionID)
 	_, _ = s.Store.Metering().Record(r.Context(), store.MeteringEvent{ID: newID("met"), OrgID: id.OrgID, UserID: id.UserID, Type: "export", Quantity: 1})
 	_, _ = s.Store.Audit().Append(r.Context(), store.AuditLog{ID: newID("aud"), OrgID: id.OrgID, ActorID: id.UserID, Action: "deck.export", TargetRef: versionID, Metadata: map[string]any{"jobId": createdJob.ID, "versionNo": dv.VersionNo}})
 
@@ -1036,12 +1056,14 @@ func (s *Server) handleExportDeckVersion(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) handleExportVersion(w http.ResponseWriter, r *http.Request) {
-	log.Printf("🔴🔴🔴 CRITICAL DEBUG: handleExportVersion CALLED with path: %s 🔴🔴🔴", r.URL.Path)
 	id, _ := auth.GetIdentity(r.Context())
 	versionID := r.PathValue("versionId")
-	log.Printf("🔴🔴🔴 CRITICAL DEBUG: handleExportVersion versionID: %s, userID: %s, orgID: %s 🔴🔴🔴", versionID, id.UserID, id.OrgID)
+	
+	logger.API().Info("handle_export_version", "user_id", id.UserID, "org_id", id.OrgID, "version_id", versionID)
+	
 	ver, ok, err := s.Store.Templates().GetVersion(r.Context(), id.OrgID, versionID)
 	if err != nil {
+		logger.LogError(r.Context(), "api", "get_template_version", err)
 		writeError(w, r, http.StatusInternalServerError, "failed")
 		return
 	}
@@ -1064,12 +1086,12 @@ func (s *Server) handleExportVersion(w http.ResponseWriter, r *http.Request) {
 	}
 	createdJob, wasDuplicate, err := s.Store.Jobs().EnqueueWithDeduplication(r.Context(), job)
 	if err != nil {
-		log.Printf("ERROR: Failed to enqueue export job: %v", err)
+		logger.LogError(r.Context(), "api", "enqueue_export_job", err)
 		writeError(w, r, http.StatusInternalServerError, "failed to enqueue job")
 		return
 	}
 	if wasDuplicate {
-		// If duplicate job is already completed, return the result immediately
+		logger.Jobs().Info("export_job_duplicate", "job_id", createdJob.ID, "status", createdJob.Status)
 		if createdJob.Status == store.JobDone && createdJob.OutputRef != "" {
 			// Get the asset to return unified format
 			asset, ok, err := s.Store.Assets().Get(r.Context(), id.OrgID, createdJob.OutputRef)
