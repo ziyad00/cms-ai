@@ -33,22 +33,20 @@ func New(dsn string) (*PostgresStore, error) {
 		return nil, err
 	}
 
-	// Idempotent schema bridge: Rename legacy constraint names to match GORM's default naming.
-	// This prevents GORM from trying to DROP/CREATE constraints it thinks are missing.
-	bridgeSQL := `
-		DO $$ 
-		BEGIN 
-			IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'users_email_key' AND table_name = 'users') THEN
-				ALTER TABLE users RENAME CONSTRAINT users_email_key TO uni_users_email;
-			END IF;
-		END $$;
-	`
-	if err := db.Exec(bridgeSQL).Error; err != nil {
-		log.Printf("⚠️ GORM BRIDGE WARNING: Could not align legacy constraints: %v", err)
+	// Idempotent Migrator: Resolve persistent Railway-specific naming conflict.
+	// If GORM's expected constraint doesn't exist, we clear the legacy one 
+	// so AutoMigrate can establish a clean, ORM-managed state.
+	m := db.Migrator()
+	if !m.HasConstraint(&store.User{}, "uni_users_email") {
+		log.Printf("🔄 GORM: Constraint 'uni_users_email' not found. Checking for legacy 'users_email_key'...")
+		if m.HasConstraint(&store.User{}, "users_email_key") {
+			log.Printf("🔄 GORM: Dropping legacy constraint 'users_email_key' to allow clean migration...")
+			_ = m.DropConstraint(&store.User{}, "users_email_key")
+		}
 	}
 
 	// Auto-migrate all models to ensure schema is always in sync
-	log.Printf("🚀 GORM: Running idempotent auto-migration for all tables...")
+	log.Printf("🚀 GORM: Running auto-migration for all tables...")
 	err = db.AutoMigrate(
 		&store.Organization{},
 		&store.User{},
