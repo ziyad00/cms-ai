@@ -582,8 +582,8 @@ type postgresJobStore PostgresStore
 func (p *postgresJobStore) Enqueue(ctx context.Context, j store.Job) (store.Job, error) {
 	ps := (*PostgresStore)(p)
 	// Let PostgreSQL generate the UUID automatically.
-	query := `INSERT INTO jobs (org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+	query := `INSERT INTO jobs (org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, progress_step, progress_pct, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		RETURNING id`
 
 	// jobs.id is UUID in Postgres. Ignore any caller-supplied ID.
@@ -602,7 +602,7 @@ func (p *postgresJobStore) Enqueue(ctx context.Context, j store.Job) (store.Job,
 	log.Printf("🔍 CRITICAL DEBUG: Before DB INSERT - OrgID: %s, Type: %s, Status: %s", j.OrgID, j.Type, j.Status)
 	log.Printf("🔍 CRITICAL DEBUG: About to execute query: %s", query)
 
-	err := ps.db.QueryRowContext(ctx, query, j.OrgID, j.Type, j.Status, j.InputRef, j.OutputRef, j.Error, j.RetryCount, j.MaxRetries, j.LastRetryAt, j.DeduplicationID, meta, j.CreatedAt, j.UpdatedAt).Scan(&j.ID)
+	err := ps.db.QueryRowContext(ctx, query, j.OrgID, j.Type, j.Status, j.InputRef, j.OutputRef, j.Error, j.RetryCount, j.MaxRetries, j.LastRetryAt, j.DeduplicationID, meta, j.ProgressStep, j.ProgressPct, j.CreatedAt, j.UpdatedAt).Scan(&j.ID)
 	if err != nil {
 		log.Printf("🚨 CRITICAL ERROR: DB INSERT failed - Error: %v", err)
 		return store.Job{}, err
@@ -623,13 +623,13 @@ func (p *postgresJobStore) EnqueueWithDeduplication(ctx context.Context, j store
 
 	if j.DeduplicationID != "" {
 		// First check for any existing job with this deduplication ID, regardless of status
-		query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, created_at, updated_at FROM jobs WHERE org_id = $1 AND deduplication_id = $2 ORDER BY created_at DESC LIMIT 1`
+		query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, progress_step, progress_pct, created_at, updated_at FROM jobs WHERE org_id = $1 AND deduplication_id = $2 ORDER BY created_at DESC LIMIT 1`
 		var existingJob store.Job
 		err := ps.db.QueryRowContext(ctx, query, j.OrgID, j.DeduplicationID).Scan(
 			&existingJob.ID, &existingJob.OrgID, &existingJob.Type, &existingJob.Status,
 			&existingJob.InputRef, &existingJob.OutputRef, &existingJob.Error,
 			&existingJob.RetryCount, &existingJob.MaxRetries, &existingJob.LastRetryAt,
-			&existingJob.DeduplicationID, &existingJob.Metadata, &existingJob.CreatedAt, &existingJob.UpdatedAt,
+			&existingJob.DeduplicationID, &existingJob.Metadata, &existingJob.ProgressStep, &existingJob.ProgressPct, &existingJob.CreatedAt, &existingJob.UpdatedAt,
 		)
 		if err == nil {
 			log.Printf("🔍 CRITICAL DEBUG: Found existing job - ID: %s, Status: %s", existingJob.ID, existingJob.Status)
@@ -665,9 +665,9 @@ func (p *postgresJobStore) EnqueueWithDeduplication(ctx context.Context, j store
 
 func (p *postgresJobStore) Get(ctx context.Context, orgID, jobID string) (store.Job, bool, error) {
 	ps := (*PostgresStore)(p)
-	query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, created_at, updated_at FROM jobs WHERE org_id = $1 AND id = $2`
+	query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, progress_step, progress_pct, created_at, updated_at FROM jobs WHERE org_id = $1 AND id = $2`
 	var j store.Job
-	err := ps.db.QueryRowContext(ctx, query, orgID, jobID).Scan(&j.ID, &j.OrgID, &j.Type, &j.Status, &j.InputRef, &j.OutputRef, &j.Error, &j.RetryCount, &j.MaxRetries, &j.LastRetryAt, &j.DeduplicationID, &j.Metadata, &j.CreatedAt, &j.UpdatedAt)
+	err := ps.db.QueryRowContext(ctx, query, orgID, jobID).Scan(&j.ID, &j.OrgID, &j.Type, &j.Status, &j.InputRef, &j.OutputRef, &j.Error, &j.RetryCount, &j.MaxRetries, &j.LastRetryAt, &j.DeduplicationID, &j.Metadata, &j.ProgressStep, &j.ProgressPct, &j.CreatedAt, &j.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return store.Job{}, false, nil
@@ -679,9 +679,9 @@ func (p *postgresJobStore) Get(ctx context.Context, orgID, jobID string) (store.
 
 func (p *postgresJobStore) GetByDeduplicationID(ctx context.Context, orgID, dedupID string) (store.Job, bool, error) {
 	ps := (*PostgresStore)(p)
-	query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, created_at, updated_at FROM jobs WHERE org_id = $1 AND deduplication_id = $2`
+	query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, progress_step, progress_pct, created_at, updated_at FROM jobs WHERE org_id = $1 AND deduplication_id = $2`
 	var j store.Job
-	err := ps.db.QueryRowContext(ctx, query, orgID, dedupID).Scan(&j.ID, &j.OrgID, &j.Type, &j.Status, &j.InputRef, &j.OutputRef, &j.Error, &j.RetryCount, &j.MaxRetries, &j.LastRetryAt, &j.DeduplicationID, &j.Metadata, &j.CreatedAt, &j.UpdatedAt)
+	err := ps.db.QueryRowContext(ctx, query, orgID, dedupID).Scan(&j.ID, &j.OrgID, &j.Type, &j.Status, &j.InputRef, &j.OutputRef, &j.Error, &j.RetryCount, &j.MaxRetries, &j.LastRetryAt, &j.DeduplicationID, &j.Metadata, &j.ProgressStep, &j.ProgressPct, &j.CreatedAt, &j.UpdatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return store.Job{}, false, nil
@@ -693,14 +693,13 @@ func (p *postgresJobStore) GetByDeduplicationID(ctx context.Context, orgID, dedu
 
 func (p *postgresJobStore) Update(ctx context.Context, j store.Job) (store.Job, error) {
 	ps := (*PostgresStore)(p)
-	query := `UPDATE jobs SET status = $1, output_ref = $2, error = $3, retry_count = $4, max_retries = $5, last_retry_at = $6, deduplication_id = $7, metadata = $8, updated_at = $9 WHERE id = $10 AND org_id = $11`
+	query := `UPDATE jobs SET status = $1, output_ref = $2, error = $3, retry_count = $4, max_retries = $5, last_retry_at = $6, deduplication_id = $7, metadata = $8, progress_step = $9, progress_pct = $10, updated_at = $11 WHERE id = $12 AND org_id = $13`
 	j.UpdatedAt = time.Now().UTC()
 	var meta any
 	if j.Metadata != nil {
 		meta = j.Metadata
 	}
-
-	res, err := ps.db.ExecContext(ctx, query, j.Status, j.OutputRef, j.Error, j.RetryCount, j.MaxRetries, j.LastRetryAt, j.DeduplicationID, meta, j.UpdatedAt, j.ID, j.OrgID)
+	res, err := ps.db.ExecContext(ctx, query, j.Status, j.OutputRef, j.Error, j.RetryCount, j.MaxRetries, j.LastRetryAt, j.DeduplicationID, meta, j.ProgressStep, j.ProgressPct, j.UpdatedAt, j.ID, j.OrgID)
 	if err != nil {
 		return store.Job{}, err
 	}
@@ -713,7 +712,7 @@ func (p *postgresJobStore) Update(ctx context.Context, j store.Job) (store.Job, 
 
 func (p *postgresJobStore) ListQueued(ctx context.Context) ([]store.Job, error) {
 	ps := (*PostgresStore)(p)
-	query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, created_at, updated_at FROM jobs WHERE status = $1 ORDER BY created_at ASC`
+	query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, progress_step, progress_pct, created_at, updated_at FROM jobs WHERE status = $1 ORDER BY created_at ASC`
 	rows, err := ps.db.QueryContext(ctx, query, store.JobQueued)
 	if err != nil {
 		return nil, err
@@ -723,7 +722,7 @@ func (p *postgresJobStore) ListQueued(ctx context.Context) ([]store.Job, error) 
 	var jobs []store.Job
 	for rows.Next() {
 		var job store.Job
-		err := rows.Scan(&job.ID, &job.OrgID, &job.Type, &job.Status, &job.InputRef, &job.OutputRef, &job.Error, &job.RetryCount, &job.MaxRetries, &job.LastRetryAt, &job.DeduplicationID, &job.Metadata, &job.CreatedAt, &job.UpdatedAt)
+		err := rows.Scan(&job.ID, &job.OrgID, &job.Type, &job.Status, &job.InputRef, &job.OutputRef, &job.Error, &job.RetryCount, &job.MaxRetries, &job.LastRetryAt, &job.DeduplicationID, &job.Metadata, &job.ProgressStep, &job.ProgressPct, &job.CreatedAt, &job.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -734,7 +733,7 @@ func (p *postgresJobStore) ListQueued(ctx context.Context) ([]store.Job, error) 
 
 func (p *postgresJobStore) ListRetry(ctx context.Context) ([]store.Job, error) {
 	ps := (*PostgresStore)(p)
-	query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, created_at, updated_at FROM jobs WHERE status = $1 ORDER BY last_retry_at ASC`
+	query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, progress_step, progress_pct, created_at, updated_at FROM jobs WHERE status = $1 ORDER BY last_retry_at ASC`
 	rows, err := ps.db.QueryContext(ctx, query, store.JobRetry)
 	if err != nil {
 		return nil, err
@@ -744,7 +743,7 @@ func (p *postgresJobStore) ListRetry(ctx context.Context) ([]store.Job, error) {
 	var jobs []store.Job
 	for rows.Next() {
 		var job store.Job
-		err := rows.Scan(&job.ID, &job.OrgID, &job.Type, &job.Status, &job.InputRef, &job.OutputRef, &job.Error, &job.RetryCount, &job.MaxRetries, &job.LastRetryAt, &job.DeduplicationID, &job.Metadata, &job.CreatedAt, &job.UpdatedAt)
+		err := rows.Scan(&job.ID, &job.OrgID, &job.Type, &job.Status, &job.InputRef, &job.OutputRef, &job.Error, &job.RetryCount, &job.MaxRetries, &job.LastRetryAt, &job.DeduplicationID, &job.Metadata, &job.ProgressStep, &job.ProgressPct, &job.CreatedAt, &job.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -755,7 +754,7 @@ func (p *postgresJobStore) ListRetry(ctx context.Context) ([]store.Job, error) {
 
 func (p *postgresJobStore) ListDeadLetter(ctx context.Context) ([]store.Job, error) {
 	ps := (*PostgresStore)(p)
-	query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, created_at, updated_at FROM jobs WHERE status = $1 ORDER BY updated_at DESC`
+	query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, progress_step, progress_pct, created_at, updated_at FROM jobs WHERE status = $1 ORDER BY updated_at DESC`
 	rows, err := ps.db.QueryContext(ctx, query, store.JobDeadLetter)
 	if err != nil {
 		return nil, err
@@ -765,7 +764,7 @@ func (p *postgresJobStore) ListDeadLetter(ctx context.Context) ([]store.Job, err
 	var jobs []store.Job
 	for rows.Next() {
 		var job store.Job
-		err := rows.Scan(&job.ID, &job.OrgID, &job.Type, &job.Status, &job.InputRef, &job.OutputRef, &job.Error, &job.RetryCount, &job.MaxRetries, &job.LastRetryAt, &job.DeduplicationID, &job.Metadata, &job.CreatedAt, &job.UpdatedAt)
+		err := rows.Scan(&job.ID, &job.OrgID, &job.Type, &job.Status, &job.InputRef, &job.OutputRef, &job.Error, &job.RetryCount, &job.MaxRetries, &job.LastRetryAt, &job.DeduplicationID, &job.Metadata, &job.ProgressStep, &job.ProgressPct, &job.CreatedAt, &job.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -790,7 +789,7 @@ func (p *postgresJobStore) RetryDeadLetterJob(ctx context.Context, jobID string)
 
 func (p *postgresJobStore) ListByInputRef(ctx context.Context, orgID, inputRef string, jobType store.JobType) ([]store.Job, error) {
 	ps := (*PostgresStore)(p)
-	query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, created_at, updated_at
+	query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, progress_step, progress_pct, created_at, updated_at
 		FROM jobs WHERE org_id = $1 AND input_ref = $2 AND type = $3 AND status = $4 ORDER BY updated_at DESC`
 
 	rows, err := ps.db.QueryContext(ctx, query, orgID, inputRef, jobType, store.JobDone)
@@ -806,7 +805,7 @@ func (p *postgresJobStore) ListByInputRef(ctx context.Context, orgID, inputRef s
 		var metadata sql.NullString
 
 		err := rows.Scan(&j.ID, &j.OrgID, &j.Type, &j.Status, &j.InputRef, &j.OutputRef, &j.Error,
-			&j.RetryCount, &j.MaxRetries, &lastRetryAt, &j.DeduplicationID, &metadata, &j.CreatedAt, &j.UpdatedAt)
+			&j.RetryCount, &j.MaxRetries, &lastRetryAt, &j.DeduplicationID, &metadata, &j.ProgressStep, &j.ProgressPct, &j.CreatedAt, &j.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}

@@ -113,6 +113,8 @@ type Job struct {
 	LastRetryAt     *time.Time        `json:"lastRetryAt,omitempty"`
 	DeduplicationID string            `json:"deduplicationId,omitempty"`
 	Metadata        *map[string]string `json:"metadata,omitempty"`
+	ProgressStep    string            `json:"progressStep,omitempty"`
+	ProgressPct     int               `json:"progressPct,omitempty"`
 	CreatedAt       time.Time         `json:"createdAt"`
 	UpdatedAt       time.Time         `json:"updatedAt"`
 }

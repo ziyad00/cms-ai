@@ -31,10 +31,16 @@ export function DownloadButtons({ job }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center space-x-2">
-        <JobStatusIndicator status={job.status} />
-        <span className="text-sm text-gray-600">
-          Ready to download
-        </span>
+        <JobStatusIndicator 
+          status={job.status} 
+          progressStep={job.progressStep}
+          progressPct={job.progressPct}
+        />
+        {job.status === 'Done' && (
+          <span className="text-sm text-gray-600">
+            Ready to download
+          </span>
+        )}
       </div>
       
       <div className="flex flex-wrap gap-3">

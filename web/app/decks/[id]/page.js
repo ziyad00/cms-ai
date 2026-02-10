@@ -26,12 +26,23 @@ export default function DeckDetailPage() {
   const [busy, setBusy] = useState(false)
   const [hasChanges, setHasChanges] = useState(false)
   const [exportJobs, setExportJobs] = useState([])
+  const [compareVersionId, setCompareVersionId] = useState(null)
 
   const activeVersion = useMemo(() => {
     return versions.find(v => v.id === activeVersionId) || null
   }, [versions, activeVersionId])
 
+  const compareVersion = useMemo(() => {
+    return versions.find(v => v.id === compareVersionId) || null
+  }, [versions, compareVersionId])
+
   const slides = useMemo(() => outline?.slides || [], [outline])
+
+  const compareOutline = useMemo(() => {
+    if (!compareVersion) return null
+    const normalized = normalizeSpec(compareVersion.spec)
+    return normalized?.outline || createOutlineFromLayouts(normalized?.layouts)
+  }, [compareVersion])
 
   useEffect(() => {
     load()
@@ -606,10 +617,29 @@ export default function DeckDetailPage() {
               </div>
 
               <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Outline</label>
-                <p className="text-sm text-gray-600 mb-3">
-                  Edit titles/bullets, reorder, or remove slides.
-                </p>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Outline</label>
+                    <p className="text-sm text-gray-600">
+                      Edit titles/bullets, reorder, or remove slides.
+                    </p>
+                  </div>
+                  {versions.length > 1 && (
+                    <div className="flex items-center space-x-2 bg-gray-50 p-2 rounded-lg border border-gray-200">
+                      <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Compare with:</span>
+                      <select
+                        value={compareVersionId || ''}
+                        onChange={(e) => setCompareVersionId(e.target.value || null)}
+                        className="text-xs border border-gray-300 rounded px-2 py-1 bg-white focus:ring-1 focus:ring-blue-500 outline-none"
+                      >
+                        <option value="">None</option>
+                        {versions.filter(v => v.id !== activeVersionId).map(v => (
+                          <option key={v.id} value={v.id}>v{v.versionNo}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
 
                 {slides.length > 0 ? (
                   <div className="space-y-4">
@@ -650,8 +680,23 @@ export default function DeckDetailPage() {
                           value={(s.content || []).join('\n')}
                           onChange={(e) => updateSlide(idx, { content: e.target.value.split('\n').filter(Boolean) })}
                           rows={4}
-                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
+                          className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none transition-shadow"
                         />
+
+                        {compareOutline && compareOutline.slides && compareOutline.slides[idx] && (
+                          <div className="mt-3 p-3 bg-amber-50 rounded border border-amber-100 text-sm">
+                            <div className="flex items-center text-amber-800 font-semibold text-xs mb-1 uppercase">
+                              <svg className="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              v{compareVersion.versionNo} Reference
+                            </div>
+                            <div className="text-amber-900 font-medium mb-1">{compareOutline.slides[idx].title}</div>
+                            <div className="text-amber-700 whitespace-pre-wrap leading-relaxed">
+                              {(compareOutline.slides[idx].content || []).join('\n')}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

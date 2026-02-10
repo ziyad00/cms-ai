@@ -186,6 +186,8 @@ func (w *Worker) processGenerateJob(ctx context.Context, job store.Job) (string,
 	brandKitID := m["brandKitId"]
 	userID := m["userId"]
 
+	w.updateProgress(ctx, &job, "Analyzing prompt with AI", 20)
+
 	aiReq := ai.GenerationRequest{
 		Prompt:   prompt,
 		Language: language,
@@ -197,6 +199,8 @@ func (w *Worker) processGenerateJob(ctx context.Context, job store.Job) (string,
 	if err != nil {
 		return "", fmt.Errorf("AI template generation failed: %w", err)
 	}
+
+	w.updateProgress(ctx, &job, "Finalizing design tokens", 70)
 
 	specJSON, err := json.Marshal(templateSpec)
 	if err != nil {
@@ -237,6 +241,8 @@ func (w *Worker) processBindJob(ctx context.Context, job store.Job) (string, err
 	userID := m["userId"]
 	deckID := job.InputRef
 
+	w.updateProgress(ctx, &job, "Summarizing content with AI", 20)
+
 	// Load template version
 	tv, ok, err := w.store.Templates().GetVersion(ctx, job.OrgID, templateVersionID)
 	if err != nil || !ok {
@@ -253,6 +259,8 @@ func (w *Worker) processBindJob(ctx context.Context, job store.Job) (string, err
 	if err != nil {
 		return "", fmt.Errorf("AI binding failed: %w", err)
 	}
+
+	w.updateProgress(ctx, &job, "Assembling slides", 70)
 
 	boundBytes, err := json.Marshal(boundSpec)
 	if err != nil {
@@ -283,12 +291,22 @@ func (w *Worker) processBindJob(ctx context.Context, job store.Job) (string, err
 	return createdVer.ID, nil
 }
 
+func (w *Worker) updateProgress(ctx context.Context, job *store.Job, step string, pct int) {
+	job.ProgressStep = step
+	job.ProgressPct = pct
+	_, _ = w.store.Jobs().Update(ctx, *job)
+}
+
 func (w *Worker) processRenderJob(ctx context.Context, job store.Job, templateVersion store.TemplateVersion) (string, error) {
+	w.updateProgress(ctx, &job, "Generating PowerPoint slides", 20)
+
 	// Render PPTX
 	data, err := w.renderer.RenderPPTXBytes(ctx, templateVersion.SpecJSON)
 	if err != nil {
 		return "", fmt.Errorf("failed to render PPTX: %w", err)
 	}
+
+	w.updateProgress(ctx, &job, "Applying Olama AI themes", 60)
 
 	// Generate proper UUID asset ID (without .pptx extension for the ID)
 	assetID := newID("asset")
@@ -299,6 +317,8 @@ func (w *Worker) processRenderJob(ctx context.Context, job store.Job, templateVe
 	if err != nil {
 		return "", fmt.Errorf("failed to store asset data: %w", err)
 	}
+
+	w.updateProgress(ctx, &job, "Saving to cloud storage", 90)
 
 	// Create asset record with storage path
 	asset := store.Asset{
@@ -316,11 +336,15 @@ func (w *Worker) processRenderJob(ctx context.Context, job store.Job, templateVe
 }
 
 func (w *Worker) processDeckRenderJob(ctx context.Context, job store.Job, deckVersion store.DeckVersion) (string, error) {
+	w.updateProgress(ctx, &job, "Generating deck visuals", 20)
+
 	// Render PPTX for deck version
 	data, err := w.renderer.RenderPPTXBytes(ctx, deckVersion.SpecJSON)
 	if err != nil {
 		return "", fmt.Errorf("failed to render deck PPTX: %w", err)
 	}
+
+	w.updateProgress(ctx, &job, "Enhancing with AI themes", 60)
 
 	// Generate proper UUID asset ID (without .pptx extension for the ID)
 	assetID := newID("asset")
@@ -331,6 +355,8 @@ func (w *Worker) processDeckRenderJob(ctx context.Context, job store.Job, deckVe
 	if err != nil {
 		return "", fmt.Errorf("failed to store deck asset data: %w", err)
 	}
+
+	w.updateProgress(ctx, &job, "Finalizing export", 90)
 
 	// Create asset record with storage path
 	asset := store.Asset{
