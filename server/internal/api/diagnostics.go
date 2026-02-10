@@ -21,9 +21,9 @@ func (s *Server) handleDatabaseDiagnostics(w http.ResponseWriter, r *http.Reques
 	}
 
 	// Access the underlying database connection
-	db := pgStore.DB() // We'll need to add this method
+	db, err := pgStore.DB()
 
-	if db == nil {
+	if err != nil || db == nil {
 		writeError(w, r, http.StatusInternalServerError, "database connection not available")
 		return
 	}
@@ -34,7 +34,7 @@ func (s *Server) handleDatabaseDiagnostics(w http.ResponseWriter, r *http.Reques
 	logger.API().Info("running_database_diagnostics")
 
 	// Run full diagnostics
-	err := diag.RunFullDiagnostics(ctx)
+	err = diag.RunFullDiagnostics(ctx)
 	if err != nil {
 		logger.LogError(ctx, "diagnostics", "run_full_diagnostics", err)
 		writeError(w, r, http.StatusInternalServerError, "diagnostics failed")
@@ -87,8 +87,8 @@ func (s *Server) handleDatabaseQuery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	db := pgStore.DB()
-	if db == nil {
+	db, err := pgStore.DB()
+	if err != nil || db == nil {
 		writeError(w, r, http.StatusInternalServerError, "database connection not available")
 		return
 	}
@@ -98,7 +98,6 @@ func (s *Server) handleDatabaseQuery(w http.ResponseWriter, r *http.Request) {
 
 	// Execute query based on predefined safe queries
 	var result interface{}
-	var err error
 
 	switch query {
 	case "template_stats":

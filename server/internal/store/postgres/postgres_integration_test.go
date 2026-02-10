@@ -22,7 +22,7 @@ func TestPostgresJobStore_MetadataSerialization(t *testing.T) {
 	defer s.Close()
 
 	// Clear jobs for test
-	_, err = s.db.Exec("DELETE FROM jobs")
+	err = s.db.Exec("DELETE FROM jobs").Error
 	require.NoError(t, err)
 
 	jobStore := s.Jobs()

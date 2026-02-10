@@ -5,7 +5,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/ziyad/cms-ai/server/internal/store"
 )
@@ -48,7 +47,8 @@ func TestPostgresJobStore_SchemaAlignment(t *testing.T) {
 		for _, js := range jobStatuses {
 			t.Run(string(jt)+"-"+string(js), func(t *testing.T) {
 				job := store.Job{
-					OrgID:    "00000000-0000-0000-0000-000000000000", // Use valid UUID string
+					ID:       newID("test"),
+					OrgID:    "00000000-0000-0000-0000-000000000000",
 					Type:     jt,
 					Status:   js,
 					InputRef: "test-ref",
@@ -56,10 +56,10 @@ func TestPostgresJobStore_SchemaAlignment(t *testing.T) {
 				
 				created, err := jobStore.Enqueue(ctx, job)
 				if err != nil {
-					t.Errorf("DB rejected JobType '%s' or JobStatus '%s': %v. Ensure migrations 006 is applied.", jt, js, err)
+					t.Errorf("DB rejected JobType '%s' or JobStatus '%s': %v.", jt, js, err)
 				} else {
 					// Clean up
-					_, _ = s.db.Exec("DELETE FROM jobs WHERE id = $1", created.ID)
+					_ = s.db.Delete(&store.Job{}, "id = ?", created.ID).Error
 				}
 			})
 		}
