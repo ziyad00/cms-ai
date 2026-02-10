@@ -776,12 +776,24 @@ func (p *postgresJobStore) ListByInputRef(ctx context.Context, orgID, inputRef s
 	query := `SELECT id, org_id, type, status, input_ref, output_ref, error, retry_count, max_retries, last_retry_at, deduplication_id, metadata, progress_step, progress_pct, created_at, updated_at
 		FROM jobs WHERE org_id = $1 AND input_ref = $2 AND type = $3 ORDER BY updated_at DESC`
 
+	log.Printf("🔍 DB DEBUG: ListByInputRef - OrgID: '%s', InputRef: '%s', Type: '%s'", orgID, inputRef, jobType)
+
 	rows, err := ps.db.QueryContext(ctx, query, orgID, inputRef, jobType)
 	if err != nil {
+		log.Printf("🚨 DB ERROR: ListByInputRef query failed: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
-	return p.scanJobRows(rows)
+	
+	jobs, err := p.scanJobRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	
+	if len(jobs) > 0 {
+		log.Printf("🔍 DB DEBUG: ListByInputRef - Found %d jobs", len(jobs))
+	}
+	return jobs, nil
 }
 
 type postgresMeteringStore PostgresStore

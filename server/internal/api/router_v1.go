@@ -900,12 +900,17 @@ func (s *Server) handleListDeckExports(w http.ResponseWriter, r *http.Request) {
 	id, _ := auth.GetIdentity(r.Context())
 	deckID := r.PathValue("id")
 
+	log.Printf("🔍 DEBUG: handleListDeckExports - OrgID: '%s', DeckID: '%s'", id.OrgID, deckID)
+
 	// Get all deck versions for this deck
 	versions, err := s.Store.Decks().ListDeckVersions(r.Context(), id.OrgID, deckID)
 	if err != nil {
+		log.Printf("🚨 ERROR: Failed to list deck versions: %v", err)
 		writeError(w, r, http.StatusInternalServerError, "failed to list deck versions")
 		return
 	}
+
+	log.Printf("🔍 DEBUG: handleListDeckExports - Found %d versions for deck %s", len(versions), deckID)
 
 	// Collect all export jobs for all versions
 	var allExports []store.Job
@@ -913,11 +918,16 @@ func (s *Server) handleListDeckExports(w http.ResponseWriter, r *http.Request) {
 		jobs, err := s.Store.Jobs().ListByInputRef(r.Context(), id.OrgID, version.ID, store.JobExport)
 		if err != nil {
 			// Log error but don't fail the whole request
-			log.Printf("Failed to get export jobs for version %s: %v", version.ID, err)
+			log.Printf("🚨 ERROR: Failed to get export jobs for version %s: %v", version.ID, err)
 			continue
+		}
+		if len(jobs) > 0 {
+			log.Printf("🔍 DEBUG: handleListDeckExports - Found %d jobs for version %s", len(jobs), version.ID)
 		}
 		allExports = append(allExports, jobs...)
 	}
+
+	log.Printf("🔍 DEBUG: handleListDeckExports - Total exports collected: %d", len(allExports))
 
 	// Sort all exports by update time (most recent first)
 	sort.Slice(allExports, func(i, j int) bool {
