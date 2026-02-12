@@ -16,7 +16,14 @@ func (j JSONMap) Value() (driver.Value, error) {
 	if j == nil {
 		return nil, nil
 	}
-	return json.Marshal(j)
+	b, err := json.Marshal(j)
+	if err != nil {
+		return nil, err
+	}
+	// Return string, NOT []byte. pgx sends []byte as PostgreSQL "bytea"
+	// which causes: ERROR: invalid input syntax for type json (SQLSTATE 22P02).
+	// string is sent as text, which PostgreSQL accepts for jsonb columns.
+	return string(b), nil
 }
 
 func (j *JSONMap) Scan(value interface{}) error {

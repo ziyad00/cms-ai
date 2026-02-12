@@ -8,18 +8,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestJSONMap_Value_returns_string_for_pgx_jsonb(t *testing.T) {
+	// CRITICAL: pgx sends []byte as PostgreSQL "bytea", NOT as "json/jsonb".
+	// This causes: ERROR: invalid input syntax for type json (SQLSTATE 22P02)
+	// Value() MUST return string so pgx sends it as text, which PG accepts for jsonb.
+	m := JSONMap{"filename": "export.pptx", "versionNo": "1"}
+
+	val, err := m.Value()
+	require.NoError(t, err)
+
+	_, ok := val.(string)
+	require.True(t, ok, "Value() must return string for pgx jsonb compat, got %T", val)
+}
+
 func TestJSONMap_Value_roundtrip(t *testing.T) {
 	m := JSONMap{"filename": "export.pptx", "versionNo": "1"}
 
 	val, err := m.Value()
 	require.NoError(t, err)
 
-	// Value() must return []byte (JSON), which is what pgx sends to Postgres
-	b, ok := val.([]byte)
-	require.True(t, ok, "Value() should return []byte, got %T", val)
-
+	// Scan must accept both string and []byte (PG returns []byte on read)
 	var scanned JSONMap
-	err = scanned.Scan(b)
+	err = scanned.Scan([]byte(val.(string)))
 	require.NoError(t, err)
 	assert.Equal(t, "export.pptx", scanned["filename"])
 	assert.Equal(t, "1", scanned["versionNo"])
@@ -56,9 +66,9 @@ func TestJSONMap_Value_empty_map(t *testing.T) {
 	val, err := m.Value()
 	require.NoError(t, err)
 
-	b, ok := val.([]byte)
-	require.True(t, ok)
-	assert.Equal(t, "{}", string(b), "empty map should serialize to {}")
+	s, ok := val.(string)
+	require.True(t, ok, "Value() must return string, got %T", val)
+	assert.Equal(t, "{}", s, "empty map should serialize to {}")
 }
 
 func TestJSONMap_Scan_empty_json_object(t *testing.T) {
@@ -81,7 +91,7 @@ func TestJSONMap_Value_special_characters(t *testing.T) {
 	require.NoError(t, err)
 
 	var scanned JSONMap
-	err = scanned.Scan(val.([]byte))
+	err = scanned.Scan([]byte(val.(string)))
 	require.NoError(t, err)
 	assert.Equal(t, m["html"], scanned["html"])
 	assert.Equal(t, m["unicode"], scanned["unicode"])
@@ -160,11 +170,11 @@ func TestJob_metadata_all_production_patterns(t *testing.T) {
 			require.NoError(t, err, "Value() should not error")
 			require.NotNil(t, val, "Value() should not be nil")
 
-			b, ok := val.([]byte)
-			require.True(t, ok, "must produce []byte for pgx, got %T", val)
+			s, ok := val.(string)
+			require.True(t, ok, "must produce string for pgx jsonb, got %T", val)
 
 			var scanned JSONMap
-			err = scanned.Scan(b)
+			err = scanned.Scan([]byte(s))
 			require.NoError(t, err, "Scan() should not error")
 
 			for k, v := range tc.metadata {
@@ -176,7 +186,7 @@ func TestJob_metadata_all_production_patterns(t *testing.T) {
 
 func TestJob_metadata_pointer_serialization(t *testing.T) {
 	// This is the exact pattern used in production code (router_v1.go).
-	// It must produce valid JSON bytes, not fail with pgx OID 0 error.
+	// Value() must return string (not []byte) so pgx sends it as text for jsonb.
 	metadata := JSONMap{
 		"versionNo": "1",
 		"filename":  "deck-export-v1.pptx",
@@ -193,7 +203,7 @@ func TestJob_metadata_pointer_serialization(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, val)
 
-	b, ok := val.([]byte)
-	require.True(t, ok, "must produce []byte for pgx, got %T", val)
-	assert.Contains(t, string(b), "deck-export-v1.pptx")
+	s, ok := val.(string)
+	require.True(t, ok, "must produce string for pgx jsonb, got %T", val)
+	assert.Contains(t, s, "deck-export-v1.pptx")
 }
