@@ -38,16 +38,28 @@ func New(dsn string) (*PostgresStore, error) {
 		return nil, err
 	}
 
-	// Idempotent constraint cleanup: Remove problematic legacy names.
-	// This ensures AutoMigrate can create our new 'idx_user_email' without conflicts.
-	cleanupSQL := `
-		ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;
-		ALTER TABLE users DROP CONSTRAINT IF EXISTS uni_users_email;
+	// ULTIMATE PRO-LEVEL BRIDGE: 
+	// GORM is panicking because it tries to DROP 'uni_users_email'.
+	// We MUST ensure the database has exactly what GORM wants before we call AutoMigrate.
+	// This script forces the constraint to exist with GORM's expected name.
+	bridgeSQL := `
+		DO $$ 
+		BEGIN 
+			-- 1. If legacy name exists, rename it so GORM is satisfied
+			IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'users_email_key' AND table_name = 'users') THEN
+				ALTER TABLE users RENAME CONSTRAINT users_email_key TO uni_users_email;
+			END IF;
+			
+			-- 2. If STILL nothing exists with the GORM name, create it
+			IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'uni_users_email' AND table_name = 'users') THEN
+				ALTER TABLE users ADD CONSTRAINT uni_users_email UNIQUE (email);
+			END IF;
+		END $$;
 	`
-	_ = db.Exec(cleanupSQL)
+	_ = db.Exec(bridgeSQL)
 
 	// Auto-migrate all models to ensure schema is always in sync
-	log.Printf("🚀 GORM: Running auto-migration for all tables...")
+	log.Printf("🚀 GORM: Running auto-migration...")
 	err = db.AutoMigrate(
 		&store.Organization{},
 		&store.User{},
