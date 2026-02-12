@@ -47,3 +47,16 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.pptx
+
+# Binaries
+server/server
+server/bin/
+
+# Secrets & tokens
+scripts/.railway_token
+generate_token.go
+
+# Test artifacts
+scripts/test_results_*.json
+test_report_*.txt
+test_*.txt

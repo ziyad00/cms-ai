@@ -42,7 +42,7 @@ func New(dsn string) (*PostgresStore, error) {
 	}
 
 	// Auto-migrate all models EXCEPT User/UserOrg (managed manually below)
-	log.Printf("🚀 GORM: Running auto-migration (Skipping User/UserOrg)...")
+	log.Println("Running GORM auto-migration (skipping User/UserOrg)...")
 	err = db.AutoMigrate(
 		&store.Organization{},
 		&store.Template{},
@@ -59,10 +59,9 @@ func New(dsn string) (*PostgresStore, error) {
 		return nil, fmt.Errorf("failed to auto-migrate: %w", err)
 	}
 
-	// Manual Schema Management for User/UserOrg
-	// Runs AFTER AutoMigrate so the organizations table exists for foreign keys.
-	// We handle these tables manually to prevent GORM from panicking over constraint names.
-	log.Printf("🛠️ MANUAL SCHEMA: Verifying User and UserOrg tables...")
+	// Manual schema for User/UserOrg (after AutoMigrate so organizations FK exists).
+	// Managed manually to avoid GORM constraint name conflicts.
+	log.Println("Creating User/UserOrg tables (manual SQL)...")
 	manualSchemaSQL := `
 		CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -85,7 +84,7 @@ func New(dsn string) (*PostgresStore, error) {
 		);
 	`
 	if err := db.Exec(manualSchemaSQL).Error; err != nil {
-		log.Printf("⚠️ MANUAL SCHEMA WARNING (non-fatal): %v", err)
+		log.Printf("Manual schema warning (non-fatal): %v", err)
 	}
 
 	return &PostgresStore{db: db}, nil

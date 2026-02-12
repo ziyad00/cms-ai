@@ -2,7 +2,7 @@ package api
 
 import (
 	"context"
-	"fmt"
+	"log"
 	"os"
 
 	lib_validator "github.com/go-playground/validator/v10"
@@ -17,45 +17,38 @@ import (
 )
 
 func NewServer() *Server {
-	fmt.Println("🚀 STARTING SERVER INITIALIZATION...")
+	log.Println("Starting server initialization...")
 	config := LoadConfig()
 	authenticator := auth.JWTAuthenticator{}
 	validator := spec.DefaultValidator{}
 
-	// Create object storage
-	fmt.Println("📦 INITIALIZING OBJECT STORAGE...")
+	// Create object storage (fall back to local if cloud fails)
 	factory := assets.NewStorageFactory()
 	objectStorage, err := factory.CreateStorage(context.Background())
 	if err != nil {
-		fmt.Printf("❌ OBJECT STORAGE FAILED: %v\n", err)
-		panic("failed to create object storage: " + err.Error())
+		log.Printf("Object storage init failed (%v), using local storage", err)
+		objectStorage, _ = assets.NewLocalStorage(assets.StorageConfig{Type: "local", BasePath: "/tmp/cms-ai-assets"})
 	}
 
 	var st store.Store
 	dsn := os.Getenv("DATABASE_URL")
-	fmt.Printf("🗄️ DATABASE_URL LENGTH: %d\n", len(dsn))
-	
+
 	if dsn != "" {
-		fmt.Println("🔌 CONNECTING TO POSTGRES...")
 		pg, err := postgres.New(dsn)
 		if err != nil {
-			fmt.Printf("❌ POSTGRES CONNECTION FAILED: %v\n", err)
-			fmt.Println("⚠️ FALLING BACK TO IN-MEMORY STORAGE TO PREVENT PANIC")
+			log.Printf("Postgres connection failed: %v. Falling back to in-memory store.", err)
 			st = memory.New()
 		} else {
 			st = pg
-			fmt.Println("✅ POSTGRES CONNECTED SUCCESS")
+			log.Println("Connected to PostgreSQL")
 		}
 	} else {
-		fmt.Println("⚠️ USING IN-MEMORY STORAGE (NO DATABASE_URL)")
+		log.Println("No DATABASE_URL set, using in-memory store")
 		st = memory.New()
 	}
 
-	// Create AI service
-	fmt.Println("🤖 INITIALIZING AI SERVICE...")
 	aiService := ai.NewAIService(st)
 
-	fmt.Println("🎨 INITIALIZING RENDERER...")
 	var renderer assets.Renderer
 	if os.Getenv("HUGGINGFACE_API_KEY") != "" {
 		renderer = assets.NewAIEnhancedRenderer(st)
@@ -63,7 +56,7 @@ func NewServer() *Server {
 		renderer = assets.NewPythonPPTXRenderer("")
 	}
 
-	fmt.Println("✅ SERVER INITIALIZATION COMPLETE")
+	log.Println("Server initialization complete")
 	return &Server{
 		Config:        config,
 		Authenticator: authenticator,

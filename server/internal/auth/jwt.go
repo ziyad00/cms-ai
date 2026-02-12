@@ -35,42 +35,29 @@ type Claims struct {
 // Authenticate validates JWT token from Authorization header
 func (JWTAuthenticator) Authenticate(r *http.Request) (Identity, error) {
 	authHeader := r.Header.Get("Authorization")
-	log.Printf("[DEBUG] JWT Auth - Authorization header: %s", authHeader)
 	if authHeader == "" {
-		log.Printf("[DEBUG] JWT Auth - No authorization header")
 		return Identity{}, ErrUnauthenticated
 	}
 
 	// Extract token from "Bearer <token>"
 	if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
-		log.Printf("[DEBUG] JWT Auth - Invalid authorization header format: %s", authHeader)
 		return Identity{}, ErrUnauthenticated
 	}
 	tokenString := authHeader[7:]
-	tokenPreview := tokenString
-	if len(tokenString) > 20 {
-		tokenPreview = tokenString[:20] + "..."
-	}
-	log.Printf("[DEBUG] JWT Auth - Extracted token: %s", tokenPreview)
 
 	// Parse and validate token
 	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
-		// Validate signing method
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			log.Printf("[DEBUG] JWT Auth - Invalid signing method: %v", token.Method)
 			return nil, errors.New("invalid signing method")
 		}
-		log.Printf("[DEBUG] JWT Auth - Using HMAC signing method, secret length: %d", len(jwtSecret))
 		return jwtSecret, nil
 	})
 
 	if err != nil {
-		log.Printf("[DEBUG] JWT Auth - Token parsing failed: %v", err)
 		return Identity{}, ErrUnauthenticated
 	}
 
 	if claims, ok := token.Claims.(*Claims); ok && token.Valid {
-		log.Printf("[DEBUG] JWT Auth - Valid token for user: %s, org: %s", claims.UserID, claims.OrgID)
 		return Identity{
 			UserID: claims.UserID,
 			OrgID:  claims.OrgID,
@@ -78,7 +65,6 @@ func (JWTAuthenticator) Authenticate(r *http.Request) (Identity, error) {
 		}, nil
 	}
 
-	log.Printf("[DEBUG] JWT Auth - Token claims invalid or token not valid")
 	return Identity{}, ErrUnauthenticated
 }
 

@@ -36,16 +36,24 @@ export function ThumbnailGallery({ job }) {
                 alt={thumbnail.title}
                 className="w-full h-full object-cover"
                 onError={(e) => {
-                  // Fallback if image doesn't exist
+                  // Fallback if image doesn't exist - use safe DOM manipulation (no innerHTML/XSS)
                   e.target.style.display = 'none'
-                  e.target.parentElement.innerHTML = `
-                    <div class="flex items-center justify-center h-full bg-gray-200 text-gray-500">
-                      <div class="text-center">
-                        <div class="text-2xl mb-1">📄</div>
-                        <div class="text-xs">${thumbnail.title}</div>
-                      </div>
-                    </div>
-                  `
+                  const parent = e.target.parentElement
+                  while (parent.firstChild) parent.removeChild(parent.firstChild)
+                  const wrapper = document.createElement('div')
+                  wrapper.className = 'flex items-center justify-center h-full bg-gray-200 text-gray-500'
+                  const inner = document.createElement('div')
+                  inner.className = 'text-center'
+                  const icon = document.createElement('div')
+                  icon.className = 'text-2xl mb-1'
+                  icon.textContent = '\u{1F4C4}'
+                  const label = document.createElement('div')
+                  label.className = 'text-xs'
+                  label.textContent = thumbnail.title
+                  inner.appendChild(icon)
+                  inner.appendChild(label)
+                  wrapper.appendChild(inner)
+                  parent.appendChild(wrapper)
                 }}
               />
               
