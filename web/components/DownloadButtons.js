@@ -1,10 +1,7 @@
 import { JobStatusIndicator } from './JobStatusIndicator.js'
-import { ThumbnailGallery } from './ThumbnailGallery.js'
 
 export function DownloadButtons({ job }) {
-  if (!job || job.status !== 'Done') {
-    return null
-  }
+  if (!job) return null
 
   const handleDownload = (url, filename) => {
     const link = document.createElement('a')
@@ -15,66 +12,59 @@ export function DownloadButtons({ job }) {
     document.body.removeChild(link)
   }
 
-  // Extract asset ID from outputRef
-  // outputRef is typically a UUID asset ID, but might be a legacy file path
   const getAssetId = (outputRef) => {
     if (!outputRef) return null
-    // Handle legacy path format: "data/assets/orgId/filename.pptx"
     if (outputRef.includes('/')) {
       const parts = outputRef.split('/')
       return parts[parts.length - 1]
     }
-    // Handle standard Asset ID (UUID)
     return outputRef
   }
 
+  const filename = job.filename || `export-${job.id.substring(0, 8)}.pptx`
+  const isDone = job.status === 'Done'
+  const isFailed = job.status === 'DeadLetter' || job.status === 'Failed'
+  const isPending = job.status === 'Queued' || job.status === 'Running' || job.status === 'Retry'
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center space-x-2">
-        <JobStatusIndicator 
-          status={job.status} 
+        <JobStatusIndicator
+          status={job.status}
           progressStep={job.progressStep}
           progressPct={job.progressPct}
         />
-        {job.status === 'Done' && (
-          <span className="text-sm text-gray-600">
-            Ready to download
-          </span>
+        {isDone && (
+          <span className="text-sm text-green-600 font-medium">Ready to download</span>
+        )}
+        {isPending && (
+          <span className="text-sm text-yellow-600">Processing...</span>
+        )}
+        {isFailed && (
+          <span className="text-sm text-red-600">Export failed</span>
         )}
       </div>
-      
-      <div className="flex flex-wrap gap-3">
-        {job.type === 'export' && job.outputRef && (
+
+      {isDone && job.outputRef && (
+        <div className="flex flex-wrap gap-3">
           <button
-            onClick={() => handleDownload(`/api/assets/${getAssetId(job.outputRef)}`, `export-${job.id}.pptx`)}
-            className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded transition-colors"
+            onClick={() => handleDownload(`/api/assets/${getAssetId(job.outputRef)}`, filename)}
+            className="bg-green-600 hover:bg-green-700 text-white font-medium py-2 px-4 rounded transition-colors text-sm"
           >
-            📥 Download PPTX
+            Download PPTX
           </button>
-        )}
-        
-        {job.type === 'render' && job.outputRef && (
-          <button
-            onClick={() => handleDownload(`/api/assets/${getAssetId(job.outputRef)}`, `preview-${job.id}.png`)}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded transition-colors"
-          >
-            🖼️ Download Preview
-          </button>
-        )}
-        
-        {/* Also show asset-based download for direct access */}
-        {job.outputRef && (
           <button
             onClick={() => window.open(`/api/assets/${getAssetId(job.outputRef)}`, '_blank')}
-            className="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-4 rounded transition-colors"
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded transition-colors text-sm border border-gray-300"
           >
-            🔗 Open Asset
+            Open in new tab
           </button>
-        )}
-      </div>
-      
-      {/* Show thumbnail gallery for preview jobs */}
-      <ThumbnailGallery job={job} />
+        </div>
+      )}
+
+      {isDone && !job.outputRef && (
+        <p className="text-sm text-gray-500">Export completed but file is no longer available.</p>
+      )}
     </div>
   )
 }
