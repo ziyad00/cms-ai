@@ -1,5 +1,48 @@
 # CMS-AI Worklog
 
+## 2026-02-12 - Fix Export Hanging: Base64 Write Path + Worker Timeout (TDD)
+
+### Summary
+Fixed two root causes of export "hanging": (1) SpecJSON written as base64 by GORM (write path), (2) no worker timeout so stuck jobs run forever. Also fixed `anyToJSONBytes` in worker to handle base64 strings from pgx. All changes test-driven with 4 new tests.
+
+### Tests Added
+- [unit] `TestSpecJSON_bytes_produces_base64` → proves []byte gets base64-encoded by json.Marshal (the bug)
+- [unit] `TestSpecJSON_RawMessage_preserves_json` → proves json.RawMessage prevents base64 (the fix)
+- [unit] `TestAnyToJSONBytes_base64_from_pgx` → base64 string from pgx decoded to raw JSON
+- [unit] `TestWorker_ProcessJob_RespectsContextTimeout` → slow renderer cancelled after timeout, job not stuck in Running
+
+### Changes Made
+1. **Write path fix**: All 6 SpecJSON assignments now use `json.RawMessage(bytes)` instead of raw `[]byte`
+   - `router_v1.go`: 4 locations (deck version, template version create/patch, bind result)
+   - `worker.go`: 2 locations (generate result, bind result)
+   - Prevents GORM from base64-encoding specs when writing to jsonb
+2. **Worker timeout**: Added configurable `JobTimeout` (default 2 min) to Worker struct
+   - `processJob` now wraps context with `context.WithTimeout`
+   - Python renderer (exec.CommandContext) inherits timeout automatically
+   - Prevents jobs from hanging forever in "Running" state
+3. **anyToJSONBytes fix**: Now calls `assets.NormalizeJSONBytes()` for string/bytes/RawMessage
+   - Handles base64 strings from pgx (GORM→jsonb→pgx roundtrip)
+4. **Exported NormalizeJSONBytes**: Renamed from `normalizeJSONBytes` for cross-package use
+
+### Files Touched
+- `server/internal/api/router_v1.go` (4 json.RawMessage fixes)
+- `server/internal/worker/worker.go` (2 json.RawMessage fixes + timeout + anyToJSONBytes fix)
+- `server/internal/assets/renderer.go` (exported NormalizeJSONBytes)
+- `server/internal/store/models_test.go` (2 new tests)
+- `server/internal/worker/worker_test.go` (2 new tests + slowRenderer mock)
+
+### How to Run
+```bash
+cd server && JWT_SECRET=test-secret-thats-at-least-32-chars-long go test ./internal/worker/ ./internal/store/ -count=1
+```
+
+### Issues Found & Fixes
+1. **Root cause of repeated base64 bug**: Every SpecJSON write used `[]byte` → GORM base64-encodes → stored as `"eyJ0b2..."` → pgx reads as base64 string. Fixed by using `json.RawMessage` which GORM serializes correctly.
+2. **Export jobs hanging forever**: Worker used `context.Background()` with no timeout. If Python crashed or hung, job stayed "Running" indefinitely. Fixed with 2-minute timeout.
+3. **anyToJSONBytes didn't decode base64**: When worker reads SpecJSON for binding, it got base64 strings but returned them as-is. Fixed by reusing `NormalizeJSONBytes`.
+
+---
+
 ## 2026-02-12 - Deck Detail Page UI/UX Fixes (TDD)
 
 ### Summary

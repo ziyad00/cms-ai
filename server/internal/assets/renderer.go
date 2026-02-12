@@ -54,12 +54,12 @@ func specToJSONBytes(spec any) ([]byte, error) {
 		return json.Marshal(spec)
 	}
 
-	return normalizeJSONBytes(b), nil
+	return NormalizeJSONBytes(b), nil
 }
 
-// normalizeJSONBytes ensures the bytes contain a raw JSON object/array,
+// NormalizeJSONBytes ensures the bytes contain a raw JSON object/array,
 // not a quoted string or base64-encoded JSON.
-func normalizeJSONBytes(b []byte) []byte {
+func NormalizeJSONBytes(b []byte) []byte {
 	b = bytes.TrimSpace(b)
 	if len(b) == 0 {
 		return b

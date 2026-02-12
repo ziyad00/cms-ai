@@ -17,21 +17,23 @@ import (
 )
 
 type Worker struct {
-	store     store.Store
-	renderer  assets.Renderer
-	storage   assets.ObjectStorage
-	aiService ai.AIServiceInterface
-	stop      chan struct{}
-	wg        sync.WaitGroup
+	store      store.Store
+	renderer   assets.Renderer
+	storage    assets.ObjectStorage
+	aiService  ai.AIServiceInterface
+	stop       chan struct{}
+	wg         sync.WaitGroup
+	JobTimeout time.Duration // max time per job; 0 = default (2 min)
 }
 
 func New(store store.Store, renderer assets.Renderer, storage assets.ObjectStorage, aiService ai.AIServiceInterface) *Worker {
 	return &Worker{
-		store:     store,
-		renderer:  renderer,
-		storage:   storage,
-		aiService: aiService,
-		stop:      make(chan struct{}),
+		store:      store,
+		renderer:   renderer,
+		storage:    storage,
+		aiService:  aiService,
+		stop:       make(chan struct{}),
+		JobTimeout: 2 * time.Minute,
 	}
 }
 
@@ -117,6 +119,14 @@ func (w *Worker) ProcessJobs() {
 }
 
 func (w *Worker) processJob(ctx context.Context, job store.Job) error {
+	// Enforce a timeout so jobs don't hang forever (e.g., if Python renderer hangs).
+	timeout := w.JobTimeout
+	if timeout == 0 {
+		timeout = 2 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	// Update job status to Running
 	job.Status = store.JobRunning
 	if _, err := w.store.Jobs().Update(ctx, job); err != nil {
@@ -213,7 +223,7 @@ func (w *Worker) processGenerateJob(ctx context.Context, job store.Job) (string,
 		Template:  job.InputRef,
 		OrgID:     job.OrgID,
 		VersionNo: 1,
-		SpecJSON:  specJSON,
+		SpecJSON:  json.RawMessage(specJSON),
 		CreatedBy: userID,
 	}
 	createdVer, err := w.store.Templates().CreateVersion(ctx, version)
@@ -278,7 +288,7 @@ func (w *Worker) processBindJob(ctx context.Context, job store.Job) (string, err
 		Deck:      deckID,
 		OrgID:     job.OrgID,
 		VersionNo: 1,
-		SpecJSON:  boundBytes,
+		SpecJSON:  json.RawMessage(boundBytes),
 		CreatedBy: userID,
 	}
 	createdVer, err := w.store.Decks().CreateDeckVersion(ctx, version)
@@ -475,11 +485,11 @@ func (w *Worker) failJob(ctx context.Context, job store.Job, errorMsg string) er
 func anyToJSONBytes(v any) ([]byte, error) {
 	switch val := v.(type) {
 	case []byte:
-		return val, nil
+		return assets.NormalizeJSONBytes(val), nil
 	case json.RawMessage:
-		return []byte(val), nil
+		return assets.NormalizeJSONBytes([]byte(val)), nil
 	case string:
-		return []byte(val), nil
+		return assets.NormalizeJSONBytes([]byte(val)), nil
 	default:
 		return json.Marshal(v)
 	}

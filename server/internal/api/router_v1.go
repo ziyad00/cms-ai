@@ -415,7 +415,7 @@ func (s *Server) handleCreateVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ver := store.TemplateVersion{Template: tpl.ID, OrgID: tpl.OrgID, VersionNo: newNo, SpecJSON: specJSONBytes, CreatedBy: id.UserID}
+	ver := store.TemplateVersion{Template: tpl.ID, OrgID: tpl.OrgID, VersionNo: newNo, SpecJSON: json.RawMessage(specJSONBytes), CreatedBy: id.UserID}
 	created, err := s.Store.Templates().CreateVersion(r.Context(), ver)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed to create version")
@@ -472,7 +472,7 @@ func (s *Server) handlePatchVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newV := store.TemplateVersion{Template: tpl.ID, OrgID: tpl.OrgID, VersionNo: newNo, SpecJSON: specJSONBytes, CreatedBy: id.UserID}
+	newV := store.TemplateVersion{Template: tpl.ID, OrgID: tpl.OrgID, VersionNo: newNo, SpecJSON: json.RawMessage(specJSONBytes), CreatedBy: id.UserID}
 	created, err := s.Store.Templates().CreateVersion(r.Context(), newV)
 	if err != nil {
 		writeError(w, r, http.StatusInternalServerError, "failed to create version")
@@ -774,7 +774,7 @@ func (s *Server) handleCreateDeck(w http.ResponseWriter, r *http.Request) {
 			Deck:      createdDeck.ID,
 			OrgID:     id.OrgID,
 			VersionNo: 1,
-			SpecJSON:  boundBytes,
+			SpecJSON:  json.RawMessage(boundBytes),
 			CreatedBy: id.UserID,
 		}
 		createdVer, err := s.Store.Decks().CreateDeckVersion(r.Context(), ver)
@@ -993,7 +993,7 @@ func (s *Server) handleCreateDeckVersion(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	ver := store.DeckVersion{ID: newID("dv"), Deck: d.ID, OrgID: id.OrgID, VersionNo: newNo, SpecJSON: specBytes, CreatedBy: id.UserID}
+	ver := store.DeckVersion{ID: newID("dv"), Deck: d.ID, OrgID: id.OrgID, VersionNo: newNo, SpecJSON: json.RawMessage(specBytes), CreatedBy: id.UserID}
 	created, err := s.Store.Decks().CreateDeckVersion(r.Context(), ver)
 	if err != nil {
 		logger.LogError(r.Context(), "api", "create_deck_version", err)

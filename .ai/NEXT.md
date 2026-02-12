@@ -108,7 +108,7 @@
 - [ ] Add storage metrics and monitoring (upload/download rates, storage usage)
 - [ ] Add queue monitoring metrics (queue depth, processing rate, failed job alerts)
 - [ ] Implement structured error logging with correlation IDs
-- [ ] Add job timeout handling to prevent stuck jobs
+- [x] Add job timeout handling to prevent stuck jobs (2-min default, configurable via Worker.JobTimeout)
 - [ ] Create queue monitoring dashboard in frontend
 - [ ] Test database migration for job queue resilience features
 - [ ] Test Railway deployment with real environment variables

@@ -882,3 +882,101 @@ func (f *failingRenderer) RenderPPTXBytes(ctx context.Context, spec interface{})
 func (f *failingRenderer) GenerateSlideThumbnails(ctx context.Context, spec interface{}) ([][]byte, error) {
 	return nil, errors.New("simulated thumbnail generation failure")
 }
+
+// TDD RED: anyToJSONBytes must handle base64-encoded strings from pgx.
+// When GORM writes []byte to jsonb, json.Marshal([]byte) base64-encodes it.
+// pgx reads it back as a Go string containing base64. anyToJSONBytes must
+// detect and decode base64 to get the raw JSON.
+func TestAnyToJSONBytes_base64_from_pgx(t *testing.T) {
+	originalJSON := `{"layouts":[{"name":"title","placeholders":[{"id":"t","type":"text"}]}]}`
+
+	// Simulate GORM write: json.Marshal([]byte) → base64 JSON string
+	base64Encoded, err := json.Marshal([]byte(originalJSON))
+	require.NoError(t, err)
+
+	// Simulate pgx read: JSON string → Go string (strips outer quotes)
+	var pgxValue string
+	err = json.Unmarshal(base64Encoded, &pgxValue)
+	require.NoError(t, err)
+	// pgxValue is now a base64 string like "eyJsYXlvdXRzIj..."
+
+	result, err := anyToJSONBytes(pgxValue)
+	require.NoError(t, err)
+	assert.Equal(t, byte('{'), result[0],
+		"must decode base64 to JSON object, got: %s", string(result[:min(50, len(result))]))
+	assert.JSONEq(t, originalJSON, string(result))
+}
+
+// TDD RED: Worker must enforce a timeout on job processing.
+// Without timeout, a hanging renderer keeps the job in "Running" forever.
+func TestWorker_ProcessJob_RespectsContextTimeout(t *testing.T) {
+	memStore := memory.New()
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
+
+	// Use a slow renderer that blocks until context is cancelled
+	slowRenderer := &slowRenderer{}
+	w := New(memStore, slowRenderer, storage, ai.NewAIService(memStore))
+	w.JobTimeout = 2 * time.Second // short timeout for tests
+
+	ctx := context.Background()
+	orgID := "org-timeout"
+
+	specJSON := `{"layouts":[{"name":"test","placeholders":[{"id":"t","type":"text","geometry":{"x":0.1,"y":0.1,"w":0.8,"h":0.2}}]}]}`
+
+	// Create a deck version
+	deck := store.Deck{ID: "deck-timeout", OrgID: orgID, Name: "Timeout Test"}
+	_, err := memStore.Decks().CreateDeck(ctx, deck)
+	require.NoError(t, err)
+
+	dv := store.DeckVersion{
+		ID: "dv-timeout", Deck: "deck-timeout", OrgID: orgID,
+		VersionNo: 1, SpecJSON: specJSON, CreatedBy: "user-1",
+		CreatedAt: time.Now(),
+	}
+	_, err = memStore.Decks().CreateDeckVersion(ctx, dv)
+	require.NoError(t, err)
+
+	metadata := store.JSONMap{"versionNo": "1", "filename": "test.pptx"}
+	job := store.Job{
+		ID: "job-timeout", OrgID: orgID, Type: store.JobExport,
+		Status: store.JobQueued, InputRef: "dv-timeout",
+		Metadata: &metadata, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
+	_, err = memStore.Jobs().Enqueue(ctx, job)
+	require.NoError(t, err)
+
+	// Process jobs — with timeout, the slow renderer should be cancelled
+	start := time.Now()
+	w.processJobs()
+	elapsed := time.Since(start)
+
+	// Must not hang forever — should fail within the worker's timeout (2s + small overhead)
+	assert.Less(t, elapsed, 10*time.Second,
+		"job must not hang; worker should enforce timeout")
+
+	got, found, err := memStore.Jobs().Get(ctx, orgID, job.ID)
+	require.NoError(t, err)
+	require.True(t, found)
+
+	// Job should be failed (not still Running)
+	assert.NotEqual(t, store.JobRunning, got.Status,
+		"timed-out job must not remain in Running state")
+}
+
+// slowRenderer blocks forever in RenderPPTXBytes (until context cancelled).
+type slowRenderer struct{}
+
+func (s *slowRenderer) RenderPPTX(ctx context.Context, spec interface{}, outPath string) error {
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+func (s *slowRenderer) RenderPPTXBytes(ctx context.Context, spec interface{}) ([]byte, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}
+
+func (s *slowRenderer) GenerateSlideThumbnails(ctx context.Context, spec interface{}) ([][]byte, error) {
+	<-ctx.Done()
+	return nil, ctx.Err()
+}

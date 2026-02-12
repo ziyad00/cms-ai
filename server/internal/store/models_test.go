@@ -2,6 +2,7 @@ package store
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -206,4 +207,35 @@ func TestJob_metadata_pointer_serialization(t *testing.T) {
 	s, ok := val.(string)
 	require.True(t, ok, "must produce string for pgx jsonb, got %T", val)
 	assert.Contains(t, s, "deck-export-v1.pptx")
+}
+
+// TDD RED: Demonstrates that []byte SpecJSON gets base64-encoded by json.Marshal.
+// This is the root cause of the production bug: GORM calls json.Marshal on
+// SpecJSON before writing to jsonb. When SpecJSON is []byte, the result is
+// a base64 string in the database instead of a JSON object.
+func TestSpecJSON_bytes_produces_base64(t *testing.T) {
+	specJSON := []byte(`{"layouts":[{"name":"test"}]}`)
+
+	// Simulate what GORM does: json.Marshal(model.SpecJSON)
+	encoded, err := json.Marshal(specJSON)
+	require.NoError(t, err)
+
+	// This is the BUG: []byte gets base64-encoded
+	assert.Equal(t, byte('"'), encoded[0],
+		"BUG PROOF: json.Marshal([]byte) produces a quoted base64 string, not a JSON object")
+}
+
+// TDD RED→GREEN: json.RawMessage preserves the JSON structure.
+// This is the fix: use json.RawMessage instead of []byte for SpecJSON values.
+func TestSpecJSON_RawMessage_preserves_json(t *testing.T) {
+	specBytes := json.RawMessage(`{"layouts":[{"name":"test"}]}`)
+
+	// Simulate what GORM does: json.Marshal(model.SpecJSON)
+	encoded, err := json.Marshal(specBytes)
+	require.NoError(t, err)
+
+	// json.RawMessage preserves the JSON — no base64!
+	assert.Equal(t, byte('{'), encoded[0],
+		"json.RawMessage must NOT base64-encode; got: %s", string(encoded[:20]))
+	assert.JSONEq(t, `{"layouts":[{"name":"test"}]}`, string(encoded))
 }
