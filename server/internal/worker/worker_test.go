@@ -2,6 +2,7 @@ package worker
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -730,6 +731,141 @@ func TestWorker_RenderJob_WithMetadata_Preserved(t *testing.T) {
 	assert.Equal(t, store.JobDone, got.Status)
 	require.NotNil(t, got.Metadata, "metadata must be preserved through job lifecycle")
 	assert.Equal(t, "req-123", (*got.Metadata)["requestId"])
+}
+
+// TDD: processBindJob must handle string SpecJSON from pgx without double-encoding.
+func TestWorker_BindJob_StringSpecJSON_NotDoubleEncoded(t *testing.T) {
+	memStore := memory.New()
+	renderer := assets.NewGoPPTXRenderer()
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
+	w := New(memStore, renderer, storage, ai.NewAIService(memStore))
+
+	ctx := context.Background()
+	orgID := "org-bind-str"
+
+	// String spec — simulates what pgx returns when reading jsonb columns.
+	specString := `{"layouts":[{"name":"title-slide","placeholders":[{"id":"title","type":"text","content":"Hello","geometry":{"x":0.1,"y":0.1,"w":0.8,"h":0.2}}]}]}`
+
+	tv := store.TemplateVersion{
+		ID:        "tv-bind-str",
+		Template:  "tpl-bind-str",
+		OrgID:     orgID,
+		VersionNo: 1,
+		SpecJSON:  specString, // Go string, not map — this is what pgx gives us
+		CreatedBy: "user-1",
+		CreatedAt: time.Now(),
+	}
+	_, err := memStore.Templates().CreateVersion(ctx, tv)
+	require.NoError(t, err)
+
+	deck := store.Deck{ID: "deck-bind-str", OrgID: orgID, Name: "Test Deck"}
+	_, err = memStore.Decks().CreateDeck(ctx, deck)
+	require.NoError(t, err)
+
+	metadata := store.JSONMap{
+		"sourceTemplateVersionId": "tv-bind-str",
+		"content":                 "Some test content for the deck",
+		"userId":                  "user-1",
+	}
+	job := store.Job{
+		ID:        "job-bind-str",
+		OrgID:     orgID,
+		Type:      store.JobBind,
+		Status:    store.JobQueued,
+		InputRef:  "deck-bind-str",
+		Metadata:  &metadata,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err = memStore.Jobs().Enqueue(ctx, job)
+	require.NoError(t, err)
+
+	w.processJobs()
+	time.Sleep(100 * time.Millisecond)
+
+	got, found, err := memStore.Jobs().Get(ctx, orgID, job.ID)
+	require.NoError(t, err)
+	require.True(t, found)
+
+	// Job may fail at AI call (no HuggingFace key), but must NOT fail with
+	// "invalid template spec" — that would mean double-encoding.
+	if got.Status != store.JobDone {
+		assert.NotContains(t, got.Error, "invalid template spec",
+			"string SpecJSON from pgx must not cause double-encoding; got error: %s", got.Error)
+	}
+}
+
+// TDD: Render with string SpecJSON (pgx returns string for jsonb).
+func TestWorker_RenderJob_StringSpecJSON_Works(t *testing.T) {
+	memStore := memory.New()
+	renderer := assets.NewGoPPTXRenderer()
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
+	w := New(memStore, renderer, storage, ai.NewAIService(memStore))
+
+	ctx := context.Background()
+	orgID := "org-render-str"
+
+	specString := `{"layouts":[{"name":"title-slide","placeholders":[{"id":"title","type":"text","geometry":{"x":0.1,"y":0.1,"w":0.8,"h":0.2}}]}]}`
+
+	tv := store.TemplateVersion{
+		ID:        "tv-render-str",
+		Template:  "tpl-render-str",
+		OrgID:     orgID,
+		VersionNo: 1,
+		SpecJSON:  specString,
+		CreatedBy: "user-1",
+		CreatedAt: time.Now(),
+	}
+	_, err := memStore.Templates().CreateVersion(ctx, tv)
+	require.NoError(t, err)
+
+	job := store.Job{
+		ID:        "job-render-str",
+		OrgID:     orgID,
+		Type:      store.JobRender,
+		Status:    store.JobQueued,
+		InputRef:  "tv-render-str",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err = memStore.Jobs().Enqueue(ctx, job)
+	require.NoError(t, err)
+
+	w.processJobs()
+	time.Sleep(100 * time.Millisecond)
+
+	got, found, err := memStore.Jobs().Get(ctx, orgID, job.ID)
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, store.JobDone, got.Status, "render job with string SpecJSON must succeed; error: %s", got.Error)
+	assert.NotEmpty(t, got.OutputRef)
+}
+
+// Unit test for anyToJSONBytes — must handle all types without double-encoding.
+func TestAnyToJSONBytes(t *testing.T) {
+	jsonStr := `{"layouts":[{"name":"title"}]}`
+
+	tests := []struct {
+		name  string
+		input any
+		want  string
+	}{
+		{"string from pgx", jsonStr, jsonStr},
+		{"[]byte", []byte(jsonStr), jsonStr},
+		{"json.RawMessage", json.RawMessage(jsonStr), jsonStr},
+		{"map", map[string]string{"key": "val"}, `{"key":"val"}`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := anyToJSONBytes(tt.input)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, string(got))
+			if tt.want[0] == '{' {
+				assert.Equal(t, byte('{'), got[0], "must not double-encode")
+			}
+		})
+	}
 }
 
 // failingRenderer is a mock renderer that always fails

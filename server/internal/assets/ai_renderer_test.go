@@ -371,6 +371,34 @@ func TestHelperFunctions(t *testing.T) {
 	})
 }
 
+// TDD: extractCompanyContext must handle Go string from pgx (jsonb → string).
+func TestExtractCompanyContext_StringFromPgx(t *testing.T) {
+	renderer := &AIEnhancedRenderer{}
+
+	spec := getHealthcareTestSpec()
+	specJSON, err := json.Marshal(spec)
+	require.NoError(t, err)
+
+	// Simulate pgx returning jsonb as Go string (not []byte, not map)
+	specStr := string(specJSON)
+
+	company := renderer.extractCompanyContext(specStr)
+	require.NotNil(t, company, "extractCompanyContext must handle string spec from pgx")
+	assert.Equal(t, "HealthTech Corp", company.Name)
+	assert.Equal(t, "Healthcare Technology", company.Industry)
+}
+
+// extractCompanyContext with string spec that has NO company context
+// should return nil (not panic, not error).
+func TestExtractCompanyContext_StringFromPgx_NoCompany(t *testing.T) {
+	renderer := &AIEnhancedRenderer{}
+
+	specStr := `{"layouts":[{"name":"title","placeholders":[{"id":"title","type":"text","content":"Hello"}]}]}`
+
+	company := renderer.extractCompanyContext(specStr)
+	assert.Nil(t, company)
+}
+
 // Benchmark tests
 func BenchmarkPythonRenderer(b *testing.B) {
 	scriptPath := filepath.Join("..", "..", "tools", "renderer", "render_pptx.py")

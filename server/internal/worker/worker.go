@@ -251,9 +251,14 @@ func (w *Worker) processBindJob(ctx context.Context, job store.Job) (string, err
 	}
 
 	var templateSpec spec.TemplateSpec
-	specBytes, _ := json.Marshal(tv.SpecJSON)
+	// tv.SpecJSON is type `any`. From pgx it arrives as Go string (not []byte).
+	// json.Marshal(string) double-encodes → "\"...\"" which breaks Unmarshal.
+	specBytes, err := anyToJSONBytes(tv.SpecJSON)
+	if err != nil {
+		return "", fmt.Errorf("invalid template spec: %w", err)
+	}
 	if err := json.Unmarshal(specBytes, &templateSpec); err != nil {
-		return "", fmt.Errorf("invalid template spec")
+		return "", fmt.Errorf("invalid template spec: %w", err)
 	}
 
 	boundSpec, _, err := w.aiService.BindDeckSpec(ctx, job.OrgID, userID, &templateSpec, content)
@@ -462,6 +467,22 @@ func (w *Worker) handleJobFailure(ctx context.Context, job store.Job, processErr
 
 func (w *Worker) failJob(ctx context.Context, job store.Job, errorMsg string) error {
 	return w.handleJobFailure(ctx, job, fmt.Errorf("%s", errorMsg))
+}
+
+// anyToJSONBytes converts an `any` value to JSON bytes safely.
+// Handles the pgx quirk where jsonb columns return as Go string.
+// json.Marshal(string) would double-encode, so we must handle it explicitly.
+func anyToJSONBytes(v any) ([]byte, error) {
+	switch val := v.(type) {
+	case []byte:
+		return val, nil
+	case json.RawMessage:
+		return []byte(val), nil
+	case string:
+		return []byte(val), nil
+	default:
+		return json.Marshal(v)
+	}
 }
 
 // newID generates a proper UUID (compatible with PostgreSQL uuid columns).

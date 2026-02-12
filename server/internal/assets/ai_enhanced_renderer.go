@@ -73,6 +73,13 @@ func (r *AIEnhancedRenderer) extractCompanyContext(spec any) *CompanyContext {
 		if err := json.Unmarshal([]byte(v), &specMap); err != nil {
 			return nil
 		}
+	case string:
+		// pgx returns PostgreSQL jsonb as Go string — unmarshal directly.
+		// json.Marshal(string) would double-encode, producing a JSON string
+		// instead of a JSON object.
+		if err := json.Unmarshal([]byte(v), &specMap); err != nil {
+			return nil
+		}
 	case map[string]interface{}:
 		specMap = v
 	default:
