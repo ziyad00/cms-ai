@@ -41,25 +41,11 @@ func New(dsn string) (*PostgresStore, error) {
 		return nil, err
 	}
 
-	// ULTIMATE PRODUCTION CLEANUP - V2
-	log.Printf("🚀🚀🚀 GORM: FRESH STARTUP (SIMPLE PROTOCOL) AT %v 🚀🚀🚀", time.Now().Format(time.RFC3339))
-	
-	// Drop ALL possible legacy names so AutoMigrate can start fresh
-	cleanupSQL := `
-		ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;
-		ALTER TABLE users DROP CONSTRAINT IF EXISTS uni_users_email;
-		ALTER TABLE users DROP CONSTRAINT IF EXISTS idx_user_email;
-		DROP INDEX IF EXISTS idx_user_email;
-		DROP INDEX IF EXISTS uni_users_email;
-	`
-	_ = db.Exec(cleanupSQL)
-
-	// Auto-migrate all models to ensure schema is always in sync
-	log.Printf("🚀 GORM: Running auto-migration...")
+	// Idempotent auto-migration for application tables
+	// NOTE: We skip User and UserOrg to prevent persistent naming conflicts in production.
+	log.Printf("🚀 GORM: Running auto-migration for application tables...")
 	err = db.AutoMigrate(
 		&store.Organization{},
-		&store.User{},
-		&store.UserOrg{},
 		&store.Template{},
 		&store.TemplateVersion{},
 		&store.Deck{},
