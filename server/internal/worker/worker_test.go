@@ -526,6 +526,212 @@ func TestWorker_JobDeduplication(t *testing.T) {
 	assert.Equal(t, created1.ID, jobs[0].ID)
 }
 
+func TestWorker_GenerateJob_NilMetadata_ReturnsError(t *testing.T) {
+	memStore := memory.New()
+	renderer := assets.NewGoPPTXRenderer()
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
+	worker := New(memStore, renderer, storage, ai.NewAIService(memStore))
+
+	ctx := context.Background()
+
+	// Create a template so the job has a valid input ref
+	tmpl := store.Template{ID: "tpl-gen-nil", OrgID: "org-1", Name: "Test", Status: store.TemplateDraft}
+	_, err := memStore.Templates().CreateTemplate(ctx, tmpl)
+	require.NoError(t, err)
+
+	// Enqueue a generate job with NO metadata
+	job := store.Job{
+		ID:        "job-gen-nil-meta",
+		OrgID:     "org-1",
+		Type:      store.JobGenerate,
+		Status:    store.JobQueued,
+		InputRef:  "tpl-gen-nil",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err = memStore.Jobs().Enqueue(ctx, job)
+	require.NoError(t, err)
+
+	worker.processJobs()
+	time.Sleep(100 * time.Millisecond)
+
+	got, found, err := memStore.Jobs().Get(ctx, "org-1", job.ID)
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, store.JobDeadLetter, got.Status, "generate job with nil metadata should dead-letter")
+	assert.Contains(t, got.Error, "missing job metadata")
+}
+
+func TestWorker_BindJob_NilMetadata_ReturnsError(t *testing.T) {
+	memStore := memory.New()
+	renderer := assets.NewGoPPTXRenderer()
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
+	worker := New(memStore, renderer, storage, ai.NewAIService(memStore))
+
+	ctx := context.Background()
+
+	// Create a deck so the job has a valid input ref
+	deck := store.Deck{ID: "deck-bind-nil", OrgID: "org-1", Name: "Test Deck"}
+	_, err := memStore.Decks().CreateDeck(ctx, deck)
+	require.NoError(t, err)
+
+	// Enqueue a bind job with NO metadata
+	job := store.Job{
+		ID:        "job-bind-nil-meta",
+		OrgID:     "org-1",
+		Type:      store.JobBind,
+		Status:    store.JobQueued,
+		InputRef:  "deck-bind-nil",
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err = memStore.Jobs().Enqueue(ctx, job)
+	require.NoError(t, err)
+
+	worker.processJobs()
+	time.Sleep(100 * time.Millisecond)
+
+	got, found, err := memStore.Jobs().Get(ctx, "org-1", job.ID)
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, store.JobDeadLetter, got.Status, "bind job with nil metadata should dead-letter")
+	assert.Contains(t, got.Error, "missing job metadata")
+}
+
+func TestWorker_ExportJob_WithMetadata_Roundtrips(t *testing.T) {
+	memStore := memory.New()
+	renderer := assets.NewGoPPTXRenderer()
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
+	worker := New(memStore, renderer, storage, ai.NewAIService(memStore))
+
+	ctx := context.Background()
+	orgID := "org-meta"
+
+	// Create template version
+	templateSpec := map[string]interface{}{
+		"layouts": []map[string]interface{}{
+			{
+				"name": "title-slide",
+				"placeholders": []map[string]interface{}{
+					{
+						"id":   "title",
+						"type": "text",
+						"geometry": map[string]interface{}{
+							"x": 0.1, "y": 0.1, "w": 0.8, "h": 0.2,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	tv := store.TemplateVersion{
+		ID:        "ver-meta-export",
+		Template:  "tpl-meta-export",
+		OrgID:     orgID,
+		VersionNo: 1,
+		SpecJSON:  templateSpec,
+		CreatedBy: "user-1",
+		CreatedAt: time.Now(),
+	}
+	_, err := memStore.Templates().CreateVersion(ctx, tv)
+	require.NoError(t, err)
+
+	// Enqueue export job with metadata — mimics production (router_v1.go:1030)
+	metadata := store.JSONMap{
+		"versionNo": "1",
+		"filename":  "deck-export-v1-20260212.pptx",
+	}
+	job := store.Job{
+		ID:        "job-export-meta",
+		OrgID:     orgID,
+		Type:      store.JobExport,
+		Status:    store.JobQueued,
+		InputRef:  "ver-meta-export",
+		Metadata:  &metadata,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err = memStore.Jobs().Enqueue(ctx, job)
+	require.NoError(t, err)
+
+	worker.processJobs()
+	time.Sleep(100 * time.Millisecond)
+
+	got, found, err := memStore.Jobs().Get(ctx, orgID, job.ID)
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, store.JobDone, got.Status, "export job with metadata should succeed")
+	assert.NotEmpty(t, got.OutputRef)
+	// Metadata should be preserved after processing
+	require.NotNil(t, got.Metadata, "metadata must survive job update")
+	assert.Equal(t, "deck-export-v1-20260212.pptx", (*got.Metadata)["filename"])
+	assert.Equal(t, "1", (*got.Metadata)["versionNo"])
+}
+
+func TestWorker_RenderJob_WithMetadata_Preserved(t *testing.T) {
+	memStore := memory.New()
+	renderer := assets.NewGoPPTXRenderer()
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
+	worker := New(memStore, renderer, storage, ai.NewAIService(memStore))
+
+	ctx := context.Background()
+
+	templateSpec := map[string]interface{}{
+		"layouts": []map[string]interface{}{
+			{
+				"name": "title-slide",
+				"placeholders": []map[string]interface{}{
+					{
+						"id":   "title",
+						"type": "text",
+						"geometry": map[string]interface{}{
+							"x": 0.1, "y": 0.1, "w": 0.8, "h": 0.2,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	tv := store.TemplateVersion{
+		ID:        "ver-render-meta",
+		Template:  "tpl-render-meta",
+		OrgID:     "org-1",
+		VersionNo: 1,
+		SpecJSON:  templateSpec,
+		CreatedBy: "user-1",
+		CreatedAt: time.Now(),
+	}
+	_, err := memStore.Templates().CreateVersion(ctx, tv)
+	require.NoError(t, err)
+
+	// Render job with metadata attached
+	metadata := store.JSONMap{"source": "test", "requestId": "req-123"}
+	job := store.Job{
+		ID:        "job-render-meta",
+		OrgID:     "org-1",
+		Type:      store.JobRender,
+		Status:    store.JobQueued,
+		InputRef:  "ver-render-meta",
+		Metadata:  &metadata,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+	_, err = memStore.Jobs().Enqueue(ctx, job)
+	require.NoError(t, err)
+
+	worker.processJobs()
+	time.Sleep(100 * time.Millisecond)
+
+	got, found, err := memStore.Jobs().Get(ctx, "org-1", job.ID)
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, store.JobDone, got.Status)
+	require.NotNil(t, got.Metadata, "metadata must be preserved through job lifecycle")
+	assert.Equal(t, "req-123", (*got.Metadata)["requestId"])
+}
+
 // failingRenderer is a mock renderer that always fails
 type failingRenderer struct{}
 

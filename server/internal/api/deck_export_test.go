@@ -70,6 +70,63 @@ func TestDeckExportList_IncludesQueuedJobs(t *testing.T) {
 	assert.Equal(t, store.JobQueued, resp.Exports[0].Status)
 }
 
+func TestExportDeckVersion_CreatesJobWithMetadata(t *testing.T) {
+	s := NewServer()
+	h := s.Handler()
+	ctx := context.Background()
+
+	// Create a deck + version
+	deck := store.Deck{ID: "deck-export-meta", OrgID: "org-1", Name: "Meta Test Deck"}
+	_, err := s.Store.Decks().CreateDeck(ctx, deck)
+	require.NoError(t, err)
+
+	version := store.DeckVersion{
+		ID:        "ver-export-meta",
+		Deck:      "deck-export-meta",
+		OrgID:     "org-1",
+		VersionNo: 3,
+		SpecJSON:  []byte(`{"slides":[]}`),
+	}
+	_, err = s.Store.Decks().CreateDeckVersion(ctx, version)
+	require.NoError(t, err)
+
+	// Call the export endpoint
+	req := httptest.NewRequest(http.MethodPost, "/v1/deck-versions/ver-export-meta/export", nil)
+	addTestAuth(req, "user-1", "org-1", auth.RoleEditor)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusAccepted, w.Code, "export should return 202 Accepted")
+
+	// Parse response
+	var resp struct {
+		Job store.Job `json:"job"`
+	}
+	err = json.Unmarshal(w.Body.Bytes(), &resp)
+	require.NoError(t, err)
+
+	// Verify the job was created with correct metadata
+	assert.Equal(t, store.JobExport, resp.Job.Type)
+	assert.Equal(t, store.JobQueued, resp.Job.Status)
+	assert.Equal(t, "ver-export-meta", resp.Job.InputRef)
+	require.NotNil(t, resp.Job.Metadata, "export job must have metadata")
+	assert.Equal(t, "3", (*resp.Job.Metadata)["versionNo"])
+	assert.Contains(t, (*resp.Job.Metadata)["filename"], "deck-export-v3")
+	assert.Contains(t, (*resp.Job.Metadata)["filename"], ".pptx")
+}
+
+func TestExportDeckVersion_NotFound(t *testing.T) {
+	s := NewServer()
+	h := s.Handler()
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/deck-versions/nonexistent/export", nil)
+	addTestAuth(req, "user-1", "org-1", auth.RoleEditor)
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, req)
+
+	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
 func TestDeckExportList_AggregatesMultipleVersions(t *testing.T) {
 	s := NewServer()
 	h := s.Handler()

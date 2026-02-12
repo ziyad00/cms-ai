@@ -2,13 +2,12 @@ package worker
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/ziyad/cms-ai/server/internal/ai"
 	"github.com/ziyad/cms-ai/server/internal/assets"
 	"github.com/ziyad/cms-ai/server/internal/logger"
@@ -465,12 +464,7 @@ func (w *Worker) failJob(ctx context.Context, job store.Job, errorMsg string) er
 	return w.handleJobFailure(ctx, job, fmt.Errorf("%s", errorMsg))
 }
 
-// newID generates a UUID with the given prefix
+// newID generates a proper UUID (compatible with PostgreSQL uuid columns).
 func newID(prefix string) string {
-	var b [16]byte
-	_, err := rand.Read(b[:])
-	if err != nil {
-		return prefix + "-unknown"
-	}
-	return prefix + "-" + hex.EncodeToString(b[:])
+	return uuid.New().String()
 }

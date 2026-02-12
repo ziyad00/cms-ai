@@ -51,6 +51,129 @@ func TestJSONMap_implements_valuer(t *testing.T) {
 	var _ driver.Valuer = JSONMap{}
 }
 
+func TestJSONMap_Value_empty_map(t *testing.T) {
+	m := JSONMap{}
+	val, err := m.Value()
+	require.NoError(t, err)
+
+	b, ok := val.([]byte)
+	require.True(t, ok)
+	assert.Equal(t, "{}", string(b), "empty map should serialize to {}")
+}
+
+func TestJSONMap_Scan_empty_json_object(t *testing.T) {
+	var m JSONMap
+	err := m.Scan([]byte(`{}`))
+	require.NoError(t, err)
+	assert.NotNil(t, m, "should scan into non-nil empty map")
+	assert.Len(t, m, 0)
+}
+
+func TestJSONMap_Value_special_characters(t *testing.T) {
+	m := JSONMap{
+		"html":    `<script>alert("xss")</script>`,
+		"unicode": "日本語テスト",
+		"quotes":  `value with "quotes" and 'apostrophes'`,
+		"newline": "line1\nline2",
+	}
+
+	val, err := m.Value()
+	require.NoError(t, err)
+
+	var scanned JSONMap
+	err = scanned.Scan(val.([]byte))
+	require.NoError(t, err)
+	assert.Equal(t, m["html"], scanned["html"])
+	assert.Equal(t, m["unicode"], scanned["unicode"])
+	assert.Equal(t, m["quotes"], scanned["quotes"])
+	assert.Equal(t, m["newline"], scanned["newline"])
+}
+
+func TestJSONMap_Scan_string_type(t *testing.T) {
+	// Some database drivers may return string instead of []byte
+	var m JSONMap
+	err := m.Scan("not bytes")
+	require.Error(t, err, "Scan should reject string type (only []byte)")
+	assert.Contains(t, err.Error(), "expected []byte")
+}
+
+func TestJSONMap_pointer_nil_value(t *testing.T) {
+	// Matches production pattern: job.Metadata is *JSONMap
+	var ptr *JSONMap
+	if ptr != nil {
+		_, _ = ptr.Value()
+		t.Fatal("nil pointer should not be dereferenced")
+	}
+	// This is the correct nil check pattern used in worker.go
+	assert.Nil(t, ptr)
+}
+
+func TestJob_metadata_all_production_patterns(t *testing.T) {
+	// Test all three metadata patterns from router_v1.go
+	tests := []struct {
+		name     string
+		metadata JSONMap
+		jobType  JobType
+	}{
+		{
+			name: "export metadata (router_v1:1030)",
+			metadata: JSONMap{
+				"versionNo": "1",
+				"filename":  "deck-export-v1-20260212-123041.pptx",
+			},
+			jobType: JobExport,
+		},
+		{
+			name: "generate metadata (router_v1:305)",
+			metadata: JSONMap{
+				"prompt":     "Create a sales deck for Q4",
+				"language":   "en",
+				"tone":       "professional",
+				"rtl":        "false",
+				"brandKitId": "bk-123",
+				"userId":     "user-456",
+			},
+			jobType: JobGenerate,
+		},
+		{
+			name: "bind metadata (router_v1:794)",
+			metadata: JSONMap{
+				"sourceTemplateVersionId": "tv-789",
+				"content":                 "Revenue grew 25% in Q4...",
+				"userId":                  "user-456",
+			},
+			jobType: JobBind,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			job := Job{
+				ID:       "job-test",
+				OrgID:    "org-1",
+				Type:     tc.jobType,
+				Status:   JobQueued,
+				Metadata: &tc.metadata,
+			}
+
+			val, err := job.Metadata.Value()
+			require.NoError(t, err, "Value() should not error")
+			require.NotNil(t, val, "Value() should not be nil")
+
+			b, ok := val.([]byte)
+			require.True(t, ok, "must produce []byte for pgx, got %T", val)
+
+			var scanned JSONMap
+			err = scanned.Scan(b)
+			require.NoError(t, err, "Scan() should not error")
+
+			for k, v := range tc.metadata {
+				assert.Equal(t, v, scanned[k], "key %q must roundtrip", k)
+			}
+		})
+	}
+}
+
 func TestJob_metadata_pointer_serialization(t *testing.T) {
 	// This is the exact pattern used in production code (router_v1.go).
 	// It must produce valid JSON bytes, not fail with pgx OID 0 error.

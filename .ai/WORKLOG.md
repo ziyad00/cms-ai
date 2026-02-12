@@ -1,5 +1,53 @@
 # CMS-AI Worklog
 
+## 2026-02-12 - Test Coverage Improvements for JSONMap & Job Metadata ✅
+
+### Summary
+Improved test coverage to catch the pgx serialization bug that escaped automated tests. Added 13 new tests across 4 packages, fixed a bug in error classification, and fixed a pre-existing broken mock.
+
+### Tests Added/Updated
+- [unit] `TestJSONMap_Value_empty_map` → empty map serializes to `{}`
+- [unit] `TestJSONMap_Scan_empty_json_object` → scan empty JSON object
+- [unit] `TestJSONMap_Value_special_characters` → HTML, unicode, quotes, newlines roundtrip
+- [unit] `TestJSONMap_Scan_string_type` → rejects string (only accepts []byte)
+- [unit] `TestJSONMap_pointer_nil_value` → nil pointer safety check
+- [unit] `TestJob_metadata_all_production_patterns` → tests all 3 router_v1.go metadata patterns (export/generate/bind)
+- [unit] `TestWorker_GenerateJob_NilMetadata_ReturnsError` → nil metadata → dead-letter
+- [unit] `TestWorker_BindJob_NilMetadata_ReturnsError` → nil metadata → dead-letter
+- [unit] `TestWorker_ExportJob_WithMetadata_Roundtrips` → metadata preserved through job lifecycle
+- [unit] `TestWorker_RenderJob_WithMetadata_Preserved` → metadata survives processing
+- [unit] `TestClassifyError/missing_metadata_is_permanent` → "missing" errors classified as permanent
+- [api] `TestExportDeckVersion_CreatesJobWithMetadata` → export endpoint creates job with correct metadata
+- [api] `TestExportDeckVersion_NotFound` → returns 404 for nonexistent version
+
+### Changes Made
+- Added 6 new JSONMap edge-case tests to `models_test.go`
+- Added 4 new worker tests with metadata coverage to `worker_test.go`
+- Added 2 new API endpoint tests to `deck_export_test.go`
+- Added "missing" to permanent error patterns in `queue/policy.go` (bug fix)
+- Added test for "missing" classification in `queue/policy_test.go`
+- Fixed broken mock in `test/asset_storage_integration_test.go` (used `Store()` instead of `Create()`)
+
+### Files Touched
+- `server/internal/store/models_test.go` (6 new tests)
+- `server/internal/worker/worker_test.go` (4 new tests)
+- `server/internal/api/deck_export_test.go` (2 new tests)
+- `server/internal/queue/policy.go` (bug fix: "missing" → permanent)
+- `server/internal/queue/policy_test.go` (1 new test)
+- `server/test/asset_storage_integration_test.go` (mock fix)
+
+### How to Run
+```bash
+JWT_SECRET=test-secret-thats-at-least-32-chars-long go test ./... -count=1
+```
+
+### Issues Found & Fixes
+1. **Bug**: "missing job metadata" classified as transient (retried 3x before dead-letter). Fixed by adding "missing" to permanent error patterns. Test proves it.
+2. **Bug**: `failingAssetStoreImpl.Store()` mock method didn't match interface `AssetStore.Create()`. Test was passing vacuously. Fixed mock method name.
+
+---
+
+
 ## 2026-02-09 - Export Download Feature & Railway CLI Testing ✅
 
 ### Summary

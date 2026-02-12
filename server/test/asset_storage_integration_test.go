@@ -29,8 +29,8 @@ type failingAssetStoreImpl struct {
 	store.AssetStore
 }
 
-func (f *failingAssetStoreImpl) Store(ctx context.Context, orgID, assetID string, data []byte) (string, error) {
-	return "", errors.New("simulated storage failure")
+func (f *failingAssetStoreImpl) Create(ctx context.Context, a store.Asset) (store.Asset, error) {
+	return store.Asset{}, errors.New("simulated storage failure")
 }
 
 // TestAssetStorageAndIDGeneration validates STORY-006 acceptance criteria:

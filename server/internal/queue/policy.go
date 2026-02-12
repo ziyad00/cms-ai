@@ -77,6 +77,7 @@ func ClassifyError(err error) ErrorType {
 		"bad request",
 		"malformed",
 		"unsupported",
+		"missing",
 	}
 
 	for _, pattern := range permanentPatterns {

@@ -82,6 +82,12 @@
   - [x] Validated multi-slide generation with smart features
   - [x] All olama features now integrated and working in Go backend
 - [ ] Deck binder: improve prompt so it fills more placeholders from content (currently only fills some fields)
+- [x] Add JSONMap serialization tests covering all production patterns (export/generate/bind)
+- [x] Add worker tests for nil metadata (generate/bind dead-letter on missing metadata)
+- [x] Add worker tests for metadata preservation through job lifecycle
+- [x] Add API tests for export endpoint metadata creation
+- [x] Fix "missing" error classification (was transient, now permanent)
+- [x] Fix broken failingAssetStore mock (wrong method name)
 - [ ] Add unit tests for spec package validation functions (geometry bounds checking)
 - [ ] Add unit tests for queue package (job processing, retry logic)
 - [ ] Integrate hex color parsing for smart color schemes

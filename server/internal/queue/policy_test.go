@@ -117,6 +117,11 @@ func TestClassifyError(t *testing.T) {
 			expected: ErrorTypePermanent,
 		},
 		{
+			name:     "missing metadata is permanent",
+			err:      &testError{"missing job metadata"},
+			expected: ErrorTypePermanent,
+		},
+		{
 			name:     "unknown error defaults to transient",
 			err:      &testError{"some random error"},
 			expected: ErrorTypeTransient,
