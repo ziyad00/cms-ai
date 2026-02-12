@@ -2,9 +2,11 @@ package assets
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -155,6 +157,19 @@ func TestSpecToJSONBytes_quoted_base64_string(t *testing.T) {
 	result, err := specToJSONBytes(string(base64Str))
 	require.NoError(t, err)
 	assert.Equal(t, byte('{'), result[0], "must unwrap quoted base64 to JSON object")
+}
+
+// Base64 without padding (= stripped) should also be decoded.
+func TestSpecToJSONBytes_base64_no_padding(t *testing.T) {
+	originalJSON := `{"layouts":[{"name":"title"}]}`
+	b64 := base64.StdEncoding.EncodeToString([]byte(originalJSON))
+	// Strip padding
+	b64NoPad := strings.TrimRight(b64, "=")
+
+	result, err := specToJSONBytes(b64NoPad)
+	require.NoError(t, err)
+	assert.Equal(t, byte('{'), result[0], "must decode base64 without padding, got: %s", string(result[:min(50, len(result))]))
+	assert.JSONEq(t, originalJSON, string(result))
 }
 
 func TestGoPPTXRenderer_RenderPPTXBytes_WithString(t *testing.T) {

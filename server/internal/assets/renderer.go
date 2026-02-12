@@ -54,7 +54,17 @@ func specToJSONBytes(spec any) ([]byte, error) {
 		return json.Marshal(spec)
 	}
 
-	return NormalizeJSONBytes(b), nil
+	result := NormalizeJSONBytes(b)
+	log.Printf("[specToJSONBytes] input type=%T len=%d first50=%q → output len=%d first50=%q",
+		spec, len(b), truncate(b, 50), len(result), truncate(result, 50))
+	return result, nil
+}
+
+func truncate(b []byte, n int) string {
+	if len(b) <= n {
+		return string(b)
+	}
+	return string(b[:n]) + "..."
 }
 
 // NormalizeJSONBytes ensures the bytes contain a raw JSON object/array,
@@ -84,12 +94,22 @@ func NormalizeJSONBytes(b []byte) []byte {
 		}
 	}
 
-	// Try base64 decode (GORM writes []byte as base64 to jsonb).
-	decoded, err := base64.StdEncoding.DecodeString(string(b))
-	if err == nil && len(decoded) > 0 && (decoded[0] == '{' || decoded[0] == '[') {
-		return decoded
+	// Try base64 decode — try multiple encodings for robustness.
+	// json.Marshal uses StdEncoding, but padding might be stripped.
+	for _, enc := range []*base64.Encoding{
+		base64.StdEncoding,
+		base64.RawStdEncoding,    // no padding
+		base64.URLEncoding,       // URL-safe with padding
+		base64.RawURLEncoding,    // URL-safe no padding
+	} {
+		decoded, err := enc.DecodeString(string(b))
+		if err == nil && len(decoded) > 0 && (decoded[0] == '{' || decoded[0] == '[') {
+			log.Printf("[NormalizeJSONBytes] base64 decoded OK (len %d → %d)", len(b), len(decoded))
+			return decoded
+		}
 	}
 
+	log.Printf("[NormalizeJSONBytes] WARN: could not normalize, first50=%q", truncate(b, 50))
 	// Return as-is if nothing worked.
 	return b
 }
