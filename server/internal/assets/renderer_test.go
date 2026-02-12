@@ -103,6 +103,35 @@ func TestGoPPTXRenderer_RenderPPTXBytes_WithJSONBytes(t *testing.T) {
 	assert.Equal(t, []byte{0x50, 0x4B, 0x03, 0x04}, data[:4])
 }
 
+func TestSpecToJSONBytes_string_from_pgx(t *testing.T) {
+	// CRITICAL: When GORM reads a jsonb column via pgx, SpecJSON (type any)
+	// comes back as a Go string. specToJSONBytes must handle this without
+	// double-encoding. json.Marshal(string) wraps it in quotes, producing
+	// `"{\"layouts\":...}"` which is NOT a JSON object — it's a JSON string.
+	// This causes: AttributeError: 'str' object has no attribute 'get'
+	jsonStr := `{"layouts":[{"name":"title"}]}`
+
+	result, err := specToJSONBytes(jsonStr)
+	require.NoError(t, err)
+
+	// Must get raw JSON bytes back, NOT a quoted string
+	assert.Equal(t, jsonStr, string(result), "string spec must pass through as-is, not double-encoded")
+	assert.Equal(t, byte('{'), result[0], "must start with { not quote")
+}
+
+func TestGoPPTXRenderer_RenderPPTXBytes_WithString(t *testing.T) {
+	// Simulates what happens when GORM reads SpecJSON from PostgreSQL jsonb:
+	// the value comes back as a Go string, not []byte or map.
+	renderer := NewGoPPTXRenderer()
+
+	specJSON := `{"layouts":[{"name":"title-slide","placeholders":[{"id":"title","type":"text","geometry":{"x":0.1,"y":0.1,"w":0.8,"h":0.2}}]}]}`
+
+	data, err := renderer.RenderPPTXBytes(context.Background(), specJSON)
+	require.NoError(t, err, "renderer must handle string spec from pgx")
+	require.GreaterOrEqual(t, len(data), 4)
+	assert.Equal(t, []byte{0x50, 0x4B, 0x03, 0x04}, data[:4], "must produce valid PPTX (ZIP magic)")
+}
+
 func TestGoPPTXRenderer_RenderPPTX(t *testing.T) {
 	renderer := NewGoPPTXRenderer()
 

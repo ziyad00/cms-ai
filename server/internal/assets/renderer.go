@@ -26,12 +26,20 @@ type Renderer interface {
 }
 
 func specToJSONBytes(spec any) ([]byte, error) {
-	// In our stores, spec_json may come back as []byte from the DB driver.
-	// If we json.Marshal([]byte), it becomes a base64 string and breaks parsing.
+	// SpecJSON (type any) arrives in different Go types depending on the source:
+	//   []byte:          from in-memory store or manual construction
+	//   json.RawMessage: from explicit JSON handling
+	//   string:          from PostgreSQL jsonb via pgx/GORM
+	//   map/slice/etc:   from Go code constructing specs directly
+	//
+	// json.Marshal([]byte) produces base64, json.Marshal(string) produces a
+	// quoted string — both break downstream JSON parsing.
 	switch v := spec.(type) {
 	case []byte:
 		return v, nil
 	case json.RawMessage:
+		return []byte(v), nil
+	case string:
 		return []byte(v), nil
 	default:
 		return json.Marshal(spec)
