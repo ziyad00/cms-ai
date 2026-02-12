@@ -41,27 +41,41 @@ func New(dsn string) (*PostgresStore, error) {
 		return nil, err
 	}
 
-	// ULTIMATE PRODUCTION CLEANUP - V3 (NUCLEAR)
-	log.Printf("🚀🚀🚀 GORM: NUCLEAR CLEANUP STARTUP AT %v 🚀🚀🚀", time.Now().Format(time.RFC3339))
-	
-	// Drop EVERYTHING possible so AutoMigrate can start fresh
-	cleanupSQL := `
-		ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;
-		ALTER TABLE users DROP CONSTRAINT IF EXISTS uni_users_email;
-		ALTER TABLE users DROP CONSTRAINT IF EXISTS idx_user_email;
-		ALTER TABLE users DROP CONSTRAINT IF EXISTS idx_users_email_production;
-		DROP INDEX IF EXISTS idx_user_email;
-		DROP INDEX IF EXISTS uni_users_email;
-		DROP INDEX IF EXISTS idx_users_email_production;
-	`
-	_ = db.Exec(cleanupSQL)
+	// Manual Schema Management for User/UserOrg
+	// We handle these tables manually to prevent GORM from panicking over constraint names.
+	log.Printf("🛠️ MANUAL SCHEMA: Verifying User and UserOrg tables...")
+	manualSchemaSQL := `
+		CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
-	// Auto-migrate all models to ensure schema is always in sync
-	log.Printf("🚀 GORM: Running auto-migration...")
+		CREATE TABLE IF NOT EXISTS users (
+			id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+			email TEXT NOT NULL,
+			name TEXT,
+			created_at TIMESTAMPTZ DEFAULT NOW(),
+			updated_at TIMESTAMPTZ DEFAULT NOW()
+		);
+		
+		-- Create unique index if it doesn't exist (idempotent)
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_manual ON users(email);
+
+		CREATE TABLE IF NOT EXISTS user_orgs (
+			user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+			org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+			role TEXT NOT NULL,
+			created_at TIMESTAMPTZ DEFAULT NOW(),
+			PRIMARY KEY (user_id, org_id)
+		);
+	`
+	if err := db.Exec(manualSchemaSQL).Error; err != nil {
+		log.Printf("⚠️ MANUAL SCHEMA ERROR (Non-fatal): %v", err)
+	}
+
+	// Auto-migrate all models EXCEPT User/UserOrg to ensure schema is always in sync
+	log.Printf("🚀 GORM: Running auto-migration (Skipping User/UserOrg)...")
 	err = db.AutoMigrate(
 		&store.Organization{},
-		&store.User{},
-		&store.UserOrg{},
+		// &store.User{},     <-- MANAGED MANUALLY
+		// &store.UserOrg{},  <-- MANAGED MANUALLY
 		&store.Template{},
 		&store.TemplateVersion{},
 		&store.Deck{},
