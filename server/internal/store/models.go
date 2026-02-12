@@ -1,7 +1,35 @@
 package store
 
-import "time"
-import "github.com/ziyad/cms-ai/server/internal/auth"
+import (
+	"database/sql/driver"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/ziyad/cms-ai/server/internal/auth"
+)
+
+// JSONMap is a map[string]string that serializes to/from PostgreSQL jsonb.
+type JSONMap map[string]string
+
+func (j JSONMap) Value() (driver.Value, error) {
+	if j == nil {
+		return nil, nil
+	}
+	return json.Marshal(j)
+}
+
+func (j *JSONMap) Scan(value interface{}) error {
+	if value == nil {
+		*j = nil
+		return nil
+	}
+	b, ok := value.([]byte)
+	if !ok {
+		return fmt.Errorf("JSONMap.Scan: expected []byte, got %T", value)
+	}
+	return json.Unmarshal(b, j)
+}
 
 type TemplateStatus string
 
@@ -112,7 +140,7 @@ type Job struct {
 	MaxRetries      int               `json:"maxRetries"`
 	LastRetryAt     *time.Time        `json:"lastRetryAt,omitempty"`
 	DeduplicationID string            `json:"deduplicationId,omitempty" gorm:"index"`
-	Metadata        *map[string]string `json:"metadata,omitempty" gorm:"type:jsonb"`
+	Metadata        *JSONMap           `json:"metadata,omitempty" gorm:"type:jsonb"`
 	ProgressStep    string            `json:"progressStep,omitempty"`
 	ProgressPct     int               `json:"progressPct,omitempty"`
 	CreatedAt       time.Time         `json:"createdAt"`

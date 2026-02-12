@@ -27,7 +27,7 @@ func TestPostgresJobStore_MetadataSerialization(t *testing.T) {
 
 	jobStore := s.Jobs()
 
-	metadata := map[string]string{
+	metadata := store.JSONMap{
 		"test-key": "test-value",
 		"version":  "v1.0",
 	}

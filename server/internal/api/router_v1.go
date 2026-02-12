@@ -302,7 +302,7 @@ func (s *Server) handleGenerateTemplate(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Enqueue async generation job
-	metadata := map[string]string{
+	metadata := store.JSONMap{
 		"prompt":     req.Prompt,
 		"language":   req.Language,
 		"tone":       req.Tone,
@@ -791,7 +791,7 @@ func (s *Server) handleCreateDeck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Asynchronous path for AI binding
-	metadata := map[string]string{
+	metadata := store.JSONMap{
 		"sourceTemplateVersionId": req.SourceTemplateVersion,
 		"content":                 req.Content,
 		"userId":                  id.UserID,
@@ -1027,7 +1027,7 @@ func (s *Server) handleExportDeckVersion(w http.ResponseWriter, r *http.Request)
 	}
 
 	// Async export using job queue - NO deduplication for exports to allow multiple entries
-	metadata := map[string]string{
+	metadata := store.JSONMap{
 		"versionNo": fmt.Sprintf("%d", dv.VersionNo),
 		"filename":  fmt.Sprintf("deck-export-v%d-%s.pptx", dv.VersionNo, time.Now().Format("20060102-150405")),
 	}

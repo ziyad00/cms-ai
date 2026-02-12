@@ -82,7 +82,7 @@ func TestJobStore(t *testing.T) {
 		OrgID: "org-1",
 		Type:  store.JobRender,
 		Status: store.JobQueued,
-		Metadata: &map[string]string{"test-key": "test-value"},
+		Metadata: &store.JSONMap{"test-key": "test-value"},
 	}
 	_, err = s.Jobs().Enqueue(ctx, job2)
 	require.NoError(t, err)
