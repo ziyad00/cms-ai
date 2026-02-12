@@ -316,8 +316,14 @@ func (w *Worker) updateProgress(ctx context.Context, job *store.Job, step string
 func (w *Worker) processRenderJob(ctx context.Context, job store.Job, templateVersion store.TemplateVersion) (string, error) {
 	w.updateProgress(ctx, &job, "Generating PowerPoint slides", 20)
 
+	// Normalize spec — pgx returns jsonb as Go string, possibly base64-encoded.
+	normalizedSpec, err := anyToJSONBytes(templateVersion.SpecJSON)
+	if err != nil {
+		return "", fmt.Errorf("failed to normalize template spec: %w", err)
+	}
+
 	// Render PPTX
-	data, err := w.renderer.RenderPPTXBytes(ctx, templateVersion.SpecJSON)
+	data, err := w.renderer.RenderPPTXBytes(ctx, json.RawMessage(normalizedSpec))
 	if err != nil {
 		return "", fmt.Errorf("failed to render PPTX: %w", err)
 	}
@@ -354,8 +360,23 @@ func (w *Worker) processRenderJob(ctx context.Context, job store.Job, templateVe
 func (w *Worker) processDeckRenderJob(ctx context.Context, job store.Job, deckVersion store.DeckVersion) (string, error) {
 	w.updateProgress(ctx, &job, "Generating deck visuals", 20)
 
-	// Render PPTX for deck version
-	data, err := w.renderer.RenderPPTXBytes(ctx, deckVersion.SpecJSON)
+	// CRITICAL: Normalize the spec BEFORE passing to renderer.
+	// pgx returns jsonb as Go string. If GORM wrote []byte, the string is base64.
+	// The renderer's specToJSONBytes should handle this, but we normalize here as
+	// a belt-and-suspenders approach to prevent the Python script from receiving
+	// a base64 string instead of a JSON object.
+	normalizedSpec, err := anyToJSONBytes(deckVersion.SpecJSON)
+	if err != nil {
+		return "", fmt.Errorf("failed to normalize deck spec: %w", err)
+	}
+	logger.Jobs().Info("deck_export_spec_normalized",
+		"job_id", job.ID,
+		"input_type", fmt.Sprintf("%T", deckVersion.SpecJSON),
+		"output_len", len(normalizedSpec),
+		"first50", string(normalizedSpec[:min(50, len(normalizedSpec))]))
+
+	// Render PPTX for deck version — pass normalized JSON bytes
+	data, err := w.renderer.RenderPPTXBytes(ctx, json.RawMessage(normalizedSpec))
 	if err != nil {
 		return "", fmt.Errorf("failed to render deck PPTX: %w", err)
 	}

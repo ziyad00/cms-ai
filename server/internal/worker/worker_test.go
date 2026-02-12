@@ -963,6 +963,65 @@ func TestWorker_ProcessJob_RespectsContextTimeout(t *testing.T) {
 		"timed-out job must not remain in Running state")
 }
 
+// TDD: Deck export with base64-encoded SpecJSON (simulates old data from GORM []byte write).
+// This is the EXACT production bug: GORM wrote json.Marshal([]byte) → base64 to jsonb.
+// pgx reads it back as Go string containing base64. The renderer gets a string, writes
+// it to a temp file, Python json.loads() returns a string → 'str' has no attribute 'get'.
+func TestWorker_DeckExport_Base64SpecJSON_Decoded(t *testing.T) {
+	memStore := memory.New()
+	renderer := assets.NewGoPPTXRenderer()
+	storage, _ := assets.NewLocalStorage(assets.StorageConfig{Type: "local"})
+	w := New(memStore, renderer, storage, ai.NewAIService(memStore))
+
+	ctx := context.Background()
+	orgID := "org-b64-deck"
+
+	// The original JSON spec
+	originalJSON := `{"layouts":[{"name":"title-slide","placeholders":[{"id":"title","type":"text","content":"Hello World","geometry":{"x":0.1,"y":0.1,"w":0.8,"h":0.2}}]}]}`
+
+	// Simulate the GORM/pgx roundtrip:
+	// 1. GORM writes []byte to jsonb → json.Marshal([]byte) → base64 string in jsonb
+	// 2. pgx reads jsonb string → Go string containing base64
+	base64JSON, err := json.Marshal([]byte(originalJSON))
+	require.NoError(t, err)
+	var pgxString string
+	err = json.Unmarshal(base64JSON, &pgxString)
+	require.NoError(t, err)
+	// pgxString is now "eyJsYXlvdXRzIj..." — exactly what production has
+
+	// Create deck and version with the base64-encoded spec
+	deck := store.Deck{ID: "deck-b64", OrgID: orgID, Name: "Base64 Test"}
+	_, err = memStore.Decks().CreateDeck(ctx, deck)
+	require.NoError(t, err)
+
+	dv := store.DeckVersion{
+		ID: "dv-b64", Deck: "deck-b64", OrgID: orgID,
+		VersionNo: 1, SpecJSON: pgxString, // Go string with base64 — the production bug
+		CreatedBy: "user-1", CreatedAt: time.Now(),
+	}
+	_, err = memStore.Decks().CreateDeckVersion(ctx, dv)
+	require.NoError(t, err)
+
+	metadata := store.JSONMap{"versionNo": "1", "filename": "test-b64.pptx"}
+	job := store.Job{
+		ID: "job-b64-deck", OrgID: orgID, Type: store.JobExport,
+		Status: store.JobQueued, InputRef: "dv-b64",
+		Metadata: &metadata, CreatedAt: time.Now(), UpdatedAt: time.Now(),
+	}
+	_, err = memStore.Jobs().Enqueue(ctx, job)
+	require.NoError(t, err)
+
+	w.processJobs()
+	time.Sleep(200 * time.Millisecond)
+
+	got, found, err := memStore.Jobs().Get(ctx, orgID, job.ID)
+	require.NoError(t, err)
+	require.True(t, found)
+	assert.Equal(t, store.JobDone, got.Status,
+		"deck export with base64 SpecJSON must succeed; error: %s", got.Error)
+	assert.NotEmpty(t, got.OutputRef)
+}
+
 // slowRenderer blocks forever in RenderPPTXBytes (until context cancelled).
 type slowRenderer struct{}
 
