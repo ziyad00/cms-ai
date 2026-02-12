@@ -32,13 +32,17 @@ func New(dsn string) (*PostgresStore, error) {
 		gormConfig.Logger = logger.Default.LogMode(logger.Info)
 	}
 
-	db, err := gorm.Open(postgres.Open(dsn), gormConfig)
+	// Use PreferSimpleProtocol for cloud compatibility (Railway/Supabase)
+	db, err := gorm.Open(postgres.New(postgres.Config{
+		DSN:                  dsn,
+		PreferSimpleProtocol: true,
+	}), gormConfig)
 	if err != nil {
 		return nil, err
 	}
 
-	// ULTIMATE PRODUCTION CLEANUP
-	log.Printf("🚀🚀🚀 GORM: FRESH STARTUP AT %v 🚀🚀🚀", time.Now().Format(time.RFC3339))
+	// ULTIMATE PRODUCTION CLEANUP - V2
+	log.Printf("🚀🚀🚀 GORM: FRESH STARTUP (SIMPLE PROTOCOL) AT %v 🚀🚀🚀", time.Now().Format(time.RFC3339))
 	
 	// Drop ALL possible legacy names so AutoMigrate can start fresh
 	cleanupSQL := `
@@ -46,6 +50,7 @@ func New(dsn string) (*PostgresStore, error) {
 		ALTER TABLE users DROP CONSTRAINT IF EXISTS uni_users_email;
 		ALTER TABLE users DROP CONSTRAINT IF EXISTS idx_user_email;
 		DROP INDEX IF EXISTS idx_user_email;
+		DROP INDEX IF EXISTS uni_users_email;
 	`
 	_ = db.Exec(cleanupSQL)
 

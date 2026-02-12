@@ -7,6 +7,13 @@ echo "Starting CMS-AI services..."
 GO_API_PORT=8081
 export ADDR=:$GO_API_PORT
 echo "Starting Go backend on port $GO_API_PORT..."
+
+# DB DIAGNOSTIC (using psql if available)
+if command -v psql >/dev/null 2>&1; then
+  echo "🔍 DB DIAGNOSTICS: Checking users table constraints..."
+  psql "$DATABASE_URL" -c "\d users" || echo "Table 'users' not found yet"
+fi
+
 # Unset PORT temporarily so Go server uses ADDR instead
 env -u PORT /usr/local/bin/server &
 
