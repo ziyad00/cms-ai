@@ -46,9 +46,20 @@ export default function DeckDetailPage() {
 
   useEffect(() => {
     load()
-    loadExportJobs() // Load existing export jobs from backend
+    loadExportJobs()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
+
+  // Poll export job status while any job is non-terminal
+  useEffect(() => {
+    const terminal = new Set(['Done', 'DeadLetter', 'Failed'])
+    const hasActive = exportJobs.some(j => !terminal.has(j.status))
+    if (!hasActive || exportJobs.length === 0) return
+
+    const interval = setInterval(() => { loadExportJobs() }, 3000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exportJobs])
 
   async function load() {
     setMessage('')
@@ -83,17 +94,11 @@ export default function DeckDetailPage() {
         const normalizedSpec = normalizeSpec(chosen?.spec)
         setSpec(normalizedSpec)
 
-        // Set outline for interactive editing (like creation wizard)
-        console.log('Debug spec outline:', normalizedSpec?.outline)
-        console.log('Debug deck outline:', deckData?.outline)
-        console.log('Debug layouts:', normalizedSpec?.layouts)
-
         let outlineData = normalizedSpec?.outline || deckData?.outline || null
 
         // If no outline exists, create one from layouts
         if (!outlineData && normalizedSpec?.layouts) {
           outlineData = createOutlineFromLayouts(normalizedSpec.layouts)
-          console.log('Debug created outline:', outlineData)
         }
 
         setOutline(outlineData)
@@ -291,6 +296,15 @@ export default function DeckDetailPage() {
     setHasChanges(true)
   }
 
+  function addSlide() {
+    setOutline((prev) => {
+      const slides = [...((prev && prev.slides) || [])]
+      slides.push({ slide_number: slides.length + 1, title: '', content: [] })
+      return { slides }
+    })
+    setHasChanges(true)
+  }
+
   function extractContentFromOutline(outline) {
     if (!outline || !outline.slides) return null
 
@@ -315,10 +329,19 @@ export default function DeckDetailPage() {
       })
 
       return contentParts.length > 0 ? contentParts.join('\n').trim() : null
-    } catch (err) {
-      console.error('Error extracting content from outline:', err)
+    } catch {
       return null
     }
+  }
+
+  function extractContentFromSpec(spec) {
+    if (!spec) return null
+    if (spec.outline) return extractContentFromOutline(spec.outline)
+    if (spec.layouts) {
+      const outlineFromLayouts = createOutlineFromLayouts(spec.layouts)
+      return extractContentFromOutline(outlineFromLayouts)
+    }
+    return null
   }
 
   async function updateDeck() {
@@ -559,43 +582,39 @@ export default function DeckDetailPage() {
             </div>
           )}
 
-          {/* Download Buttons for completed exports */}
-          {exportJobs.length > 0 && (
-            <div className="mx-6 mb-6">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-medium text-gray-700">
-                    Export Downloads ({exportJobs.length} version{exportJobs.length !== 1 ? 's' : ''})
-                  </h3>
-                  <button
-                    onClick={() => setExportJobs([])}
-                    className="text-xs text-gray-500 hover:text-red-600 transition-colors"
-                  >
-                    Clear All
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  {exportJobs.map((job, index) => (
-                    <div key={job.id} className="border rounded-lg p-3 bg-gray-50">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-sm font-medium text-gray-600">
-                          {job.versionNo ? `Export of v${job.versionNo}` : `Export version ${exportJobs.length - index}`} {index === 0 && '(Latest)'}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          {new Date(job.timestamp).toLocaleString()}
-                        </span>
-                      </div>
-                      <DownloadButtons job={job} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Content Tab */}
           {mode === 'edit' && (
             <div className="p-6">
+              {/* Export Downloads — only on edit tab, limited to 5 most recent */}
+              {exportJobs.length > 0 && (
+                <div className="mb-6">
+                  <div className="bg-gray-50 rounded-lg border border-gray-200 p-4">
+                    <h3 className="text-sm font-medium text-gray-700 mb-3">
+                      Recent Exports
+                    </h3>
+                    <div className="space-y-3">
+                      {exportJobs.slice(0, 5).map((job, index) => (
+                        <div key={job.id} className="border rounded-lg p-3 bg-white">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium text-gray-600">
+                              {job.versionNo ? `v${job.versionNo}` : `Export ${exportJobs.length - index}`}{index === 0 ? ' (Latest)' : ''}
+                            </span>
+                            {job.timestamp && (
+                              <span className="text-xs text-gray-400">
+                                {new Date(job.timestamp).toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+                          <DownloadButtons job={job} />
+                        </div>
+                      ))}
+                    </div>
+                    {exportJobs.length > 5 && (
+                      <p className="mt-2 text-xs text-gray-400">Showing 5 of {exportJobs.length} exports</p>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Deck name</label>
@@ -707,6 +726,13 @@ export default function DeckDetailPage() {
                     No slides available. This deck may not have an outline structure.
                   </div>
                 )}
+
+                <button
+                  onClick={addSlide}
+                  className="mt-4 w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-colors"
+                >
+                  + Add Slide
+                </button>
               </div>
 
               <div className="flex justify-end gap-3">

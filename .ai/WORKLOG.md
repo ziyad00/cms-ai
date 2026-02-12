@@ -1,5 +1,40 @@
 # CMS-AI Worklog
 
+## 2026-02-12 - Deck Detail Page UI/UX Fixes (TDD)
+
+### Summary
+Fixed 1 runtime crash, 4 UX issues in deck detail page. All changes test-driven with 26 new unit tests.
+
+### Tests Added
+- [unit] `deckPageLogic.test.js` — 26 tests covering:
+  - normalizeSpec (5 tests: null, object passthrough, JSON string, base64, invalid)
+  - createOutlineFromLayouts (3 tests: null/empty, title+bullets, non-text ignore)
+  - extractContentFromOutline (2 tests: null, text extraction)
+  - extractContentFromSpec (4 tests: null, with outline, with layouts, empty — THE BUG)
+  - addSlide (3 tests: empty outline, append, no-mutation)
+  - hasActiveJobs (7 tests: all terminal states, active states, empty)
+  - limitExportJobs (2 tests: limit, under-limit)
+
+### Changes Made
+1. **Bug fix**: Added missing `extractContentFromSpec` function (line 493 called it but it didn't exist — runtime crash when switching versions)
+2. **Cleanup**: Removed 4 console.log debug statements (lines 87-89, 96)
+3. **UX**: Added `addSlide()` function + "Add Slide" dashed button below slide list
+4. **UX**: Added export job polling via useEffect (3s interval while any job is non-terminal, auto-stops)
+5. **UX**: Moved export section inside edit tab only (was showing on Visual Editor tab too)
+6. **UX**: Limited export list to 5 most recent (was showing ALL 21+ historical exports)
+7. **UX**: Removed misleading "Clear All" button (only cleared React state, reappeared on refresh)
+
+### Files Touched
+- `web/app/decks/[id]/page.js` (all fixes)
+- `web/test/deckPageLogic.test.js` (new — 26 tests)
+
+### How to Run
+```bash
+cd web && node --test test/deckPageLogic.test.js test/downloadButtons.test.js test/filename.test.js
+```
+
+---
+
 ## 2026-02-12 - Test Coverage Improvements for JSONMap & Job Metadata ✅
 
 ### Summary
