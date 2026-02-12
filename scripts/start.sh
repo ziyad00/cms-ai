@@ -6,26 +6,30 @@ echo "Starting CMS-AI services..."
 # Start Go backend on internal port 8081 (avoid conflict with Railway's PORT)
 GO_API_PORT=8081
 export ADDR=:$GO_API_PORT
+# Start Go backend
 echo "Starting Go backend on port $GO_API_PORT..."
-
-# DB DIAGNOSTIC (using psql if available)
-if command -v psql >/dev/null 2>&1; then
-  echo "🔍 DB DIAGNOSTICS: Checking users table constraints..."
-  psql "$DATABASE_URL" -c "\d users" || echo "Table 'users' not found yet"
-fi
+echo "🚀 BINARY INFO: $(ls -l /usr/local/bin/server)"
+echo "🚀 BINARY MD5: $(md5sum /usr/local/bin/server || md5 /usr/local/bin/server)"
 
 # Unset PORT temporarily so Go server uses ADDR instead
 env -u PORT /usr/local/bin/server &
+GO_PID=$!
 
 # Wait for Go backend to be ready
-echo "Waiting for Go backend..."
-sleep 3
+echo "Waiting for Go backend (PID: $GO_PID)..."
 for i in 1 2 3 4 5 6 7 8 9 10; do
-  if curl -f http://localhost:$GO_API_PORT/healthz >/dev/null 2>&1; then
-    echo "Go backend is ready on port $GO_API_PORT"
+  if kill -0 $GO_PID 2>/dev/null; then
+    if curl -f http://localhost:$GO_API_PORT/healthz >/dev/null 2>&1; then
+      echo "✅ Go backend is ready on port $GO_API_PORT"
+      break
+    fi
+  else
+    echo "❌ Go backend CRASHED immediately! Check logs above."
+    wait $GO_PID || true
+    # We continue so Next.js starts and we can see the logs
     break
   fi
-  echo "Waiting for Go backend... ($i/10)"
+  echo "Waiting... ($i/10)"
   sleep 1
 done
 

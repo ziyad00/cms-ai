@@ -41,41 +41,10 @@ func New(dsn string) (*PostgresStore, error) {
 		return nil, err
 	}
 
-	// Manual Schema Management for User/UserOrg
-	// We handle these tables manually to prevent GORM from panicking over constraint names.
-	log.Printf("🛠️ MANUAL SCHEMA: Verifying User and UserOrg tables...")
-	manualSchemaSQL := `
-		CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
-		CREATE TABLE IF NOT EXISTS users (
-			id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-			email TEXT NOT NULL,
-			name TEXT,
-			created_at TIMESTAMPTZ DEFAULT NOW(),
-			updated_at TIMESTAMPTZ DEFAULT NOW()
-		);
-		
-		-- Create unique index if it doesn't exist (idempotent)
-		CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_manual ON users(email);
-
-		CREATE TABLE IF NOT EXISTS user_orgs (
-			user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-			org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
-			role TEXT NOT NULL,
-			created_at TIMESTAMPTZ DEFAULT NOW(),
-			PRIMARY KEY (user_id, org_id)
-		);
-	`
-	if err := db.Exec(manualSchemaSQL).Error; err != nil {
-		log.Printf("⚠️ MANUAL SCHEMA ERROR (Non-fatal): %v", err)
-	}
-
-	// Auto-migrate all models EXCEPT User/UserOrg to ensure schema is always in sync
+	// Auto-migrate all models EXCEPT User/UserOrg (managed manually below)
 	log.Printf("🚀 GORM: Running auto-migration (Skipping User/UserOrg)...")
 	err = db.AutoMigrate(
 		&store.Organization{},
-		// &store.User{},     <-- MANAGED MANUALLY
-		// &store.UserOrg{},  <-- MANAGED MANUALLY
 		&store.Template{},
 		&store.TemplateVersion{},
 		&store.Deck{},
@@ -88,6 +57,35 @@ func New(dsn string) (*PostgresStore, error) {
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to auto-migrate: %w", err)
+	}
+
+	// Manual Schema Management for User/UserOrg
+	// Runs AFTER AutoMigrate so the organizations table exists for foreign keys.
+	// We handle these tables manually to prevent GORM from panicking over constraint names.
+	log.Printf("🛠️ MANUAL SCHEMA: Verifying User and UserOrg tables...")
+	manualSchemaSQL := `
+		CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+		CREATE TABLE IF NOT EXISTS users (
+			id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+			email TEXT NOT NULL,
+			name TEXT,
+			created_at TIMESTAMPTZ DEFAULT NOW(),
+			updated_at TIMESTAMPTZ DEFAULT NOW()
+		);
+
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email_unique ON users(email);
+
+		CREATE TABLE IF NOT EXISTS user_orgs (
+			user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+			org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+			role TEXT NOT NULL,
+			created_at TIMESTAMPTZ DEFAULT NOW(),
+			PRIMARY KEY (user_id, org_id)
+		);
+	`
+	if err := db.Exec(manualSchemaSQL).Error; err != nil {
+		log.Printf("⚠️ MANUAL SCHEMA WARNING (non-fatal): %v", err)
 	}
 
 	return &PostgresStore{db: db}, nil

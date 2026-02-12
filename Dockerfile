@@ -1,5 +1,5 @@
 # Build Go server
-FROM golang:1.23 AS go-build
+FROM golang:1.24 AS go-build
 ARG CACHE_BUST=2
 WORKDIR /app
 COPY server/ .
