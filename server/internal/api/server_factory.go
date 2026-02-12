@@ -40,10 +40,12 @@ func NewServer() *Server {
 		pg, err := postgres.New(dsn)
 		if err != nil {
 			fmt.Printf("❌ POSTGRES CONNECTION FAILED: %v\n", err)
-			panic("failed to connect to postgres: " + err.Error())
+			fmt.Println("⚠️ FALLING BACK TO IN-MEMORY STORAGE TO PREVENT PANIC")
+			st = memory.New()
+		} else {
+			st = pg
+			fmt.Println("✅ POSTGRES CONNECTED SUCCESS")
 		}
-		st = pg
-		fmt.Println("✅ POSTGRES CONNECTED SUCCESS")
 	} else {
 		fmt.Println("⚠️ USING IN-MEMORY STORAGE (NO DATABASE_URL)")
 		st = memory.New()
