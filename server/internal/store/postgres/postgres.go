@@ -37,21 +37,39 @@ func New(dsn string) (*PostgresStore, error) {
 		return nil, err
 	}
 
-	// ULTIMATE PRODUCTION CLEANUP: 
-	// We explicitly drop legacy unique constraints so AutoMigrate can create 
-	// a stable unique index (as defined in our updated User model).
-	cleanupSQL := `
-		ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;
-		ALTER TABLE users DROP CONSTRAINT IF EXISTS uni_users_email;
-	`
-	_ = db.Exec(cleanupSQL)
+	// UNIQUE LOG PREFIX FOR DEPLOYMENT VERIFICATION
+	log.Printf("🚀🚀🚀 GORM: FRESH STARTUP AT %v 🚀🚀🚀", time.Now().Format(time.RFC3339))
 
-	// Auto-migrate all models to ensure schema is always in sync
-	log.Printf("🚀 GORM: Running auto-migration...")
+	// Manual Idempotent Schema Management for problematic tables
+	manualSchemaSQL := `
+		-- Ensure users table exists with correct structure
+		CREATE TABLE IF NOT EXISTS users (
+			id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+			email TEXT NOT NULL,
+			name TEXT,
+			created_at TIMESTAMPTZ DEFAULT NOW(),
+			updated_at TIMESTAMPTZ DEFAULT NOW()
+		);
+		-- Ensure unique index exists
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_user_email ON users(email);
+
+		-- Ensure user_orgs table exists
+		CREATE TABLE IF NOT EXISTS user_orgs (
+			user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+			org_id UUID REFERENCES organizations(id) ON DELETE CASCADE,
+			role TEXT NOT NULL,
+			created_at TIMESTAMPTZ DEFAULT NOW(),
+			PRIMARY KEY (user_id, org_id)
+		);
+	`
+	if err := db.Exec(manualSchemaSQL).Error; err != nil {
+		log.Printf("⚠️ GORM MANUAL SCHEMA WARNING: %v", err)
+	}
+
+	// Auto-migrate remaining application tables
+	log.Printf("🚀 GORM: Auto-migrating application tables...")
 	err = db.AutoMigrate(
 		&store.Organization{},
-		&store.User{},
-		&store.UserOrg{},
 		&store.Template{},
 		&store.TemplateVersion{},
 		&store.Deck{},
