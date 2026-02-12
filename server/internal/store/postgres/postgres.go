@@ -22,7 +22,6 @@ type PostgresStore struct {
 
 func New(dsn string) (*PostgresStore, error) {
 	// Set up GORM with a logger and a custom naming strategy
-	// IdentifierMaxLength ensures names fit Postgres limits.
 	gormConfig := &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Error),
 		NamingStrategy: schema.NamingStrategy{
@@ -38,25 +37,14 @@ func New(dsn string) (*PostgresStore, error) {
 		return nil, err
 	}
 
-	// ULTIMATE PRO-LEVEL BRIDGE: 
-	// GORM is panicking because it tries to DROP 'uni_users_email'.
-	// We MUST ensure the database has exactly what GORM wants before we call AutoMigrate.
-	// This script forces the constraint to exist with GORM's expected name.
-	bridgeSQL := `
-		DO $$ 
-		BEGIN 
-			-- 1. If legacy name exists, rename it so GORM is satisfied
-			IF EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'users_email_key' AND table_name = 'users') THEN
-				ALTER TABLE users RENAME CONSTRAINT users_email_key TO uni_users_email;
-			END IF;
-			
-			-- 2. If STILL nothing exists with the GORM name, create it
-			IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'uni_users_email' AND table_name = 'users') THEN
-				ALTER TABLE users ADD CONSTRAINT uni_users_email UNIQUE (email);
-			END IF;
-		END $$;
+	// ULTIMATE PRODUCTION CLEANUP: 
+	// We explicitly drop legacy unique constraints so AutoMigrate can create 
+	// a stable unique index (as defined in our updated User model).
+	cleanupSQL := `
+		ALTER TABLE users DROP CONSTRAINT IF EXISTS users_email_key;
+		ALTER TABLE users DROP CONSTRAINT IF EXISTS uni_users_email;
 	`
-	_ = db.Exec(bridgeSQL)
+	_ = db.Exec(cleanupSQL)
 
 	// Auto-migrate all models to ensure schema is always in sync
 	log.Printf("🚀 GORM: Running auto-migration...")
