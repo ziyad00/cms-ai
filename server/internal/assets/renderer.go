@@ -3,6 +3,7 @@ package assets
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -32,18 +33,65 @@ func specToJSONBytes(spec any) ([]byte, error) {
 	//   string:          from PostgreSQL jsonb via pgx/GORM
 	//   map/slice/etc:   from Go code constructing specs directly
 	//
-	// json.Marshal([]byte) produces base64, json.Marshal(string) produces a
-	// quoted string — both break downstream JSON parsing.
+	// CRITICAL: When GORM writes []byte to a jsonb column, it calls
+	// json.Marshal([]byte) which base64-encodes the data. The jsonb column
+	// then stores a JSON string "eyJ0b2..." (base64). When pgx reads it
+	// back into `any`, it returns a Go string containing:
+	//   - base64 (if GORM wrote []byte)
+	//   - raw JSON (if GORM wrote map/struct)
+	//   - quoted base64 (if raw jsonb text is returned)
+	//
+	// We must detect and decode base64, and unwrap quoted JSON strings.
+	var b []byte
 	switch v := spec.(type) {
 	case []byte:
-		return v, nil
+		b = v
 	case json.RawMessage:
-		return []byte(v), nil
+		b = []byte(v)
 	case string:
-		return []byte(v), nil
+		b = []byte(v)
 	default:
 		return json.Marshal(spec)
 	}
+
+	return normalizeJSONBytes(b), nil
+}
+
+// normalizeJSONBytes ensures the bytes contain a raw JSON object/array,
+// not a quoted string or base64-encoded JSON.
+func normalizeJSONBytes(b []byte) []byte {
+	b = bytes.TrimSpace(b)
+	if len(b) == 0 {
+		return b
+	}
+
+	// Already a JSON object or array → done.
+	if b[0] == '{' || b[0] == '[' {
+		return b
+	}
+
+	// Quoted JSON string: "eyJ0b2..." or "{\"layouts\":...}"
+	// Unwrap the JSON string first.
+	if b[0] == '"' {
+		var unwrapped string
+		if err := json.Unmarshal(b, &unwrapped); err == nil {
+			b = []byte(unwrapped)
+			// After unwrapping, check if it's now a JSON object
+			if len(b) > 0 && (b[0] == '{' || b[0] == '[') {
+				return b
+			}
+			// Otherwise fall through to base64 decode
+		}
+	}
+
+	// Try base64 decode (GORM writes []byte as base64 to jsonb).
+	decoded, err := base64.StdEncoding.DecodeString(string(b))
+	if err == nil && len(decoded) > 0 && (decoded[0] == '{' || decoded[0] == '[') {
+		return decoded
+	}
+
+	// Return as-is if nothing worked.
+	return b
 }
 
 type PythonPPTXRenderer struct {

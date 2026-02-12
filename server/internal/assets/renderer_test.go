@@ -119,6 +119,44 @@ func TestSpecToJSONBytes_string_from_pgx(t *testing.T) {
 	assert.Equal(t, byte('{'), result[0], "must start with { not quote")
 }
 
+// TDD RED: Simulates the ACTUAL production bug.
+// When DeckVersion.SpecJSON is []byte, GORM writes to jsonb via json.Marshal([]byte)
+// which base64-encodes it. So jsonb stores a JSON string: "eyJ0b2...".
+// When pgx reads it back, SpecJSON (type any) is Go string: "eyJ0b2..." (base64).
+// specToJSONBytes must detect base64 and decode it to raw JSON.
+func TestSpecToJSONBytes_base64_from_pgx_roundtrip(t *testing.T) {
+	// 1. Original spec as []byte (what processBindJob creates)
+	originalJSON := `{"layouts":[{"name":"title","placeholders":[{"id":"t","type":"text","content":"Hello"}]}]}`
+
+	// 2. GORM writes []byte to jsonb → json.Marshal([]byte) → base64
+	base64Encoded, err := json.Marshal([]byte(originalJSON))
+	require.NoError(t, err)
+	// base64Encoded is: "eyJsYXlvdXRzIj..."  (a JSON string containing base64)
+
+	// 3. pgx reads jsonb string → Go string (unwraps JSON string quotes)
+	var pgxValue string
+	err = json.Unmarshal(base64Encoded, &pgxValue)
+	require.NoError(t, err)
+	// pgxValue is: eyJsYXlvdXRzIj...  (base64 without quotes)
+
+	// 4. specToJSONBytes must handle this and return raw JSON
+	result, err := specToJSONBytes(pgxValue)
+	require.NoError(t, err)
+	assert.Equal(t, byte('{'), result[0], "must decode base64 to JSON object, got: %s", string(result[:50]))
+	assert.JSONEq(t, originalJSON, string(result))
+}
+
+// Same bug but the string arrives WITH JSON quotes (raw jsonb text)
+func TestSpecToJSONBytes_quoted_base64_string(t *testing.T) {
+	originalJSON := `{"layouts":[{"name":"title"}]}`
+	base64Str, _ := json.Marshal([]byte(originalJSON))
+	// base64Str is: "eyJsYXlvdXRz..." (with quotes — raw jsonb text)
+
+	result, err := specToJSONBytes(string(base64Str))
+	require.NoError(t, err)
+	assert.Equal(t, byte('{'), result[0], "must unwrap quoted base64 to JSON object")
+}
+
 func TestGoPPTXRenderer_RenderPPTXBytes_WithString(t *testing.T) {
 	// Simulates what happens when GORM reads SpecJSON from PostgreSQL jsonb:
 	// the value comes back as a Go string, not []byte or map.
