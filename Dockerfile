@@ -1,5 +1,6 @@
 # Build Go server
 FROM golang:1.23 AS go-build
+ARG CACHE_BUST=2
 WORKDIR /app
 COPY server/ .
 RUN go mod download

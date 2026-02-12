@@ -140,7 +140,7 @@ type AuditLog struct {
 
 type User struct {
 	ID        string    `json:"id" gorm:"type:uuid;primaryKey"`
-	Email     string    `json:"email" gorm:"not null"`
+	Email     string    `json:"email" gorm:"uniqueIndex:idx_users_email_production;not null"`
 	Name      string    `json:"name"`
 	CreatedAt time.Time `json:"createdAt"`
 	UpdatedAt time.Time `json:"updatedAt"`
