@@ -9,7 +9,7 @@ on:
 
 env:
   RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-  NODE_VERSION: '18'
+  NODE_VERSION: '20'
 
 jobs:
   test:
