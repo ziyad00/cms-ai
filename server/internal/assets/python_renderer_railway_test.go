@@ -11,6 +11,7 @@ import (
 )
 
 func TestPythonPPTXRenderer_RailwayEnvironmentSimulation(t *testing.T) {
+	skipIfNoPptx(t)
 	ctx := context.Background()
 
 	t.Run("RailwayContainerPathResolution", func(t *testing.T) {

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -23,9 +24,16 @@ import (
 	"github.com/ziyad/cms-ai/server/internal/worker"
 )
 
+func skipIfNoPptx(t *testing.T) {
+	t.Helper()
+	if err := exec.Command("python3", "-c", "import pptx").Run(); err != nil {
+		t.Skip("python-pptx not installed, skipping")
+	}
+}
+
 // TestCompleteAIPipeline tests the complete flow from AI generation to PPTX output
 func TestCompleteAIPipeline(t *testing.T) {
-	// Skip if Python renderer not available
+	skipIfNoPptx(t)
 	pythonScript := filepath.Join("..", "tools", "renderer", "render_pptx.py")
 	if _, err := os.Stat(pythonScript); os.IsNotExist(err) {
 		t.Skip("Python renderer not available")
@@ -173,6 +181,7 @@ func TestCompleteAIPipeline(t *testing.T) {
 
 // TestAIGenerationToRendering tests the flow from AI generation request to final rendering
 func TestAIGenerationToRendering(t *testing.T) {
+	skipIfNoPptx(t)
 	pythonScript := filepath.Join("..", "tools", "renderer", "render_pptx.py")
 	if _, err := os.Stat(pythonScript); os.IsNotExist(err) {
 		t.Skip("Python renderer not available")
@@ -395,7 +404,7 @@ func BenchmarkCompleteFlow(b *testing.B) {
 // TestCompleteAsyncExportWorkflow tests the complete end-to-end async job workflow
 // This validates all acceptance criteria for STORY-003
 func TestCompleteAsyncExportWorkflow(t *testing.T) {
-	// Skip if Python renderer not available
+	skipIfNoPptx(t)
 	pythonScript := filepath.Join("..", "tools", "renderer", "render_pptx.py")
 	if _, err := os.Stat(pythonScript); os.IsNotExist(err) {
 		t.Skip("Python renderer not available")

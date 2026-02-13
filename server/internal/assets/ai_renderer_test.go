@@ -5,12 +5,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// skipIfNoPptx skips the test if python-pptx is not installed
+func skipIfNoPptx(t *testing.T) {
+	t.Helper()
+	if err := exec.Command("python3", "-c", "import pptx").Run(); err != nil {
+		t.Skip("python-pptx not installed, skipping")
+	}
+}
 
 // Test data helpers
 func getHealthcareTestSpec() map[string]interface{} {
@@ -102,7 +111,7 @@ func getFinanceTestSpec() map[string]interface{} {
 
 // Test PythonPPTXRenderer
 func TestPythonPPTXRenderer(t *testing.T) {
-	// Skip if Python renderer not available
+	skipIfNoPptx(t)
 	scriptPath := filepath.Join("..", "..", "tools", "renderer", "render_pptx.py")
 	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
 		t.Skip("Python renderer not available at", scriptPath)
@@ -154,6 +163,7 @@ func TestPythonPPTXRenderer(t *testing.T) {
 
 // Test PythonPPTXRenderer with Company Context
 func TestPythonPPTXRendererWithCompany(t *testing.T) {
+	skipIfNoPptx(t)
 	scriptPath := filepath.Join("..", "..", "tools", "renderer", "render_pptx.py")
 	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
 		t.Skip("Python renderer not available")
@@ -196,6 +206,7 @@ func TestPythonPPTXRendererWithCompany(t *testing.T) {
 
 // Test AIEnhancedRenderer
 func TestAIEnhancedRenderer(t *testing.T) {
+	skipIfNoPptx(t)
 	scriptPath := filepath.Join("..", "..", "tools", "renderer", "render_pptx.py")
 	if _, err := os.Stat(scriptPath); os.IsNotExist(err) {
 		t.Skip("Python renderer not available")
