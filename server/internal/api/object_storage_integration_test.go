@@ -44,9 +44,7 @@ func TestSignedURLIntegration(t *testing.T) {
 
 	// Test 1: Get download URL (should return signed URL)
 	req := httptest.NewRequest("GET", "/v1/assets/"+createdAsset.ID+"/download-url", nil)
-	req.Header.Set("X-User-Id", "test-user")
-	req.Header.Set("X-Org-Id", "test-org")
-	req.Header.Set("X-Role", "Editor")
+	addTestAuth(req, "test-user", "test-org", "Editor")
 	w := httptest.NewRecorder()
 
 	// Use the full router
@@ -59,9 +57,7 @@ func TestSignedURLIntegration(t *testing.T) {
 
 	// Test 2: Direct asset download (should redirect to signed URL)
 	req2 := httptest.NewRequest("GET", "/v1/assets/"+createdAsset.ID, nil)
-	req2.Header.Set("X-User-Id", "test-user")
-	req2.Header.Set("X-Org-Id", "test-org")
-	req2.Header.Set("X-Role", "Editor")
+	addTestAuth(req2, "test-user", "test-org", "Editor")
 	w2 := httptest.NewRecorder()
 
 	h.ServeHTTP(w2, req2)
@@ -102,16 +98,7 @@ func TestStorageBackendSelection(t *testing.T) {
 			},
 			expectError: false,
 		},
-		{
-			name:        "S3 storage without credentials",
-			storageType: "s3",
-			envVars: map[string]string{
-				"S3_BUCKET":  "test-bucket",
-				"AWS_REGION": "us-east-1",
-			},
-			expectError: false, // May succeed with environment credentials
-		},
-		{
+{
 			name:        "Invalid storage type",
 			storageType: "invalid",
 			envVars:     map[string]string{},

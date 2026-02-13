@@ -1,5 +1,28 @@
 # CMS-AI Worklog
 
+## 2026-02-13 - Remove HeaderAuthenticator, fix CI tests
+
+### Summary
+Removed `HeaderAuthenticator` (dev-only X-User-Id header auth) from production code and all tests. All tests now use JWT auth via `addTestAuth()`. Also removed S3 test case (not used — Railway only), fixed company description extraction bug, and fixed error assertion in renderer error handling test.
+
+### Changes
+- Removed `HeaderAuthenticator` struct from `auth.go`
+- Removed `TestHeaderAuthenticator` from `jwt_test.go`
+- Converted all test files to use `addTestAuth()` with JWT tokens:
+  - `router_v1_test.go` — updated `authHeaders()` helper
+  - `router_test.go` — replaced X-User-Id with `addTestAuth()`
+  - `dlq_test.go` — replaced X-User-Id with `addTestAuth()`
+  - `asset_handlers_test.go` — replaced header maps with `withAuth` bool + `addTestAuth()`
+  - `object_storage_integration_test.go` — replaced X-User-Id with `addTestAuth()`
+- Removed S3 storage test case (no AWS, Railway only)
+- Fixed `extractCompanyContext` to extract `description` into `Personality` field
+- Fixed `TestPythonPPTXRenderer_ErrorHandling` assertion (script-path check fires before python-path)
+
+### Result
+All 11 Go test packages pass (0 failures).
+
+---
+
 ## 2026-02-13 - Port Olama Smart Slide Features to Python Renderer
 
 ### Summary

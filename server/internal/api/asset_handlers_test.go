@@ -179,60 +179,50 @@ func TestAssetDownloadHandlers(t *testing.T) {
 		method         string
 		path           string
 		expectedStatus int
-		headers        map[string]string
+		withAuth       bool
 	}{
 		{
 			name:           "Asset download without auth",
 			method:         "GET",
 			path:           "/v1/assets/test-asset-1",
 			expectedStatus: http.StatusUnauthorized,
+			withAuth:       false,
 		},
 		{
 			name:           "Asset download with auth but no asset",
 			method:         "GET",
 			path:           "/v1/assets/nonexistent-asset",
 			expectedStatus: http.StatusNotFound,
-			headers: map[string]string{
-				"X-User-Id": "user-1",
-				"X-Org-Id":  "org-1",
-				"X-Role":    "Editor",
-			},
+			withAuth:       true,
 		},
 		{
 			name:           "Asset download with auth and local URL storage",
 			method:         "GET",
 			path:           "/v1/assets/test-asset-1",
 			expectedStatus: http.StatusNotFound,
-			headers: map[string]string{
-				"X-User-Id": "user-1",
-				"X-Org-Id":  "org-1",
-				"X-Role":    "Editor",
-			},
+			withAuth:       true,
 		},
 		{
 			name:           "Job asset download without auth",
 			method:         "GET",
 			path:           "/v1/jobs/test-job/assets/test-file.pptx",
 			expectedStatus: http.StatusUnauthorized,
+			withAuth:       false,
 		},
 		{
 			name:           "Job asset download with auth but no job",
 			method:         "GET",
 			path:           "/v1/jobs/nonexistent-job/assets/test-file.pptx",
 			expectedStatus: http.StatusNotFound,
-			headers: map[string]string{
-				"X-User-Id": "user-1",
-				"X-Org-Id":  "org-1",
-				"X-Role":    "Editor",
-			},
+			withAuth:       true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.path, nil)
-			for k, v := range tt.headers {
-				req.Header.Set(k, v)
+			if tt.withAuth {
+				addTestAuth(req, "user-1", "org-1", "Editor")
 			}
 			w := httptest.NewRecorder()
 			h.ServeHTTP(w, req)

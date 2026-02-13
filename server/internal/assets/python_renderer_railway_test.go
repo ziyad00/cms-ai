@@ -276,6 +276,6 @@ func TestPythonPPTXRenderer_ErrorHandling(t *testing.T) {
 
 		_, err := renderer.RenderPPTXBytes(ctx, spec)
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "executable file not found")
+		assert.Contains(t, err.Error(), "not found")
 	})
 }

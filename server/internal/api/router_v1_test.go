@@ -9,9 +9,7 @@ import (
 )
 
 func authHeaders(req *http.Request) {
-	req.Header.Set("X-User-Id", "user-1")
-	req.Header.Set("X-Org-Id", "org-1")
-	req.Header.Set("X-Role", "Editor")
+	addTestAuth(req, "user-1", "org-1", "Editor")
 }
 
 func TestCreateThenListTemplates(t *testing.T) {

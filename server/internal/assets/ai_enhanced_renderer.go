@@ -105,8 +105,9 @@ func (r *AIEnhancedRenderer) extractCompanyContext(spec any) *CompanyContext {
 			if industry, ok := companyData["industry"].(string); ok {
 				company.Industry = industry
 			}
-			// Description and Mission fields might not exist in CompanyContext
-			// We'll just use Name and Industry for now
+			if desc, ok := companyData["description"].(string); ok {
+				company.Personality = desc
+			}
 			if values, ok := companyData["values"].([]interface{}); ok {
 				for _, v := range values {
 					if str, ok := v.(string); ok {

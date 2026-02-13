@@ -29,9 +29,7 @@ func TestValidateEndpoint_OK(t *testing.T) {
 	b, _ := json.Marshal(body)
 	req := httptest.NewRequest(http.MethodPost, "/v1/templates/validate", bytes.NewReader(b))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-User-Id", "user-1")
-	req.Header.Set("X-Org-Id", "org-1")
-	req.Header.Set("X-Role", "Editor")
+	addTestAuth(req, "user-1", "org-1", "Editor")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 
@@ -61,9 +59,7 @@ func TestValidateEndpoint_InvalidOverlap(t *testing.T) {
 	b, _ := json.Marshal(body)
 	req := httptest.NewRequest(http.MethodPost, "/v1/templates/validate", bytes.NewReader(b))
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-User-Id", "user-1")
-	req.Header.Set("X-Org-Id", "org-1")
-	req.Header.Set("X-Role", "Editor")
+	addTestAuth(req, "user-1", "org-1", "Editor")
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, req)
 

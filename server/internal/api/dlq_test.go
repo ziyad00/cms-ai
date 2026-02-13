@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/ziyad/cms-ai/server/internal/auth"
 	"github.com/ziyad/cms-ai/server/internal/store"
 	"github.com/ziyad/cms-ai/server/internal/store/memory"
 )
@@ -77,9 +78,7 @@ func TestServer_ListDeadLetterJobs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req := httptest.NewRequest("GET", "/v1/admin/jobs/dead-letter", nil)
-			req.Header.Set("X-User-Id", "user-1")
-			req.Header.Set("X-Org-Id", "org-1")
-			req.Header.Set("X-Role", tt.role)
+			addTestAuth(req, "user-1", "org-1", auth.Role(tt.role))
 
 			w := httptest.NewRecorder()
 			server.Handler().ServeHTTP(w, req)
@@ -160,9 +159,7 @@ func TestServer_RetryDeadLetterJob(t *testing.T) {
 			}
 
 			req := httptest.NewRequest("POST", "/v1/admin/jobs/"+jobID+"/retry", nil)
-			req.Header.Set("X-User-Id", "user-1")
-			req.Header.Set("X-Org-Id", "org-1")
-			req.Header.Set("X-Role", tt.role)
+			addTestAuth(req, "user-1", "org-1", auth.Role(tt.role))
 
 			w := httptest.NewRecorder()
 			server.Handler().ServeHTTP(w, req)

@@ -38,23 +38,6 @@ type Authenticator interface {
 
 var ErrUnauthenticated = errors.New("unauthenticated")
 
-type HeaderAuthenticator struct{}
-
-// HeaderAuthenticator is a dev-friendly authenticator.
-// Required headers: X-User-Id, X-Org-Id, optional X-Role.
-func (HeaderAuthenticator) Authenticate(r *http.Request) (Identity, error) {
-	userID := r.Header.Get("X-User-Id")
-	orgID := r.Header.Get("X-Org-Id")
-	if userID == "" || orgID == "" {
-		return Identity{}, ErrUnauthenticated
-	}
-	role := Role(r.Header.Get("X-Role"))
-	if role == "" {
-		role = RoleEditor
-	}
-	return Identity{UserID: userID, OrgID: orgID, Role: role}, nil
-}
-
 func RequireRole(id Identity, min Role) bool {
 	return roleRank(id.Role) >= roleRank(min)
 }
