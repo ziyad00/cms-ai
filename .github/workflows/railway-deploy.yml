@@ -38,11 +38,15 @@ jobs:
         uses: astral-sh/setup-uv@v4
 
       - name: Install Python dependencies
-        run: uv pip install --system -r server/requirements.txt
+        run: |
+          uv venv .venv
+          source .venv/bin/activate
+          uv pip install -r server/requirements.txt
 
       - name: Run Go tests
         env:
           JWT_SECRET: test-secret-for-ci-that-is-at-least-32-characters
+          PATH: ${{ github.workspace }}/.venv/bin:${{ env.PATH }}
         run: |
           cd server
           go test -v ./...
