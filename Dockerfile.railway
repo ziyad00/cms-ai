@@ -37,7 +37,7 @@ RUN apk --no-cache add \
     python3 \
     py3-pip \
     curl \
-    && pip3 install --no-cache-dir --break-system-packages python-pptx
+    && pip3 install --no-cache-dir --break-system-packages python-pptx httpx
 
 # Create non-root user
 RUN addgroup -g 1001 -S appgroup && \
@@ -54,7 +54,7 @@ COPY --from=go-build /build/migrations /app/server/migrations
 # Copy entire Next.js build (includes .next, node_modules, and source files)
 COPY --from=web-build /app /app/web
 
-COPY tools/renderer/ /app/tools/renderer/
+COPY server/tools/renderer/ /app/tools/renderer/
 COPY scripts/start.sh /app/scripts/start.sh
 
 # Make start script executable

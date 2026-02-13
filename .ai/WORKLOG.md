@@ -1,5 +1,43 @@
 # CMS-AI Worklog
 
+## 2026-02-13 - Fix Python Renderer Theming (3 Root Causes)
+
+### Summary
+Exported PPTXs had no theming (black text on white background). Found and fixed 3 root causes in the full-featured Python renderer. Also switched Dockerfile to deploy the full-featured renderer and deleted the bare-bones one.
+
+### Root Causes Found
+1. **BackgroundType Enum/string mismatch**: `design_templates.py` defines `BackgroundType` as Enum, but `abstract_background_renderer.py` defines it as plain class with strings. Python Enum `CORPORATE_BARS == "corporate_bars"` is always `False`, so backgrounds never rendered.
+2. **Geometry bug**: Spec uses fractional coordinates (0.0-1.0) but renderer passed them directly to `Inches()`. `x=0.1` became 0.1 inches instead of `10 * 0.1 = 1.0 inches`. Content packed into tiny top-left corner.
+3. **Spec colors ignored**: `tokens.colors` from spec (primary, secondary, background, text) never read. Only hardcoded theme colors used.
+4. **Bonus: subtitle/title detection**: `'title' in "subtitle"` is True in Python — subtitle text got title formatting (36pt instead of 24pt).
+
+### Tests
+- [unit] Python test suite: 16/19 pass (3 pre-existing failures unrelated to changes)
+- [unit] All 19 Go worker tests pass
+- [manual] Generated test PPTX with spec colors applied, correct font sizes, background patterns
+
+### Changes Made
+1. `server/tools/renderer/abstract_background_renderer.py`: Added `_normalize_bg_type()` to convert Enum to string before comparisons. Applied in `_apply_base_background` and all `_apply_patterns` methods. Added fallback solid background for unmatched types.
+2. `server/tools/renderer/render_pptx.py`: Added `_geometry_to_inches()` for fractional-to-inches conversion. Read `tokens.colors` from spec and apply as theme overrides. Fixed subtitle detection order. Removed all debug prints. Added word wrap.
+3. `Dockerfile.railway`: Changed `COPY server/tools/renderer/` (was `tools/renderer/`). Added `httpx` to pip install.
+4. Deleted `tools/renderer/` (bare-bones renderer).
+
+### Files Touched
+- `server/tools/renderer/abstract_background_renderer.py`
+- `server/tools/renderer/render_pptx.py`
+- `Dockerfile.railway`
+- `tools/renderer/` (deleted)
+
+### How to Run
+```bash
+# Python renderer test
+cd server/tools/renderer && python3 render_pptx.py /tmp/test_spec.json /tmp/test.pptx
+# Go worker tests
+cd server && JWT_SECRET=test-secret-thats-at-least-32-chars-long go test ./internal/worker/ -count=1
+```
+
+---
+
 ## 2026-02-12 - Fix Export Hanging: Base64 Write Path + Worker Timeout (TDD)
 
 ### Summary

@@ -61,9 +61,16 @@ class BaseBackgroundRenderer(IBackgroundRenderer):
         """Apply pattern-specific rendering."""
         pass
 
+    @staticmethod
+    def _normalize_bg_type(bg_type) -> str:
+        """Normalize BackgroundType to string (handles both Enum and plain string)."""
+        if hasattr(bg_type, 'value'):
+            return bg_type.value
+        return str(bg_type)
+
     def _apply_base_background(self, slide, background_design) -> None:
         """Apply base background color/gradient."""
-        bg_type = getattr(background_design, 'type', BackgroundType.SOLID)
+        bg_type = self._normalize_bg_type(getattr(background_design, 'type', BackgroundType.SOLID))
         primary_color = getattr(background_design, 'primary_color', '#FFFFFF')
         secondary_color = getattr(background_design, 'secondary_color', '#E0E0E0')
 
@@ -77,6 +84,10 @@ class BaseBackgroundRenderer(IBackgroundRenderer):
             gradient_stops[0].color.rgb = self._hex_to_rgb(primary_color)
             if secondary_color:
                 gradient_stops[1].color.rgb = self._hex_to_rgb(secondary_color)
+        else:
+            # Default: apply solid background for all other types
+            slide.background.fill.solid()
+            slide.background.fill.fore_color.rgb = self._hex_to_rgb(primary_color)
 
     def _add_decorative_elements(self, slide, elements: List[Dict[str, Any]]) -> None:
         """Add decorative elements to the slide."""
@@ -150,7 +161,7 @@ class GeometricBackgroundRenderer(BaseBackgroundRenderer):
 
     def _apply_patterns(self, slide, background_design) -> None:
         """Apply geometric patterns."""
-        bg_type = getattr(background_design, 'type', BackgroundType.SOLID)
+        bg_type = self._normalize_bg_type(getattr(background_design, 'type', BackgroundType.SOLID))
 
         if bg_type == BackgroundType.DIAGONAL_LINES:
             self._create_diagonal_lines(slide, background_design)
@@ -208,7 +219,7 @@ class OrganicBackgroundRenderer(BaseBackgroundRenderer):
 
     def _apply_patterns(self, slide, background_design) -> None:
         """Apply organic patterns."""
-        bg_type = getattr(background_design, 'type', BackgroundType.SOLID)
+        bg_type = self._normalize_bg_type(getattr(background_design, 'type', BackgroundType.SOLID))
 
         if bg_type == BackgroundType.MEDICAL_CURVES:
             self._create_medical_curves(slide, background_design)
@@ -236,7 +247,7 @@ class TechBackgroundRenderer(BaseBackgroundRenderer):
 
     def _apply_patterns(self, slide, background_design) -> None:
         """Apply tech patterns."""
-        bg_type = getattr(background_design, 'type', BackgroundType.SOLID)
+        bg_type = self._normalize_bg_type(getattr(background_design, 'type', BackgroundType.SOLID))
 
         if bg_type == BackgroundType.TECH_CIRCUIT:
             self._create_circuit_pattern(slide, background_design)

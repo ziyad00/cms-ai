@@ -5,14 +5,7 @@ Integrates olama's visual rendering with Hugging Face AI design analysis
 Generates presentations with intelligent design decisions based on content
 """
 
-# ULTRA CRITICAL DEBUG: Script reached shebang and docstring
-print("🔴 ULTRA CRITICAL: Script execution started before imports", flush=True)
-
 import sys
-print("🔴 ULTRA CRITICAL: sys import successful", file=sys.stderr, flush=True)
-
-# CRITICAL DEBUG: Script started
-print(f"🔴 CRITICAL DEBUG: Script started, sys.argv={sys.argv}", file=sys.stderr, flush=True)
 import json
 import argparse
 import asyncio
@@ -21,16 +14,14 @@ import logging
 from pathlib import Path
 from typing import Dict, Any, Optional
 
-print(f"🔴 CRITICAL DEBUG: About to import python-pptx", file=sys.stderr, flush=True)
 try:
     from pptx import Presentation
-    from pptx.util import Inches, Pt
+    from pptx.util import Inches, Pt, Emu
     from pptx.enum.shapes import MSO_SHAPE
     from pptx.dml.color import RGBColor
     from pptx.enum.text import PP_ALIGN
-    print(f"🔴 CRITICAL DEBUG: python-pptx imports successful", file=sys.stderr, flush=True)
 except ImportError as e:
-    print(f"🔴 CRITICAL ERROR: python-pptx library is required. Install with: pip install python-pptx. Error: {e}", file=sys.stderr, flush=True)
+    print(f"ERROR: python-pptx library is required. Install with: pip install python-pptx. Error: {e}", file=sys.stderr)
     sys.exit(1)
 
 # Import olama's AI and design modules (local copies)
@@ -46,6 +37,10 @@ except Exception as e:
     sys.exit(1)
 
 logging.basicConfig(level=logging.INFO)
+
+# Standard slide dimensions in inches
+SLIDE_WIDTH_INCHES = 10.0
+SLIDE_HEIGHT_INCHES = 7.5
 
 
 class AIEnhancedPPTXRenderer:
@@ -72,6 +67,13 @@ class AIEnhancedPPTXRenderer:
             int(hex_color[4:6], 16)
         )
 
+    @staticmethod
+    def _geometry_to_inches(value, slide_dimension):
+        """Convert geometry value to inches. Values <= 1.0 are treated as fractions."""
+        if value <= 1.0:
+            return value * slide_dimension
+        return value
+
     async def analyze_content_with_ai(self, json_data: Dict[str, Any], company_info: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """Use AI to analyze content and generate design recommendations"""
         if not self.ai_generator:
@@ -86,20 +88,26 @@ class AIEnhancedPPTXRenderer:
             self.logger.error(f"AI analysis failed: {e}")
             return None
 
-    def get_design_theme(self, ai_analysis: Optional[Dict[str, Any]], fallback_content: str = "") -> Any:
+    def get_design_theme(self, ai_analysis: Optional[Dict[str, Any]], fallback_content: str = "", spec_colors: Optional[Dict[str, str]] = None) -> Any:
         """Get design theme based on AI analysis or fallback to industry detection"""
         if ai_analysis:
-            # Use AI-determined industry for theme selection
             industry = ai_analysis.get('industry', 'corporate')
             theme = DesignTemplateLibrary.get_theme_for_industry(industry)
             self.logger.info(f"Using AI-determined theme: {theme.name} for {industry}")
-            return theme
         else:
-            # Fallback to content-based analysis
             style_analysis = {'industry': self._detect_industry_from_content(fallback_content)}
             design_system = get_design_system_for_content(fallback_content, style_analysis)
-            self.logger.info(f"Using fallback theme: {design_system['theme'].name}")
-            return design_system['theme']
+            theme = design_system['theme']
+            self.logger.info(f"Using fallback theme: {theme.name}")
+
+        # Override theme colors with spec's tokens.colors if provided
+        if spec_colors:
+            self.logger.info(f"Applying spec color overrides: {list(spec_colors.keys())}")
+            for key, value in spec_colors.items():
+                if isinstance(value, str) and value.startswith('#') and len(value) == 7:
+                    theme.colors[key] = value
+
+        return theme
 
     def _detect_industry_from_content(self, content: str) -> str:
         """Basic industry detection from content text"""
@@ -127,7 +135,7 @@ class AIEnhancedPPTXRenderer:
 
         try:
             self.background_renderer.render_background(slide, design_config)
-            self.logger.debug(f"Applied {design_theme.name} background with {design_theme.background_design.type.value if hasattr(design_theme.background_design.type, 'value') else design_theme.background_design.type} pattern")
+            self.logger.debug(f"Applied {design_theme.name} background")
         except Exception as e:
             self.logger.warning(f"Background rendering failed: {e}")
             # Apply simple background as fallback
@@ -138,6 +146,7 @@ class AIEnhancedPPTXRenderer:
         """Add text with intelligent theme-based styling from olama design system"""
         text_box = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(width), Inches(height))
         text_frame = text_box.text_frame
+        text_frame.word_wrap = True
         text_frame.clear()
 
         p = text_frame.paragraphs[0]
@@ -147,7 +156,7 @@ class AIEnhancedPPTXRenderer:
         for i, line in enumerate(lines):
             if i > 0:
                 p = text_frame.add_paragraph()
-                p.text = f"• {line.strip()}" if line.strip() else ""
+                p.text = f"  \u2022  {line.strip()}" if line.strip() else ""
             else:
                 p.text = line.strip()
 
@@ -176,6 +185,12 @@ class AIEnhancedPPTXRenderer:
         """Main rendering method with AI design analysis"""
         self.logger.info("Starting AI-enhanced PPTX rendering...")
 
+        # Extract spec colors from tokens.colors
+        spec_colors = None
+        tokens = spec_data.get('tokens', {})
+        if isinstance(tokens, dict):
+            spec_colors = tokens.get('colors')
+
         # Extract content for analysis
         all_content = self._extract_all_content(spec_data)
 
@@ -185,18 +200,21 @@ class AIEnhancedPPTXRenderer:
             json_data = {'slides': self._convert_spec_to_slides(spec_data)}
             ai_analysis = await self.analyze_content_with_ai(json_data, company_info)
 
-        # Get design theme based on AI analysis or fallback
-        design_theme = self.get_design_theme(ai_analysis, all_content)
+        # Get design theme based on AI analysis or fallback, with spec color overrides
+        design_theme = self.get_design_theme(ai_analysis, all_content, spec_colors)
 
         # Create presentation
         prs = Presentation()
 
         # Remove default slide if any
         if len(prs.slides) > 0:
-            slide_to_remove = prs.slides[0]
             rId = prs.slides._sldIdLst[0].rId
             prs.part.drop_rel(rId)
             del prs.slides._sldIdLst[0]
+
+        # Get slide dimensions for geometry conversion
+        slide_w = prs.slide_width / Emu(914400)  # Convert EMU to inches
+        slide_h = prs.slide_height / Emu(914400)
 
         # Process layouts with AI-enhanced design
         layouts = spec_data.get('layouts', [])
@@ -213,23 +231,28 @@ class AIEnhancedPPTXRenderer:
                 ph_type = ph.get('type', 'body')
                 ph_id = ph.get('id', '')
 
-                # Use geometry if available
+                # Use geometry if available — convert fractional coords to inches
                 if 'geometry' in ph:
-                    x = ph['geometry'].get('x', 1.0)
-                    y = ph['geometry'].get('y', 1.0)
-                    w = ph['geometry'].get('w', 8.0)
-                    h = ph['geometry'].get('h', 1.0)
+                    raw_x = ph['geometry'].get('x', 0.1)
+                    raw_y = ph['geometry'].get('y', 0.1)
+                    raw_w = ph['geometry'].get('w', 0.8)
+                    raw_h = ph['geometry'].get('h', 0.2)
                 else:
-                    x = ph.get('x', 1.0)
-                    y = ph.get('y', 1.0)
-                    w = ph.get('width', 8.0)
-                    h = ph.get('height', 1.0)
+                    raw_x = ph.get('x', 0.1)
+                    raw_y = ph.get('y', 0.1)
+                    raw_w = ph.get('width', 0.8)
+                    raw_h = ph.get('height', 0.2)
 
-                # Determine text type
-                if 'title' in ph_id.lower() or ph_type == 'title':
-                    text_type = 'title'
-                elif 'subtitle' in ph_id.lower() or ph_type == 'subtitle':
+                x = self._geometry_to_inches(raw_x, slide_w)
+                y = self._geometry_to_inches(raw_y, slide_h)
+                w = self._geometry_to_inches(raw_w, slide_w)
+                h = self._geometry_to_inches(raw_h, slide_h)
+
+                # Determine text type (check subtitle before title — "subtitle" contains "title")
+                if 'subtitle' in ph_id.lower() or 'subheading' in ph_id.lower() or ph_type == 'subtitle':
                     text_type = 'subtitle'
+                elif 'title' in ph_id.lower() or 'heading' in ph_id.lower() or ph_type == 'title':
+                    text_type = 'title'
                 else:
                     text_type = 'body'
 
@@ -240,10 +263,10 @@ class AIEnhancedPPTXRenderer:
 
         # Log design decisions
         if ai_analysis:
-            self.logger.info(f"✅ AI-enhanced presentation generated: {design_theme.name} theme")
+            self.logger.info(f"AI-enhanced presentation generated: {design_theme.name} theme")
             self.logger.info(f"AI insights: {ai_analysis.get('reasoning', 'N/A')}")
         else:
-            self.logger.info(f"✅ Presentation generated with {design_theme.name} theme (no AI analysis)")
+            self.logger.info(f"Presentation generated with {design_theme.name} theme (no AI analysis)")
 
     def _extract_all_content(self, spec_data) -> str:
         """Extract all text content from spec for analysis"""
@@ -281,7 +304,6 @@ class AIEnhancedPPTXRenderer:
 
 
 async def main():
-    print(f"ARGS DEBUG: {sys.argv}", file=sys.stderr, flush=True)
     parser = argparse.ArgumentParser(description='AI-Enhanced PPTX Renderer with Hugging Face')
     parser.add_argument('spec_file', help='JSON spec file')
     parser.add_argument('output_file', help='Output PPTX file')
@@ -308,10 +330,10 @@ async def main():
         renderer = AIEnhancedPPTXRenderer(api_key)
         await renderer.render_with_ai_design(spec_data, args.output_file, company_info)
 
-        print(f"✅ Generated: {args.output_file}")
+        print(f"Generated: {args.output_file}")
 
     except Exception as e:
-        print(f"❌ Error: {e}", file=sys.stderr)
+        print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
 def main_sync():
