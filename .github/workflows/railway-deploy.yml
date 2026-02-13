@@ -34,8 +34,11 @@ jobs:
           cd server
           go mod download
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
       - name: Install Python dependencies
-        run: pip install python-pptx
+        run: uv pip install --system -r server/requirements.txt
 
       - name: Run Go tests
         env:
