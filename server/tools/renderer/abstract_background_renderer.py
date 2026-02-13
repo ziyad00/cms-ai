@@ -115,12 +115,45 @@ class BaseBackgroundRenderer(IBackgroundRenderer):
             shape.fill.solid()
             shape.fill.fore_color.rgb = self._hex_to_rgb(color)
             shape.line.fill.background()
+        elif shape_type == "cross":
+            self._add_cross_shape(slide, x, y, width, height, color)
+        elif shape_type == "polygon":
+            sides = element.get("pattern_data", {}).get("sides", 6)
+            if sides == 6:
+                shape = slide.shapes.add_shape(MSO_SHAPE.HEXAGON, x, y, width, height)
+            else:
+                shape = slide.shapes.add_shape(MSO_SHAPE.RECTANGLE, x, y, width, height)
+            shape.fill.solid()
+            shape.fill.fore_color.rgb = self._hex_to_rgb(color)
+            shape.line.fill.background()
         elif shape_type == "line":
             line = slide.shapes.add_connector(
                 MSO_CONNECTOR.STRAIGHT, x, y, x + width, y + height
             )
             line.line.color.rgb = self._hex_to_rgb(color)
             line.line.width = Pt(2)
+
+    def _add_cross_shape(self, slide, x, y, width, height, color: str) -> None:
+        """Add a medical cross shape (two overlapping rectangles)."""
+        # Vertical bar
+        v_bar = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            x + width * 0.35, y,
+            width * 0.3, height
+        )
+        v_bar.fill.solid()
+        v_bar.fill.fore_color.rgb = self._hex_to_rgb(color)
+        v_bar.line.fill.background()
+
+        # Horizontal bar
+        h_bar = slide.shapes.add_shape(
+            MSO_SHAPE.RECTANGLE,
+            x, y + height * 0.35,
+            width, height * 0.3
+        )
+        h_bar.fill.solid()
+        h_bar.fill.fore_color.rgb = self._hex_to_rgb(color)
+        h_bar.line.fill.background()
 
     def _add_watermark(self, slide, watermark_config: Dict[str, Any]) -> None:
         """Add watermark to the slide."""

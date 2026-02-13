@@ -191,8 +191,12 @@ class TestDesignTemplates(unittest.TestCase):
         self.assertEqual(theme.name, "Healthcare Professional")
 
         # Tech
-        theme = DesignTemplateLibrary.get_theme_for_industry("software startup")
+        theme = DesignTemplateLibrary.get_theme_for_industry("software engineering")
         self.assertEqual(theme.name, "Modern Tech")
+
+        # Startup (more specific than tech)
+        theme = DesignTemplateLibrary.get_theme_for_industry("software startup")
+        self.assertEqual(theme.name, "Startup Dynamic")
 
         # Finance
         theme = DesignTemplateLibrary.get_theme_for_industry("investment banking")

@@ -161,9 +161,22 @@ class DesignTemplateLibrary:
                     "position": {"x": 11, "y": 1, "width": 2, "height": 2},
                     "color": "#68D391",
                     "opacity": 0.15
+                },
+                {
+                    "shape_type": "cross",
+                    "position": {"x": 0.3, "y": 0.3, "width": 0.8, "height": 0.8},
+                    "color": "#4299E1",
+                    "opacity": 0.2
                 }
             ]
-        )
+        ),
+        watermark={
+            "type": "pattern",
+            "content": "dna_helix",
+            "position": {"x": 10, "y": 4},
+            "opacity": 0.05,
+            "scale": 0.8
+        }
     )
 
     FINANCIAL_THEME = DesignTheme(
@@ -193,8 +206,29 @@ class DesignTemplateLibrary:
             type=BackgroundType.DIAGONAL_LINES,
             primary_color="#FFFFFF",
             secondary_color="#2E7D32",
-            pattern_opacity=0.1
-        )
+            pattern_opacity=0.1,
+            decorative_elements=[
+                {
+                    "shape_type": "rectangle",
+                    "position": {"x": 0, "y": 0, "width": 13.33, "height": 0.3},
+                    "color": "#1B5E20",
+                    "opacity": 0.8
+                },
+                {
+                    "shape_type": "rectangle",
+                    "position": {"x": 0, "y": 7.2, "width": 13.33, "height": 0.3},
+                    "color": "#FFB300",
+                    "opacity": 0.6
+                }
+            ]
+        ),
+        watermark={
+            "type": "text",
+            "content": "CONFIDENTIAL",
+            "position": {"x": 11, "y": 6.5},
+            "opacity": 0.1,
+            "rotation": 45
+        }
     )
 
     SECURITY_THEME = DesignTheme(
@@ -259,6 +293,124 @@ class DesignTemplateLibrary:
         )
     )
 
+    STARTUP_THEME = DesignTheme(
+        name="Startup Dynamic",
+        description="Bold, energetic design for startups and innovation",
+        colors={
+            "primary": "#E53E3E",      # Bold red
+            "secondary": "#F56565",    # Light red
+            "background": "#1A202C",   # Dark background
+            "text": "#FFFFFF",        # White text
+            "accent": "#48BB78",       # Success green
+            "light": "#2D3748"        # Dark gray
+        },
+        typography={
+            "title_slide": {"font_name": "Calibri", "font_size": 42, "bold": True, "color": "accent"},
+            "slide_title": {"font_name": "Calibri", "font_size": 28, "bold": True, "color": "primary"},
+            "body_text": {"font_name": "Calibri", "font_size": 16, "bold": False, "color": "text"},
+            "caption": {"font_name": "Calibri", "font_size": 12, "bold": False, "color": "secondary"}
+        },
+        style_properties={
+            "background_type": "hexagon_grid",
+            "accent_shapes": True,
+            "header_style": "bold",
+            "layout_spacing": "dynamic"
+        },
+        background_design=BackgroundDesign(
+            type=BackgroundType.HEXAGON_GRID,
+            primary_color="#1A202C",
+            secondary_color="#2D3748",
+            pattern_opacity=0.2,
+            decorative_elements=[
+                {
+                    "shape_type": "polygon",
+                    "position": {"x": 10, "y": 0.5, "width": 3, "height": 3},
+                    "color": "#E53E3E",
+                    "opacity": 0.3,
+                    "pattern_data": {"sides": 6}
+                },
+                {
+                    "shape_type": "line",
+                    "position": {"x": 0, "y": 7, "width": 13.33, "height": 0.1},
+                    "color": "#48BB78",
+                    "opacity": 0.8
+                }
+            ]
+        ),
+        watermark={
+            "type": "pattern",
+            "content": "circuit_board",
+            "position": {"x": 1, "y": 5},
+            "opacity": 0.06,
+            "scale": 1.2
+        }
+    )
+
+    GOVERNMENT_THEME = DesignTheme(
+        name="Government Official",
+        description="Formal, institutional design for government and public sector",
+        colors={
+            "primary": "#1A202C",      # Dark slate
+            "secondary": "#4A5568",    # Medium gray
+            "background": "#FFFFFF",   # Pure white
+            "text": "#2D3748",        # Dark text
+            "accent": "#C53030",       # Official red
+            "light": "#F7FAFC"        # Light gray
+        },
+        typography={
+            "title_slide": {"font_name": "Arial", "font_size": 32, "bold": True, "color": "primary"},
+            "slide_title": {"font_name": "Arial", "font_size": 20, "bold": True, "color": "primary"},
+            "body_text": {"font_name": "Arial", "font_size": 13, "bold": False, "color": "text"},
+            "caption": {"font_name": "Arial", "font_size": 10, "bold": False, "color": "secondary"}
+        },
+        style_properties={
+            "background_type": "solid",
+            "accent_shapes": False,
+            "header_style": "formal",
+            "layout_spacing": "structured"
+        }
+    )
+
+    CONSULTING_THEME = DesignTheme(
+        name="Consulting Executive",
+        description="Premium, sophisticated design for consulting and advisory",
+        colors={
+            "primary": "#553C9A",      # Deep purple
+            "secondary": "#805AD5",    # Medium purple
+            "background": "#FAFAFA",   # Off-white
+            "text": "#1A202C",        # Near black
+            "accent": "#D69E2E",       # Premium gold
+            "light": "#F7FAFC"        # Light gray
+        },
+        typography={
+            "title_slide": {"font_name": "Calibri", "font_size": 38, "bold": True, "color": "primary"},
+            "slide_title": {"font_name": "Calibri", "font_size": 26, "bold": True, "color": "primary"},
+            "body_text": {"font_name": "Calibri", "font_size": 15, "bold": False, "color": "text"},
+            "caption": {"font_name": "Calibri", "font_size": 12, "bold": False, "color": "secondary"}
+        },
+        style_properties={
+            "background_type": "subtle_texture",
+            "accent_shapes": True,
+            "header_style": "premium",
+            "layout_spacing": "generous"
+        }
+    )
+
+    @classmethod
+    def get_all_themes(cls) -> Dict[str, DesignTheme]:
+        """Get all available design themes."""
+        return {
+            "corporate": cls.CORPORATE_THEME,
+            "modern": cls.MODERN_TECH_THEME,
+            "healthcare": cls.HEALTHCARE_THEME,
+            "finance": cls.FINANCIAL_THEME,
+            "security": cls.SECURITY_THEME,
+            "education": cls.EDUCATION_THEME,
+            "startup": cls.STARTUP_THEME,
+            "government": cls.GOVERNMENT_THEME,
+            "consulting": cls.CONSULTING_THEME,
+        }
+
     @classmethod
     def get_theme_by_name(cls, theme_name: str) -> Optional[DesignTheme]:
         """Get a theme by its name."""
@@ -269,6 +421,9 @@ class DesignTemplateLibrary:
             "Financial Services": cls.FINANCIAL_THEME,
             "Cybersecurity": cls.SECURITY_THEME,
             "Educational Friendly": cls.EDUCATION_THEME,
+            "Startup Dynamic": cls.STARTUP_THEME,
+            "Government Official": cls.GOVERNMENT_THEME,
+            "Consulting Executive": cls.CONSULTING_THEME,
         }
         return theme_map.get(theme_name)
 
@@ -277,8 +432,13 @@ class DesignTemplateLibrary:
         """Get appropriate theme based on industry."""
         industry_lower = industry.lower()
 
-        if any(keyword in industry_lower for keyword in ['tech', 'software', 'startup', 'innovation']):
-            return cls.MODERN_TECH_THEME
+        # Check more specific matches first to avoid false positives
+        if any(keyword in industry_lower for keyword in ['government', 'public', 'municipal']):
+            return cls.GOVERNMENT_THEME
+        elif any(keyword in industry_lower for keyword in ['consulting', 'advisory', 'strategy']):
+            return cls.CONSULTING_THEME
+        elif any(keyword in industry_lower for keyword in ['startup', 'venture', 'innovation']):
+            return cls.STARTUP_THEME
         elif any(keyword in industry_lower for keyword in ['health', 'medical', 'pharma', 'biotech']):
             return cls.HEALTHCARE_THEME
         elif any(keyword in industry_lower for keyword in ['finance', 'bank', 'investment', 'money']):
@@ -287,6 +447,8 @@ class DesignTemplateLibrary:
             return cls.SECURITY_THEME
         elif any(keyword in industry_lower for keyword in ['education', 'training', 'learning', 'school']):
             return cls.EDUCATION_THEME
+        elif any(keyword in industry_lower for keyword in ['tech', 'software', 'digital']):
+            return cls.MODERN_TECH_THEME
         else:
             return cls.CORPORATE_THEME
 

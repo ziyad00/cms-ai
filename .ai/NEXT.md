@@ -91,8 +91,10 @@
 - [ ] Add unit tests for spec package validation functions (geometry bounds checking)
 - [ ] Add unit tests for queue package (job processing, retry logic)
 - [ ] Integrate hex color parsing for smart color schemes
-- [ ] Add more sophisticated background rendering (gradients, patterns)
-- [ ] Implement advanced typography controls (font families, weights)
+- [x] Add more sophisticated background rendering (gradients, patterns) — ported from olama
+- [x] Implement advanced typography controls (font families, weights) — 9 themes with unique typography
+- [x] Port olama smart slide features: charts, progress bars, timeline/comparison/metrics layouts
+- [ ] Fix 2 pre-existing Python test failures (keyword count off-by-one, solid bg type not in sub-renderer support)
 - [ ] Configure HUGGINGFACE_API_KEY environment variable for production AI generation
 - [ ] (Recommended) Add integration test that exercises one-click deck flow against a running Go API (generate -> export -> download)
 - [ ] Investigate NextAuth route error in Railway logs: `TypeError: (intermediate value).POST is not a function` at `app/api/auth/[...nextauth]/route.js`
