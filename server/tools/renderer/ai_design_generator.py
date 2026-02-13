@@ -400,16 +400,198 @@ class AIDesignGenerator:
                 "light": "#F8F9FA"
             }
 
+    async def generate_typography_system(self, style_analysis: Dict[str, str]) -> Dict[str, Dict[str, Any]]:
+        """Generate a typography system using AI based on style analysis (ported from olama).
+
+        Args:
+            style_analysis: Results from analyze_content_style
+
+        Returns:
+            Typography dict with title_slide, slide_title, body_text, caption
+        """
+        if self.use_mock:
+            return self.mock_generator._get_typography_for_industry(
+                style_analysis.get('industry', 'corporate')
+            )
+
+        industry = style_analysis.get('industry', 'corporate')
+        formality = style_analysis.get('formality', 'professional')
+        style = style_analysis.get('style', 'corporate')
+
+        prompt = f"""
+        Design a typography system for a {formality} {industry} presentation with {style} style.
+
+        Return ONLY valid JSON with these exact keys:
+        {{
+            "title_slide": {{"font_name": "FontName", "font_size": 36, "bold": true, "color": "primary"}},
+            "slide_title": {{"font_name": "FontName", "font_size": 24, "bold": true, "color": "primary"}},
+            "body_text": {{"font_name": "FontName", "font_size": 14, "bold": false, "color": "text"}},
+            "caption": {{"font_name": "FontName", "font_size": 11, "bold": false, "color": "secondary"}}
+        }}
+
+        Rules:
+        - Use professional, widely-available fonts (Calibri, Arial, Segoe UI, Georgia, Times New Roman, Helvetica, Verdana, Garamond, Open Sans, Montserrat, Trebuchet MS)
+        - Title fonts should be larger and bolder
+        - Body text must be highly readable (14-16pt)
+        - Caption should be smaller than body (10-12pt)
+        - Font sizes must be integers
+        """
+
+        try:
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": "You are a typography expert. Return ONLY valid JSON."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.3,
+                "max_tokens": 300
+            }
+
+            response = await self.client.post(self.base_url, headers=headers, json=payload)
+            response.raise_for_status()
+
+            result = response.json()
+            content = result["choices"][0]["message"].get("content", "").strip()
+
+            # Extract JSON
+            if '```json' in content:
+                content = content.split('```json')[1].split('```')[0].strip()
+            elif '{' in content:
+                start = content.find('{')
+                end = content.rfind('}') + 1
+                content = content[start:end]
+
+            typography = json.loads(content)
+
+            # Validate structure
+            required = ['title_slide', 'body_text']
+            if all(k in typography for k in required):
+                return typography
+
+        except Exception as e:
+            logger.warning(f"Typography generation failed: {e}")
+
+        # Fallback typography
+        return self._get_fallback_typography(industry)
+
+    async def generate_slide_layout_code(self, slide_content: Dict[str, Any],
+                                          style_analysis: Dict[str, str]) -> Optional[str]:
+        """Generate Python code for custom slide layout using AI (ported from olama).
+
+        Args:
+            slide_content: Slide title and content items
+            style_analysis: Style analysis results
+
+        Returns:
+            Python code string or None on failure
+        """
+        if self.use_mock:
+            return self._generate_fallback_slide_code(slide_content)
+
+        title = slide_content.get('title', '')
+        content = slide_content.get('content', [])
+
+        prompt = f"""
+        Generate python-pptx code to lay out a slide with:
+        - Title: "{title}"
+        - Content items: {content[:5]}
+        - Style: {style_analysis.get('style', 'professional')}
+        - Industry: {style_analysis.get('industry', 'corporate')}
+
+        The code should define a function:
+        def layout_slide(slide, colors, typography):
+            # Add shapes, text boxes, etc.
+            pass
+
+        Use python-pptx imports: Inches, Pt, MSO_SHAPE, RGBColor, PP_ALIGN
+        Return ONLY the function code, no imports or explanations.
+        """
+
+        try:
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "model": self.model,
+                "messages": [
+                    {"role": "system", "content": "You are a python-pptx expert. Return only valid Python code."},
+                    {"role": "user", "content": prompt}
+                ],
+                "temperature": 0.3,
+                "max_tokens": 800
+            }
+
+            response = await self.client.post(self.base_url, headers=headers, json=payload)
+            response.raise_for_status()
+
+            result = response.json()
+            content_text = result["choices"][0]["message"].get("content", "").strip()
+
+            # Extract code block
+            if '```python' in content_text:
+                content_text = content_text.split('```python')[1].split('```')[0].strip()
+            elif '```' in content_text:
+                content_text = content_text.split('```')[1].split('```')[0].strip()
+
+            # Basic validation: must contain 'def layout_slide'
+            if 'def layout_slide' in content_text:
+                return content_text
+
+        except Exception as e:
+            logger.warning(f"Slide layout code generation failed: {e}")
+
+        return self._generate_fallback_slide_code(slide_content)
+
+    @staticmethod
+    def _generate_fallback_slide_code(slide_content: Dict[str, Any]) -> str:
+        """Generate a simple fallback layout function."""
+        return '''def layout_slide(slide, colors, typography):
+    from pptx.util import Inches, Pt
+    from pptx.enum.text import PP_ALIGN
+    from pptx.dml.color import RGBColor
+
+    # Simple two-column layout
+    title_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.5), Inches(9), Inches(1))
+    title_box.text_frame.paragraphs[0].text = slide_content.get("title", "")
+    title_box.text_frame.paragraphs[0].font.size = Pt(28)
+    title_box.text_frame.paragraphs[0].font.bold = True
+'''
+
+    @staticmethod
+    def _get_fallback_typography(industry: str) -> Dict[str, Dict[str, Any]]:
+        """Get industry-appropriate fallback typography."""
+        font_map = {
+            'technology': 'Segoe UI',
+            'healthcare': 'Arial',
+            'finance': 'Times New Roman',
+            'security': 'Arial',
+            'education': 'Verdana',
+            'consulting': 'Garamond',
+            'startup': 'Montserrat',
+            'minimal': 'Helvetica',
+        }
+        font = font_map.get(industry.lower(), 'Calibri')
+        body_font = 'Open Sans' if industry.lower() == 'startup' else font
+
+        return {
+            "title_slide": {"font_name": font, "font_size": 36, "bold": True, "color": "primary"},
+            "slide_title": {"font_name": font, "font_size": 24, "bold": True, "color": "primary"},
+            "body_text": {"font_name": body_font, "font_size": 14, "bold": False, "color": "text"},
+            "caption": {"font_name": body_font, "font_size": 11, "bold": False, "color": "secondary"}
+        }
+
     async def generate_complete_design_system(
         self,
         json_data: Dict[str, Any],
         company_info: Dict[str, Any]
     ) -> Dict[str, Any]:
-        # Use mock if configured
-        if self.use_mock:
-            return await self.mock_generator.generate_complete_design_system(json_data, company_info)
-        """
-        Generate complete design system for the presentation.
+        """Generate complete design system for the presentation.
 
         Args:
             json_data: Presentation content
@@ -418,6 +600,9 @@ class AIDesignGenerator:
         Returns:
             Complete design system including colors, typography, and layouts
         """
+        if self.use_mock:
+            return await self.mock_generator.generate_complete_design_system(json_data, company_info)
+
         try:
             # Step 1: Analyze content for style
             logger.info("Analyzing content for design style...")
@@ -427,13 +612,9 @@ class AIDesignGenerator:
             logger.info("Generating color scheme...")
             colors = await self.generate_color_scheme(style_analysis)
 
-            # Step 3: Generate typography (simplified for this version)
-            typography = {
-                "title_slide": {"font_name": "Calibri", "font_size": 36, "bold": True, "color": "primary"},
-                "slide_title": {"font_name": "Calibri", "font_size": 24, "bold": True, "color": "primary"},
-                "body_text": {"font_name": "Calibri", "font_size": 14, "bold": False, "color": "text"},
-                "caption": {"font_name": "Calibri", "font_size": 11, "bold": False, "color": "secondary"}
-            }
+            # Step 3: Generate typography using AI
+            logger.info("Generating typography system...")
+            typography = await self.generate_typography_system(style_analysis)
 
             design_system = {
                 "style_analysis": style_analysis,
@@ -442,7 +623,7 @@ class AIDesignGenerator:
                 "metadata": {
                     "generated_at": datetime.now().isoformat(),
                     "ai_model": self.model,
-                    "version": "1.0"
+                    "version": "2.0"
                 }
             }
 
@@ -451,7 +632,6 @@ class AIDesignGenerator:
 
         except Exception as e:
             logger.error(f"Error generating design system: {e}")
-            # Return default design system
             return {
                 "style_analysis": {
                     "industry": "government",
@@ -468,16 +648,11 @@ class AIDesignGenerator:
                     "accent": "#00B050",
                     "light": "#F8F9FA"
                 },
-                "typography": {
-                    "title_slide": {"font_name": "Calibri", "font_size": 36, "bold": True, "color": "primary"},
-                    "slide_title": {"font_name": "Calibri", "font_size": 24, "bold": True, "color": "primary"},
-                    "body_text": {"font_name": "Calibri", "font_size": 14, "bold": False, "color": "text"},
-                    "caption": {"font_name": "Calibri", "font_size": 11, "bold": False, "color": "secondary"}
-                },
+                "typography": self._get_fallback_typography("corporate"),
                 "metadata": {
                     "generated_at": datetime.now().isoformat(),
                     "ai_model": "fallback",
-                    "version": "1.0"
+                    "version": "2.0"
                 }
             }
 

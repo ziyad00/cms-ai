@@ -149,7 +149,7 @@ class TestAIDesignGenerator(unittest.TestCase):
         tech_count = sum(1 for word in tech_keywords if word in content_text)
         security_count = sum(1 for word in security_keywords if word in content_text)
 
-        self.assertEqual(tech_count, 4)  # api, database, architecture, backend, cloud
+        self.assertEqual(tech_count, 5)  # api, database, architecture, backend, cloud
         self.assertEqual(security_count, 3)  # security, encryption, authentication
 
 
@@ -229,8 +229,8 @@ class TestDesignTemplates(unittest.TestCase):
     def test_validate_design_system(self):
         """Test design system validation"""
         valid_system = {
-            'colors': {'primary': '#000000'},
-            'typography': {'title': {}}
+            'colors': {'primary': '#000000', 'text': '#333333'},
+            'typography': {'title_slide': {'font_size': 36}, 'body_text': {'font_size': 14}}
         }
         self.assertTrue(validate_design_system(valid_system))
 

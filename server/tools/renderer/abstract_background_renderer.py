@@ -331,7 +331,9 @@ class CompositeBackgroundRenderer(IBackgroundRenderer):
         ]
 
     def supports_background_type(self, bg_type: str) -> bool:
-        """Check if any sub-renderer supports this type."""
+        """Check if any sub-renderer supports this type, or if it's a solid fill."""
+        if bg_type == "solid":
+            return True
         return any(renderer.supports_background_type(bg_type) for renderer in self.renderers)
 
     def render_background(self, slide, design_config: Dict[str, Any]) -> None:
@@ -343,6 +345,14 @@ class CompositeBackgroundRenderer(IBackgroundRenderer):
         bg_type = getattr(background_design, 'type', BackgroundType.SOLID)
         if hasattr(bg_type, 'value'):
             bg_type = bg_type.value
+
+        # Handle solid backgrounds directly
+        if bg_type == "solid":
+            colors = design_config.get('colors', {})
+            bg_color = colors.get('background', '#FFFFFF')
+            slide.background.fill.solid()
+            slide.background.fill.fore_color.rgb = RGBColor.from_string(bg_color.lstrip('#'))
+            return
 
         for renderer in self.renderers:
             if renderer.supports_background_type(bg_type):
