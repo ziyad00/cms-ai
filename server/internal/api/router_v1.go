@@ -575,7 +575,33 @@ func (s *Server) handleCreateDeckOutline(w http.ResponseWriter, r *http.Request)
 	// Ask the model to output JSON with the required schema.
 	genReq := ai.GenerationRequest{
 		Prompt: fmt.Sprintf(
-			"You are a presentation writer. Convert the following content into a slide outline JSON with this exact shape: {\"slides\":[{\"slide_number\":1,\"title\":\"...\",\"content\":[\"...\"]}]}. \nRules: 6-12 slides by default unless the content is very long; each slide content should be 3-6 bullet lines; keep slide_number sequential starting at 1; return ONLY valid JSON (no markdown).\n\nUSER_INTENT:\n%s\n\nSOURCE_CONTENT:\n%s",
+			`You are a presentation writer. Convert the following content into a slide outline JSON.
+
+Output shape: {"slides":[{"slide_number":1,"title":"...","content":["..."],"layout_hint":"..."}]}
+
+Available layout_hint values (pick best fit per slide):
+- "title"      → opening/closing slides (company name, thank you)
+- "quote"      → single key message or executive summary
+- "timeline"   → phases, milestones, roadmap, schedule
+- "comparison" → vs, before/after, pros/cons
+- "metrics"    → KPIs, percentages, results, numbers
+- "table"      → structured rows/columns (use pipe | in content)
+- "grid"       → 4-6 equal items (team members, features)
+- "hierarchy"  → architecture, methodology, steps
+- "simple"     → default bulleted content
+
+Rules:
+- 6-12 slides unless content is very long
+- 3-6 bullet lines per slide
+- First slide layout_hint "title", last slide "title"
+- slide_number sequential from 1
+- Return ONLY valid JSON (no markdown)
+
+USER_INTENT:
+%s
+
+SOURCE_CONTENT:
+%s`,
 			req.Prompt,
 			req.Content,
 		),
@@ -675,7 +701,11 @@ func buildDeckSpecFromOutline(templateSpec *spec.TemplateSpec, outline *DeckOutl
 	}
 
 	for _, sld := range outline.Slides {
-		layout := spec.Layout{Name: sld.Title, Placeholders: []spec.Placeholder{}}
+		layoutName := sld.LayoutHint
+		if layoutName == "" {
+			layoutName = "simple"
+		}
+		layout := spec.Layout{Name: layoutName, Placeholders: []spec.Placeholder{}}
 		for _, ph := range base.Placeholders {
 			p := ph
 			if p.Type == "text" {

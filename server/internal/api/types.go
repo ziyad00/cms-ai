@@ -40,6 +40,7 @@ type SlideOutline struct {
 	SlideNumber int      `json:"slide_number" validate:"required"`
 	Title       string   `json:"title" validate:"required"`
 	Content     []string `json:"content"`
+	LayoutHint  string   `json:"layout_hint,omitempty"`
 }
 
 type DeckOutline struct {

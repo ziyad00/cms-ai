@@ -81,6 +81,9 @@
   - [x] Generated test presentations for all 5 industry themes
   - [x] Validated multi-slide generation with smart features
   - [x] All olama features now integrated and working in Go backend
+- [x] Port ALL remaining olama features: Minimal theme, get_theme_by_style, get_smart_theme, DesignSystemBuilder, validate detailed, AI typography/layout generation, table/image/dynamic positioning, slide numbers, visual_generator (matplotlib charts + PIL diagrams), content_injector (TenderDataMapper + ContentValidator), proposal_layouts (SlideType + ProposalTemplate), requirements.txt (matplotlib + Pillow), theme font fixes (Montserrat, Garamond)
+- [x] Port final olama gaps: abstractions.py (LayoutType, SlideContext, 6 ABC interfaces, RendererRegistry, BaseSlideGenerator, BasePresentationGenerator, PluginManager, GeneratorFactory, SystemConfig, ConfigManager), json_processor.py (validate_json_structure, ProposalTemplateProcessor with add_branding/add_slide_numbers/customize_content), enhanced TenderDataMapper with 11 _create_* methods + 3 _extract_* methods
+- [x] Deck outline: add layout_hint to AI prompt so renderer picks layout deterministically
 - [ ] Deck binder: improve prompt so it fills more placeholders from content (currently only fills some fields)
 - [x] Add JSONMap serialization tests covering all production patterns (export/generate/bind)
 - [x] Add worker tests for nil metadata (generate/bind dead-letter on missing metadata)
@@ -94,7 +97,8 @@
 - [x] Add more sophisticated background rendering (gradients, patterns) — ported from olama
 - [x] Implement advanced typography controls (font families, weights) — 9 themes with unique typography
 - [x] Port olama smart slide features: charts, progress bars, timeline/comparison/metrics layouts
-- [ ] Fix 2 pre-existing Python test failures (keyword count off-by-one, solid bg type not in sub-renderer support)
+- [x] Port remaining olama features: ContentAnalyzer, SmartDesignRules, AdvancedLayoutEngine, quote/grid/hierarchy layouts, dynamic font sizing, contrast ratio checking
+- [x] Fix 2 pre-existing Python test failures (keyword count off-by-one, solid bg type not in sub-renderer support)
 - [ ] Configure HUGGINGFACE_API_KEY environment variable for production AI generation
 - [ ] (Recommended) Add integration test that exercises one-click deck flow against a running Go API (generate -> export -> download)
 - [ ] Investigate NextAuth route error in Railway logs: `TypeError: (intermediate value).POST is not a function` at `app/api/auth/[...nextauth]/route.js`

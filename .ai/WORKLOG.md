@@ -1,5 +1,201 @@
 # CMS-AI Worklog
 
+## 2026-02-13 - Add layout_hint to deck outline generation
+
+### Summary
+AI outline prompt now teaches layout types so each slide gets a `layout_hint` field. The Python renderer uses it deterministically instead of guessing from content analysis.
+
+### Tests added / updated
+- [unit] TestBuildDeckSpecFromOutline_UsesLayoutHint → layout_hint maps to Layout.Name
+- [unit] TestBuildDeckSpecFromOutline_EmptyLayoutHintDefaultsToSimple → missing hint defaults to "simple"
+- [unit] TestBuildDeckSpecFromOutline_PlaceholderContentFilled → title/body content preserved
+- [unit] TestLayoutHintFromSpec.test_known_layout_hint_used_directly → spec name "timeline" renders as timeline
+- [unit] TestLayoutHintFromSpec.test_unknown_layout_name_falls_through_to_auto_detect → non-layout names auto-detect
+- [unit] TestLayoutHintFromSpec.test_all_known_layouts_accepted → all 10 layout names render without error
+- [unit] TestLayoutHintFromSpec.test_layout_hint_case_insensitive → "Timeline" → "timeline"
+
+### Changes made
+- Added `LayoutHint string` field to `SlideOutline` struct
+- Updated AI outline prompt with layout_hint vocabulary and rules
+- `buildDeckSpecFromOutline` sets `Layout.Name` from `LayoutHint` (default "simple")
+- Python renderer checks `layout.name` against `KNOWN_LAYOUTS` set before auto-detecting
+
+### Files touched
+- server/internal/api/types.go
+- server/internal/api/router_v1.go
+- server/internal/api/router_v1_test.go
+- server/tools/renderer/render_pptx.py
+- server/tools/renderer/test_new_features.py
+
+### How to run
+```bash
+cd server && JWT_SECRET=test-secret-thats-at-least-32-chars-long go test ./internal/api/ -v -run TestBuildDeckSpec -count=1
+cd server/tools/renderer && python3 -m unittest test_new_features.TestLayoutHintFromSpec -v
+```
+
+---
+
+## 2026-02-13 - Final olama gaps: abstractions, json_processor, enhanced TenderDataMapper
+
+### Summary
+Implemented the last 4 remaining olama feature gaps to achieve full parity.
+
+### Tests added / updated
+- [unit] TestTenderDataMapperFull (19 tests) → Full tender-to-proposal mapping with all _create_* methods
+- [unit] TestValidateJsonStructure (10 tests) → Pre-generation JSON structure validation
+- [unit] TestProposalTemplateProcessor (10 tests) → Branding, slide numbering, content customization
+- [unit] TestLayoutTypeEnum (2 tests) → LayoutType enum values
+- [unit] TestSlideContext (2 tests) → SlideContext dataclass creation
+- [unit] TestRendererRegistry (7 tests) → Registry for renderers/generators/analyzers/themes
+- [unit] TestSystemConfig (5 tests) → SystemConfig + ConfigManager
+- [unit] TestPluginManager (2 tests) → Plugin loading
+- [unit] TestGeneratorFactory (3 tests) → Factory pattern for generator creation
+- Coverage delta: 267 Python tests pass (was 208), 4 skipped (matplotlib)
+
+### Changes made
+- Created `abstractions.py`: LayoutType enum, SlideContext dataclass, 6 ABC interfaces (IBackgroundRenderer, ILayoutGenerator, IContentAnalyzer, IThemeProvider, IDesignSystemGenerator, IPresentationGenerator), RendererRegistry, BaseSlideGenerator, BasePresentationGenerator, PluginManager, GeneratorFactory, SystemConfig, ConfigManager
+- Created `json_processor.py`: validate_json_structure() + ProposalTemplateProcessor (add_branding, add_slide_numbers, customize_content)
+- Enhanced `content_injector.py`: Added map_tender_to_proposal() with 11 _create_* methods + 3 _extract_* methods (adapted from olama, no ProposalContentFormatter dependency)
+- Added 60 new tests to test_new_features.py
+
+### Files touched
+- server/tools/renderer/abstractions.py (NEW)
+- server/tools/renderer/json_processor.py (NEW)
+- server/tools/renderer/content_injector.py (enhanced)
+- server/tools/renderer/test_new_features.py (60 tests added)
+
+### How to run
+- `cd server/tools/renderer && python3 -m unittest discover -v`
+
+## 2026-02-13 - Complete olama feature parity: all remaining features ported
+
+### Summary
+Implemented ALL remaining missing features from olama into CMS-AI's Python renderer. This achieves near-complete feature parity between the two projects.
+
+### Features added
+
+**design_templates.py:**
+1. **Minimal Clean theme** — charcoal+red, Helvetica font, ultra-clean design
+2. **get_theme_by_style()** — style-based theme lookup (30+ keywords: modern, minimal, bold, elegant, formal, etc.)
+3. **get_smart_theme()** — multi-factor theme selection using weighted scoring (industry 3.0, style 2.0, formality 1.5, audience 1.0)
+4. **DesignSystemBuilder** — builder pattern to merge AI + template design systems (from_theme, with_colors, with_typography, with_background, build)
+5. **Enhanced validate_design_system()** — now supports `detailed=True` returning List[str] of specific errors (invalid hex, missing keys, font size range)
+6. **Theme font fixes** — Startup: Montserrat/Open Sans, Consulting: Garamond/Calibri
+
+**ai_design_generator.py:**
+7. **generate_typography_system()** — AI-powered font/size selection per industry
+8. **generate_slide_layout_code()** — AI-generated custom slide layout Python code
+9. **_get_fallback_typography()** — industry-specific fallback fonts (9 industries)
+10. **_generate_fallback_slide_code()** — fallback layout function
+
+**render_pptx.py:**
+11. **Table generation** — `_create_table()` with styled headers, alternating row colors, auto-layout
+12. **Image insertion** — `_add_image()` with file validation
+13. **Dynamic positioning** — `calculate_dynamic_positioning()` adjusts content area based on density
+14. **Slide numbering** — auto "N / M" in bottom-right corner
+15. **Table layout detection** — pipe/tab delimiter detection in SmartLayoutDetector
+16. **Updated render loop** — table dispatch + slide numbering for all presentations
+
+**New modules:**
+17. **visual_generator.py** — ChartGenerator (matplotlib: pie, bar, progress, Gantt) + DiagramGenerator (Pillow: architecture diagrams, org charts)
+18. **content_injector.py** — ContentValidator (validate, sanitize, clean), TenderDataMapper (proposal→slides→spec), prepare_proposal_content()
+19. **proposal_layouts.py** — SlideType enum (10 types), SlideLayout dataclass, ProposalLayouts library, ProposalTemplate with STANDARD_PROPOSAL, QUICK_PITCH, TECHNICAL_PROPOSAL
+
+**Other:**
+20. **requirements.txt** — added matplotlib==3.9.0, Pillow==10.4.0
+21. **get_design_system_for_content()** — now uses get_smart_theme() for multi-factor selection
+22. **generate_complete_design_system()** — now calls generate_typography_system() instead of hardcoded Calibri
+
+### Tests added
+- 98 new tests in `test_new_features.py`:
+  - 7 Minimal theme tests
+  - 4 font fix tests (Montserrat, Garamond)
+  - 9 get_theme_by_style tests
+  - 7 get_smart_theme tests
+  - 7 DesignSystemBuilder tests
+  - 8 validate_design_system detailed tests
+  - 7 AI typography/layout generation tests
+  - 4 dynamic positioning tests
+  - 3 table layout detection tests
+  - 1 table rendering E2E test
+  - 1 slide numbering E2E test
+  - 9 ContentValidator tests
+  - 6 TenderDataMapper tests
+  - 10 ProposalLayouts tests
+  - 9 ChartGenerator tests (4 skipped w/o matplotlib)
+  - 5 DiagramGenerator tests
+  - 3 smart design system integration tests
+- 2 existing test fixes (theme count 9→10, validate system updated keys)
+- **Total: 208 Python tests pass (4 skipped for missing matplotlib)**
+
+### Files changed
+- `server/tools/renderer/design_templates.py` — Minimal theme, get_theme_by_style, get_smart_theme, DesignSystemBuilder, enhanced validate_design_system, font fixes
+- `server/tools/renderer/ai_design_generator.py` — generate_typography_system, generate_slide_layout_code, fallback functions
+- `server/tools/renderer/render_pptx.py` — table, image, dynamic positioning, slide numbers, table layout
+- `server/tools/renderer/visual_generator.py` — NEW: ChartGenerator + DiagramGenerator
+- `server/tools/renderer/content_injector.py` — NEW: ContentValidator + TenderDataMapper
+- `server/tools/renderer/proposal_layouts.py` — NEW: SlideType + ProposalLayouts + ProposalTemplate
+- `server/tools/renderer/test_new_features.py` — NEW: 98 tests
+- `server/tools/renderer/test_smart_features.py` — theme count fix
+- `server/tools/renderer/test_ai_components.py` — validate system test fix
+- `server/requirements.txt` — added matplotlib, Pillow
+
+### How to run
+```bash
+cd server/tools/renderer && python3 -m unittest test_new_features test_smart_features test_ai_components -v
+```
+
+---
+
+## 2026-02-13 - Port remaining olama features to Python renderer
+
+### Summary
+Ported all remaining olama smart_slide_generator.py features into CMS-AI's `render_pptx.py`. Added ContentAnalyzer (sentiment, complexity, visual weight, key concepts), SmartDesignRules (golden ratio spacing, dynamic font sizing, WCAG contrast), AdvancedLayoutEngine (optimal columns), and 3 new layout types: quote, grid, hierarchy. Integrated content analysis into the render flow for dynamic font sizing per slide.
+
+### What was added
+1. **ContentAnalyzer** — content type detection (8 types), sentiment analysis (urgent/positive/negative/neutral), complexity scoring, key concept extraction, hierarchy level, visual weight (0.1-1.0)
+2. **SmartDesignRules** — golden ratio spacing (phi=1.618), dynamic font sizing (title 24-48pt, body 12-24pt), WCAG contrast ratio checking
+3. **AdvancedLayoutEngine** — pattern detection (comparison/timeline/metrics/grid/multi-column), optimal column calculation
+4. **Quote layout** — large centered text with curly quotes and decorative accent line
+5. **Grid layout** — 2x2/2x3 cards with rounded rectangle backgrounds
+6. **Hierarchy layout** — top-down tree structure with connector lines
+7. **Content analysis integration** — each slide gets dynamic font sizes based on visual weight/word count/content type
+8. **Contrast checking** — text colors validated against background for readability
+
+### Tests added
+- 23 ContentAnalyzer unit tests (type detection, sentiment, complexity, dates, hierarchy, visual weight, key concepts, word count)
+- 11 SmartDesignRules unit tests (golden ratio, font size ranges/scaling, contrast ratio)
+- 13 AdvancedLayoutEngine unit tests (pattern detection, optimal columns)
+- 6 SmartLayoutDetector tests for new layouts (quote, grid, hierarchy detection)
+- 4 end-to-end tests (quote render, grid render, hierarchy render, multi-slide mixed layouts)
+- **Total: 91 tests, all pass**
+
+### Files changed
+- `server/tools/renderer/render_pptx.py` — added 3 classes + 3 layout methods + content analysis integration
+- `server/tools/renderer/test_smart_features.py` — expanded from 34 to 91 tests
+
+### How to run
+```bash
+cd server/tools/renderer && python3 -m unittest test_smart_features -v
+```
+
+---
+
+## 2026-02-13 - Fix 2 pre-existing Python test failures + cleanup
+
+### Summary
+Fixed 2 pre-existing Python test failures and cleaned up a debug script that confused unittest discovery.
+
+### Fixes
+1. **Keyword count off-by-one** (`test_ai_components.py:152`): Test expected 4 tech keyword matches but all 5 match ("api", "database", "architecture", "backend", "cloud"). Fixed assertion from 4 to 5.
+2. **Solid background type unsupported** (`abstract_background_renderer.py`): Education theme uses "solid" background type but `CompositeBackgroundRenderer.supports_background_type()` didn't handle it. Added "solid" to supported types with direct fill rendering.
+3. **Debug script confusing unittest** (`test_script.py`): Renamed to `debug_script.py` so `unittest discover` doesn't try to import it (it calls `sys.exit(0)` which raises `SystemExit`).
+
+### Result
+110 Python tests pass (was 108 pass + 2 fail + 1 error). Go: all 11 packages pass. Node: 75/75 pass.
+
+---
+
 ## 2026-02-13 - Remove HeaderAuthenticator, fix CI tests
 
 ### Summary
