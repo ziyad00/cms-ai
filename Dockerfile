@@ -29,7 +29,7 @@ COPY --from=web-build /app /app/web
 RUN npm ci --production
 
 # Copy tools
-COPY tools/ /app/tools/
+COPY server/tools/ /app/tools/
 COPY scripts/start.sh /app/scripts/start.sh
 RUN chmod +x /app/scripts/start.sh
 # Make Python renderer script executable
